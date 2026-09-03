@@ -42,6 +42,7 @@ const maxInput = $<HTMLInputElement>('#max-mm')
 const viewerEl = $<HTMLDivElement>('#viewer3d')
 const themeSelect = $<HTMLSelectElement>('#theme-select')
 const processingOverlay = $<HTMLDivElement>('#processing-overlay')
+const versionBadge = $<HTMLSpanElement>('#app-version')
 
 function setProcessing(on: boolean) {
   processingOverlay.hidden = !on
@@ -357,6 +358,7 @@ function setupExports() {
   })
 }
 
+versionBadge.textContent = `v${__APP_VERSION__}`
 setupTheme()
 setupDropZone()
 bindInputs()

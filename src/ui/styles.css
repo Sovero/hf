@@ -83,6 +83,15 @@ body {
   font-size: 0.85rem;
 }
 
+.app-version {
+  font-size: 0.7rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.08rem 0.5rem;
+  white-space: nowrap;
+}
+
 .theme-picker {
   margin-left: auto;
   display: flex;

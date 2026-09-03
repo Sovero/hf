@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'sha256-MFlcLT3PKhHdo7cUHs1qWuOsbkto0flUmUTTWB7mNhY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:"
+    />
     <title>HueForge Web — Filament Paintings</title>
     <script>try { const t = localStorage.getItem('hf-theme'); if (t) document.documentElement.dataset.theme = t } catch {}</script>
     <link rel="stylesheet" href="/src/ui/styles.css" />
@@ -11,6 +15,7 @@
     <header class="topbar">
       <h1>🎨 HueForge Web</h1>
       <span class="tagline">Image → multi-layer 3D-printable filament painting</span>
+      <span id="app-version" class="app-version" title="Installed version"></span>
       <label class="theme-picker">Theme
         <select id="theme-select">
           <option value="dark">Dark</option>

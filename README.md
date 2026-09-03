@@ -7,16 +7,41 @@ download **STL / 3MF**. Colors are encoded by layer height (HueForge-style).
 ## Quick start on a new PC
 
 1. Install [Node.js LTS](https://nodejs.org) (one-time).
-2. Double-click **`install.bat`** — it will:
-   - check Node.js,
+2. Download the latest **`hueforge-web-vX.Y.Z.zip`** from the
+   [Releases page](https://github.com/Sovero/hf/releases) and unzip it.
+3. Double-click **`install.bat`** inside the unzipped folder — it will:
+   - check Node.js and **check for a newer release on GitHub** (offering to
+     pull it automatically when one exists),
    - install all dependencies into the project folder,
    - offer to create a **desktop shortcut**,
    - start the app and open your browser.
-3. Next time, just use the shortcut or double-click **`start.bat`** —
+4. Next time, just use the shortcut or double-click **`start.bat`** —
    it opens the browser at `http://127.0.0.1:5173`
    (and self-heals dependencies if the folder was moved or `node_modules` deleted).
 
-Close the black console window to stop the server.
+Close the black console window to stop the server. The installed version is
+shown in the app's top bar next to the title.
+
+## Versioning & releases
+
+- Versioning is **semantic** (`vMAJOR.MINOR.PATCH`). The single source of truth
+  is `version` in `package.json`; every release tag must match it, and the
+  release workflow refuses tags that don't.
+- Cutting a release: bump `package.json`, commit, then
+
+  ```bash
+  git tag v0.2.0
+  git push origin main --tags
+  ```
+
+  Pushing a `v*` tag triggers the **Release** workflow, which runs typecheck,
+  tests and the production build, then creates a GitHub Release with an
+  auto-generated changelog and a `hueforge-web-v0.2.0.zip` source archive
+  (the committed tree — no `node_modules`/`dist`).
+- `install.bat` compares your local version (from `package.json`) with the
+  **latest GitHub release** on every run and offers to download and apply the
+  update in place. No need to re-download the zip for updates — unless a new
+  `install.bat`/`start.bat` ships, in which case a fresh unzip applies those.
 
 ## How to use
 
@@ -44,7 +69,7 @@ Dark / Light / Nord / Solar — picker in the top bar, saved automatically.
 ```bash
 npm install     # once
 npm run dev     # dev server at http://127.0.0.1:5173
-npm test        # 15 unit tests (geometry, quantization, exports)
+npm test        # 23 unit tests (geometry, quantization, exports, printability)
 npm run build   # production build to dist/
 ```
 
