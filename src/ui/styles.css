@@ -92,8 +92,15 @@ body {
   white-space: nowrap;
 }
 
-.theme-picker {
+.topbar-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  white-space: nowrap;
+}
+
+.picker {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -101,7 +108,7 @@ body {
   color: var(--muted);
 }
 
-.theme-picker select {
+.picker select {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);

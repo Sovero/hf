@@ -1,5 +1,6 @@
 import type { HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
 import { loadImageFromFile } from './loadImage'
+import type { Lang } from '../i18n'
 import { quantize, mapToPalette } from './quantize'
 import { sortByLuminance } from './palette'
 import { buildHeightField } from './heightmap'
@@ -39,8 +40,8 @@ export interface PipelineOptions {
  * Full pipeline: image → quantize → luminance-sorted palette → heights → mesh.
  * Palette is always ordered darkest → lightest; band index depends on depth mode.
  */
-export async function runPipeline(file: File, opts: PipelineOptions): Promise<PipelineResult> {
-  const image = await loadImageFromFile(file)
+export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang = 'en'): Promise<PipelineResult> {
+  const image = await loadImageFromFile(file, lang)
 
   const rawPalette = quantize(image.rgba, opts.numColors)
   const palette = sortByLuminance(rawPalette)

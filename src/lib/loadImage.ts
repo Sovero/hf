@@ -1,4 +1,5 @@
 import type { LoadedImage } from './types'
+import { t, type Lang } from '../i18n'
 
 const MAX_DIMENSION = 512
 /** Reject files this large up front, before the decoder sees them. */
@@ -15,34 +16,35 @@ const ABSOLUTE_MAX_DIMENSION = 8192
  * Composites transparency onto white (transparent pixels become white),
  * which matches how a print viewed from above behaves.
  */
-export async function loadImageFromFile(file: File): Promise<LoadedImage> {
+export async function loadImageFromFile(file: File, lang: Lang = 'en'): Promise<LoadedImage> {
+  const err = (key: string, params?: Record<string, string>) => t(lang, key, params)
   if (!file.type.startsWith('image/')) {
-    throw new Error(`"${file.name}" is not an image file.`)
+    throw new Error(err('errNotAnImage', { name: file.name }))
   }
   if (file.size > MAX_FILE_BYTES) {
-    throw new Error(`"${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — larger than the 64 MB limit.`)
+    throw new Error(err('errTooLarge', { name: file.name, size: (file.size / 1024 / 1024).toFixed(1) }))
   }
 
   let bitmap: ImageBitmap
   try {
     bitmap = await createImageBitmap(file)
   } catch {
-    throw new Error('Could not decode the image. Try a PNG, JPEG, or WebP file.')
+    throw new Error(err('errDecode'))
   }
   if (bitmap.width > ABSOLUTE_MAX_DIMENSION || bitmap.height > ABSOLUTE_MAX_DIMENSION) {
     const dims = `${bitmap.width}×${bitmap.height}`
     bitmap.close()
-    throw new Error(`Image dimensions ${dims} exceed the ${ABSOLUTE_MAX_DIMENSION} px limit.`)
+    throw new Error(err('errDims', { dims, limit: String(ABSOLUTE_MAX_DIMENSION) }))
   }
 
   try {
-    return rasterize(bitmap)
+    return rasterize(bitmap, lang)
   } finally {
     bitmap.close()
   }
 }
 
-function rasterize(bitmap: ImageBitmap): LoadedImage {
+function rasterize(bitmap: ImageBitmap, lang: Lang): LoadedImage {
   const { width, height } = bitmap
   const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height))
   const outW = Math.max(1, Math.round(width * scale))
@@ -52,7 +54,7 @@ function rasterize(bitmap: ImageBitmap): LoadedImage {
   canvas.width = outW
   canvas.height = outH
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) throw new Error('Canvas is not available.')
+  if (!ctx) throw new Error(t(lang, 'errCanvas'))
 
   // White backdrop: transparency in the source becomes white.
   ctx.fillStyle = '#ffffff'

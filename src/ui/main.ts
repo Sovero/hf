@@ -3,6 +3,7 @@ import { runPipeline, exportStl, export3mfFile, exportFilename, type PipelineRes
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, nearestFilament } from '../lib/palette'
 import { Viewer3D } from './viewer3d'
+import { t, word, loadLang, saveLang, type Lang } from '../i18n'
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector(sel)
@@ -15,6 +16,8 @@ let currentFile: File | null = null
 let viewer3d: Viewer3D | null = null
 /** Guards against overlapping runs writing stale results (live reprocessing). */
 let runToken = 0
+let lang: Lang = loadLang()
+const tr = (key: string, params?: Record<string, string | number>) => t(lang, key, params)
 
 const dropZone = $<HTMLDivElement>('#drop-zone')
 const fileInput = $<HTMLInputElement>('#file-input')
@@ -41,6 +44,7 @@ const baseInput = $<HTMLInputElement>('#base-mm')
 const maxInput = $<HTMLInputElement>('#max-mm')
 const viewerEl = $<HTMLDivElement>('#viewer3d')
 const themeSelect = $<HTMLSelectElement>('#theme-select')
+const langSelect = $<HTMLSelectElement>('#lang-select')
 const processingOverlay = $<HTMLDivElement>('#processing-overlay')
 const versionBadge = $<HTMLSpanElement>('#app-version')
 
@@ -86,15 +90,15 @@ function showStatus(msg: string, isError = false) {
 async function readFile(file: File) {
   currentFile = file
   const token = ++runToken
-  showStatus('Processing…')
+  showStatus(tr('processing'))
   setProcessing(true)
   try {
-    const result = await runPipeline(file, readOptions())
+    const result = await runPipeline(file, readOptions(), lang)
     if (token !== runToken) return // a newer run superseded this one; it owns the UI
     current = result
     updateUI()
     setProcessing(false)
-    showStatus(`Ready — ${current.quantized.palette.length} colors.`)
+    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
   } catch (err) {
     if (token !== runToken) return
     setProcessing(false)
@@ -102,8 +106,32 @@ async function readFile(file: File) {
     btnStl.disabled = true
     btn3mf.disabled = true
     printabilityList.innerHTML = ''
-    printabilitySummary.textContent = 'Load an image to run the check.'
+    printabilitySummary.textContent = tr('pbDefault')
     showStatus(err instanceof Error ? err.message : String(err), true)
+  }
+}
+
+/** Write every [data-i18n] element (and aria-labels) in the current language. */
+function applyStaticText() {
+  document.documentElement.lang = lang
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) {
+    const key = el.dataset.i18n
+    if (key) el.textContent = tr(key)
+  }
+  colorsSlider.ariaLabel = tr('sliderAria')
+  colorsValue.ariaLabel = tr('sliderValueAria')
+  renderTicks() // rebuild tick tooltips/labels in the current language
+}
+
+/** Switch language, persist, and re-render everything user-visible. */
+function setLang(next: Lang) {
+  if (next === lang) return
+  lang = next
+  saveLang(lang)
+  applyStaticText()
+  if (current) {
+    updateUI()
+    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
   }
 }
 
@@ -116,11 +144,11 @@ function updateUI() {
   update3d()
   btnStl.disabled = false
   btn3mf.disabled = false
-  imageInfo.textContent = `Processed at ${current.image.width}×${current.image.height}px`
+  imageInfo.textContent = tr('processedAt', { w: current.image.width, h: current.image.height })
 }
 
 function renderPrintability() {
-  const report = analyzePrintability(current!)
+  const report = analyzePrintability(current!, lang)
   printabilityList.innerHTML = ''
   for (const check of report.checks) {
     const row = document.createElement('div')
@@ -141,8 +169,8 @@ function renderPrintability() {
   }
   printabilitySummary.textContent =
     report.errors === 0 && report.warnings === 0
-      ? 'All checks passed'
-      : `${report.errors} error${report.errors === 1 ? '' : 's'} · ${report.warnings} warning${report.warnings === 1 ? '' : 's'}`
+      ? tr('allPassed')
+      : `${word(lang, report.errors, 'errors')} · ${word(lang, report.warnings, 'warnings')}`
 }
 
 function drawSource() {
@@ -181,7 +209,7 @@ function renderPalette() {
     row.append(swatch, label)
     paletteList.appendChild(row)
   }
-  paletteSummary.textContent = `${palette.length} colors · export includes print order`
+  paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
 }
 
 function update3d() {
@@ -330,7 +358,7 @@ function renderTicks() {
     const tick = document.createElement('span')
     tick.className = 'slider-tick'
     tick.style.left = `${((v - SLIDER_MIN) / span) * 100}%`
-    tick.title = `${v} colors`
+    tick.title = word(lang, v, 'colors')
     if (v === current) tick.classList.add('active')
     tick.addEventListener('click', () => applyCount(v))
     const line = document.createElement('span')
@@ -348,17 +376,23 @@ function setupExports() {
     if (!current) return
     const filename = exportFilename(current, 'stl')
     triggerDownload(exportStl(current) as unknown as BlobPart, filename, 'model/stl')
-    showStatus(`STL exported — ${filename}`)
+    showStatus(tr('exportStlDone', { filename }))
   })
   btn3mf.addEventListener('click', () => {
     if (!current) return
     const filename = exportFilename(current, '3mf')
     triggerDownload(export3mfFile(current, filename.slice(0, -4)) as unknown as BlobPart, filename, 'model/3mf')
-    showStatus(`3MF exported — ${filename} (colors + print order in metadata).`)
+    showStatus(tr('export3mfDone', { filename }))
   })
 }
 
 versionBadge.textContent = `v${__APP_VERSION__}`
+
+// Language: apply immediately (before first paint), bind the switcher.
+langSelect.value = lang
+langSelect.addEventListener('change', () => setLang(langSelect.value as Lang))
+applyStaticText()
+
 setupTheme()
 setupDropZone()
 bindInputs()

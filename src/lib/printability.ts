@@ -1,4 +1,5 @@
 import type { PipelineResult } from './pipeline'
+import { t, word, mmOf, type Lang } from '../i18n'
 
 export type CheckLevel = 'ok' | 'warn' | 'fail'
 
@@ -28,8 +29,6 @@ const MIN_SPECK_FRACTION = 0.005
 /** Warn when the print needs this many filament changes. */
 const MIN_SWAPS_WARN = 12
 
-const mm = (v: number) => `${v.toFixed(2)} mm`
-
 /**
  * Analyze a finished pipeline result for 3D-printability concerns.
  *
@@ -39,7 +38,7 @@ const mm = (v: number) => `${v.toFixed(2)} mm`
  * The real risks are thin color bands, feature resolution vs the nozzle, the
  * number of manual filament changes, and fragile isolated regions.
  */
-export function analyzePrintability(result: PipelineResult): PrintabilityReport {
+export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): PrintabilityReport {
   const checks: PrintabilityCheck[] = []
 
   // ---- Geometry facts derived from the result itself ----
@@ -67,27 +66,43 @@ export function analyzePrintability(result: PipelineResult): PrintabilityReport 
   // produces cells below the nozzle width, detail on that axis will smear.
   const cellMm = Math.min(widthMm / result.image.width, heightMm / result.image.height)
 
+  const str = (key: string, params?: Record<string, string>) => t(lang, key, params)
+  const mm = (v: number) => mmOf(lang, v)
+  const layersText = (v: number) => word(lang, Math.round(v * 10) / 10, 'layers')
+  const colorsText = (v: number) => word(lang, v, 'colors')
+  const swapsText = (v: number) => word(lang, v, 'swaps')
+  const regionsText = (v: number) => word(lang, v, 'regions')
+
   // ---- 1. Color band thickness ----
   if (bandMm < LAYER_MM) {
     checks.push({
       id: 'bands',
       level: 'fail',
-      title: 'Color bands thinner than one layer',
-      detail: `Each color is only ${mm(bandMm)} — less than a single ${LAYER_MM.toFixed(1)} mm layer, so bands cannot be printed as distinct sheets. Increase Max height or reduce the color count.`,
+      title: str('pbBandsTitleFail'),
+      detail: str('pbBandsDetailFail', { band: mm(bandMm), layer: mm(LAYER_MM) }),
     })
   } else if (bandMm < NOZZLE_MM) {
     checks.push({
       id: 'bands',
       level: 'warn',
-      title: 'Thin color bands',
-      detail: `Each color is ${mm(bandMm)} (~${layersPerBand.toFixed(1)} layers @${LAYER_MM.toFixed(1)} mm) — thinner than the ${NOZZLE_MM.toFixed(1)} mm nozzle, so transitions will smear. Increase Max height or use fewer colors.`,
+      title: str('pbBandsTitleWarn'),
+      detail: str('pbBandsDetailWarn', {
+        band: mm(bandMm),
+        layersText: layersText(layersPerBand),
+        layer: mm(LAYER_MM),
+        nozzle: mm(NOZZLE_MM),
+      }),
     })
   } else {
     checks.push({
       id: 'bands',
       level: 'ok',
-      title: 'Color band thickness',
-      detail: `Each color is ${mm(bandMm)} ≈ ${layersPerBand.toFixed(1)} layers @${LAYER_MM.toFixed(1)} mm — clean filament transitions.`,
+      title: str('pbBandsTitleOk'),
+      detail: str('pbBandsDetailOk', {
+        band: mm(bandMm),
+        layersText: layersText(layersPerBand),
+        layer: mm(LAYER_MM),
+      }),
     })
   }
 
@@ -96,22 +111,22 @@ export function analyzePrintability(result: PipelineResult): PrintabilityReport 
     checks.push({
       id: 'resolution',
       level: 'fail',
-      title: 'Image cells far below nozzle width',
-      detail: `Each image cell is only ${mm(cellMm)} — smaller than one ${LAYER_MM.toFixed(1)} mm layer; adjacent colors will merge into noise. Print much larger or use a smaller image.`,
+      title: str('pbResTitleFail'),
+      detail: str('pbResDetailFail', { cell: mm(cellMm), layer: mm(LAYER_MM) }),
     })
   } else if (cellMm < NOZZLE_MM) {
     checks.push({
       id: 'resolution',
       level: 'warn',
-      title: 'Features smaller than the nozzle',
-      detail: `Each image cell is ${mm(cellMm)} — below the ${NOZZLE_MM.toFixed(1)} mm nozzle, so fine detail will blend. Print larger (e.g. 200+ mm) to sharpen it.`,
+      title: str('pbResTitleWarn'),
+      detail: str('pbResDetailWarn', { cell: mm(cellMm), nozzle: mm(NOZZLE_MM) }),
     })
   } else {
     checks.push({
       id: 'resolution',
       level: 'ok',
-      title: 'Feature resolution vs nozzle',
-      detail: `Each image cell is ${mm(cellMm)} — at or above the ${NOZZLE_MM.toFixed(1)} mm nozzle; fine detail is preserved.`,
+      title: str('pbResTitleOk'),
+      detail: str('pbResDetailOk', { cell: mm(cellMm), nozzle: mm(NOZZLE_MM) }),
     })
   }
 
@@ -120,15 +135,23 @@ export function analyzePrintability(result: PipelineResult): PrintabilityReport 
     checks.push({
       id: 'swaps',
       level: 'warn',
-      title: 'Many filament changes',
-      detail: `${n} colors = ${swaps} manual filament changes (plus purge towers) over ~${totalLayers.toFixed(0)} layers — a long, hands-on print. Consider fewer colors.`,
+      title: str('pbSwapsTitleWarn'),
+      detail: str('pbSwapsDetailWarn', {
+        colorsText: colorsText(n),
+        swapsText: swapsText(swaps),
+        layersText: layersText(Math.round(totalLayers)),
+      }),
     })
   } else {
     checks.push({
       id: 'swaps',
       level: 'ok',
-      title: 'Filament changes',
-      detail: `${n} colors = ${swaps} manual filament changes over ~${totalLayers.toFixed(0)} layers — manageable.`,
+      title: str('pbSwapsTitleOk'),
+      detail: str('pbSwapsDetailOk', {
+        colorsText: colorsText(n),
+        swapsText: swapsText(swaps),
+        layersText: layersText(Math.round(totalLayers)),
+      }),
     })
   }
 
@@ -139,15 +162,18 @@ export function analyzePrintability(result: PipelineResult): PrintabilityReport 
     checks.push({
       id: 'support',
       level: 'warn',
-      title: 'Fragile isolated regions',
-      detail: `All walls are vertical (≤90°) and every layer rests on material below, so no supports or true overhangs exist — but ${specks} tiny regions (under 3×3 cells, ~${(fraction * 100).toFixed(1)}% of the image) will print as fragile towers or speckles. Smooth the image or reduce the color count.`,
+      title: str('pbSupportTitleWarn'),
+      detail: str('pbSupportDetailWarn', {
+        regionsText: regionsText(specks),
+        fraction: (fraction * 100).toFixed(1),
+      }),
     })
   } else {
     checks.push({
       id: 'support',
       level: 'ok',
-      title: 'Support & overhangs',
-      detail: 'All walls are vertical (≤90°) and every layer is supported from below — no supports needed, no overhang risk.',
+      title: str('pbSupportTitleOk'),
+      detail: str('pbSupportDetailOk'),
     })
   }
 

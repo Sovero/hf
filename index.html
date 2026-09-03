@@ -7,39 +7,47 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'sha256-MFlcLT3PKhHdo7cUHs1qWuOsbkto0flUmUTTWB7mNhY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:"
     />
-    <title>HueForge Web — Filament Paintings</title>
+    <title data-i18n="docTitle">HueForge Web — Filament Paintings</title>
     <script>try { const t = localStorage.getItem('hf-theme'); if (t) document.documentElement.dataset.theme = t } catch {}</script>
     <link rel="stylesheet" href="/src/ui/styles.css" />
   </head>
   <body>
     <header class="topbar">
       <h1>🎨 HueForge Web</h1>
-      <span class="tagline">Image → multi-layer 3D-printable filament painting</span>
-      <span id="app-version" class="app-version" title="Installed version"></span>
-      <label class="theme-picker">Theme
-        <select id="theme-select">
-          <option value="dark">Dark</option>
-          <option value="light">Light</option>
-          <option value="nord">Nord</option>
-          <option value="solar">Solar</option>
-        </select>
-      </label>
+      <span class="tagline" data-i18n="tagline">Image → multi-layer 3D-printable filament painting</span>
+      <span id="app-version" class="app-version"></span>
+      <div class="topbar-right">
+        <label class="picker"><span data-i18n="languageLabel">Language</span>
+          <select id="lang-select">
+            <option value="en">English</option>
+            <option value="ru">Русский</option>
+          </select>
+        </label>
+        <label class="picker"><span data-i18n="themeLabel">Theme</span>
+          <select id="theme-select">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="nord">Nord</option>
+            <option value="solar">Solar</option>
+          </select>
+        </label>
+      </div>
     </header>
 
     <main class="layout">
       <aside class="sidebar">
         <section class="panel">
-          <h2>1 · Image</h2>
+          <h2 data-i18n="panelImage">1 · Image</h2>
           <div id="drop-zone" class="drop-zone">
-            <p><strong>Drop an image here</strong></p>
-            <p class="muted">or click to browse — PNG / JPG / WebP</p>
+            <p><strong data-i18n="dropTitle">Drop an image here</strong></p>
+            <p class="muted" data-i18n="dropHint">or click to browse — PNG / JPG / WebP</p>
             <input id="file-input" type="file" accept="image/*" hidden />
           </div>
           <p id="image-info" class="muted small"></p>
         </section>
 
         <section class="panel">
-          <h2>2 · Colors</h2>
+          <h2 data-i18n="panelColors">2 · Colors</h2>
           <div id="color-options" class="color-options">
             <div class="slider-row">
               <div class="slider-main">
@@ -48,43 +56,43 @@
               </div>
               <input id="colors-value" class="colors-value" type="number" min="2" max="24" step="1" value="4" aria-label="Number of colors (type to set)" />
             </div>
-            <p class="muted small slider-hint">Drag the slider, or type a count (2–24) in the box</p>
+            <p class="muted small slider-hint" data-i18n="sliderHint">Drag the slider, or type a count (2–24) in the box</p>
           </div>
-          <h2>3 · Depth mode</h2>
+          <h2 data-i18n="panelDepth">3 · Depth mode</h2>
           <div class="mode-options">
-            <label><input type="radio" name="mode" value="dark" checked /> Dark = tall (shadows on top)</label>
-            <label><input type="radio" name="mode" value="light" /> Light = tall (highlights on top)</label>
+            <label><input type="radio" name="mode" value="dark" checked /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
+            <label><input type="radio" name="mode" value="light" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
           </div>
         </section>
 
         <section class="panel">
-          <h2>4 · Size &amp; layers</h2>
+          <h2 data-i18n="panelSize">4 · Size &amp; layers</h2>
           <div class="param-grid">
-            <label>Width <input id="width-mm" type="number" value="150" min="20" max="500" step="1" /> mm</label>
-            <label>Height <input id="height-mm" type="number" value="150" min="20" max="500" step="1" /> mm</label>
-            <label>Base <input id="base-mm" type="number" value="0.8" min="0" max="5" step="0.1" /> mm</label>
-            <label>Max height <input id="max-mm" type="number" value="8" min="2" max="40" step="0.1" /> mm</label>
+            <label><span data-i18n="paramWidth">Width</span> <input id="width-mm" type="number" value="150" min="20" max="500" step="1" /> <span data-i18n="unitMm">mm</span></label>
+            <label><span data-i18n="paramHeight">Height</span> <input id="height-mm" type="number" value="150" min="20" max="500" step="1" /> <span data-i18n="unitMm">mm</span></label>
+            <label><span data-i18n="paramBase">Base</span> <input id="base-mm" type="number" value="0.8" min="0" max="5" step="0.1" /> <span data-i18n="unitMm">mm</span></label>
+            <label><span data-i18n="paramMax">Max height</span> <input id="max-mm" type="number" value="8" min="2" max="40" step="0.1" /> <span data-i18n="unitMm">mm</span></label>
           </div>
-          <p class="muted small">Colors are stacked as equal bands from base to max height.</p>
+          <p class="muted small" data-i18n="sizeHint">Colors are stacked as equal bands from base to max height.</p>
         </section>
 
         <section class="panel">
-          <h2>5 · Printability check</h2>
+          <h2 data-i18n="panelPrintability">5 · Printability check</h2>
           <div id="printability-list"></div>
-          <p id="printability-summary" class="muted small">Load an image to run the check.</p>
+          <p id="printability-summary" class="muted small" data-i18n="pbDefault">Load an image to run the check.</p>
         </section>
 
         <section class="panel">
-          <h2>6 · Export</h2>
+          <h2 data-i18n="panelExport">6 · Export</h2>
           <div class="export-buttons">
-            <button id="btn-stl" disabled>Download STL</button>
-            <button id="btn-3mf" disabled>Download 3MF</button>
+            <button id="btn-stl" disabled data-i18n="btnStl">Download STL</button>
+            <button id="btn-3mf" disabled data-i18n="btn3mf">Download 3MF</button>
           </div>
           <p id="export-status" class="muted small"></p>
         </section>
 
         <section class="panel">
-          <h2>Palette &amp; print order</h2>
+          <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
           <div id="palette-list" class="palette-list"></div>
           <p id="palette-summary" class="muted small"></p>
         </section>
@@ -96,17 +104,17 @@
           <span>Processing…</span>
         </div>
         <div class="viewer-card">
-          <h3>Source</h3>
+          <h3 data-i18n="viewerSource">Source</h3>
           <div class="canvas-wrap"><canvas id="canvas-source"></canvas></div>
         </div>
         <div class="viewer-card">
-          <h3>Color-reduced (print preview)</h3>
+          <h3 data-i18n="viewerQuantized">Color-reduced (print preview)</h3>
           <div class="canvas-wrap"><canvas id="canvas-quantized"></canvas></div>
         </div>
         <div class="viewer-card viewer-3d">
-          <h3>3D preview</h3>
+          <h3 data-i18n="viewer3dTitle">3D preview</h3>
           <div id="viewer3d" class="viewer3d-wrap"></div>
-          <p class="muted small">Drag to rotate · scroll to zoom</p>
+          <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom</p>
         </div>
       </section>
     </main>
