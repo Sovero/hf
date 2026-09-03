@@ -176,14 +176,30 @@ function setupLangPrompt() {
     })
   })
 
-  // Theme swatches apply live (banner recolors immediately) and persist.
+  // Theme swatches: hover/focus peeks at the theme without persisting, click
+  // commits it (applies live and saves). Leaving a swatch reverts the peek so
+  // the banner always shows the committed theme again.
+  const peekTheme = (theme: string) => applyTheme(theme, false)
+  const peeked: HTMLButtonElement[] = []
   bannerThemeBtns.forEach((b) => {
+    b.addEventListener('mouseenter', () => peekTheme(b.dataset.theme ?? ''))
+    b.addEventListener('mouseleave', () => peekTheme(chosenTheme))
+    b.addEventListener('focus', () => {
+      peeked.push(b)
+      peekTheme(b.dataset.theme ?? '')
+    })
+    b.addEventListener('blur', () => {
+      const i = peeked.indexOf(b)
+      if (i >= 0) peeked.splice(i, 1)
+      if (peeked.length === 0) peekTheme(chosenTheme)
+    })
     b.addEventListener('click', () => {
       const v = b.dataset.theme
       if (v) {
         chosenTheme = v
+        peeked.length = 0
         setPressed(bannerThemeBtns, v)
-        applyTheme(v)
+        applyTheme(v) // persist
       }
     })
   })
@@ -306,9 +322,15 @@ const THEME_VIEWER_BG: Record<string, string> = {
   solar: '#ede5cf',
 }
 
-function applyTheme(theme: string) {
+/**
+ * Apply a theme. With `persist` false (hover peek) the look changes but
+ * nothing is written to localStorage, so a glance never commits a theme.
+ */
+function applyTheme(theme: string, persist = true) {
   document.documentElement.dataset.theme = theme
-  try { localStorage.setItem('hf-theme', theme) } catch { /* private mode */ }
+  if (persist) {
+    try { localStorage.setItem('hf-theme', theme) } catch { /* private mode */ }
+  }
   themeSelect.value = theme
   viewer3d?.setBackground(THEME_VIEWER_BG[theme] ?? THEME_VIEWER_BG.dark)
 }
