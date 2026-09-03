@@ -53,15 +53,18 @@ export const dict: Dict = {
   },
   themeLabel: { en: 'Theme', ru: 'Тема' },
   languageLabel: { en: 'Language', ru: 'Язык' },
-  bannerTitle: { en: 'Choose your language', ru: 'Выберите язык' },
+  bannerTitle: { en: 'Choose your language and theme', ru: 'Выберите язык и тему' },
   bannerHint: {
-    en: 'You can change it anytime from the top bar.',
-    ru: 'Изменить можно в любой момент в верхней панели.',
+    en: 'You can change both anytime from the top bar.',
+    ru: 'Оба можно изменить в любой момент в верхней панели.',
   },
+  bannerStart: { en: 'Start', ru: 'Начать' },
   bannerKeep: {
-    en: 'Keep the detected language',
-    ru: 'Оставить язык браузера',
+    en: 'Skip — use the defaults',
+    ru: 'Пропустить — оставить по умолчанию',
   },
+  themeDark: { en: 'Dark', ru: 'Тёмная' },
+  themeLight: { en: 'Light', ru: 'Светлая' },
 
   // ---- sidebar panel headings ----
   panelImage: { en: '1 · Image', ru: '1 · Изображение' },

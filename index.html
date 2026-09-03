@@ -14,13 +14,34 @@
   <body>
     <div id="lang-banner" class="lang-banner" hidden role="dialog" aria-modal="true" aria-labelledby="lang-banner-title">
       <div class="lang-banner-card">
-        <h2 id="lang-banner-title" data-i18n="bannerTitle">Choose your language</h2>
-        <p class="muted" data-i18n="bannerHint">You can change it anytime from the top bar.</p>
-        <div class="lang-banner-actions">
-          <button type="button" class="lang-banner-btn" data-lang="en">English</button>
-          <button type="button" class="lang-banner-btn" data-lang="ru">Русский</button>
+        <h2 id="lang-banner-title" data-i18n="bannerTitle">Choose your language and theme</h2>
+        <p class="muted" data-i18n="bannerHint">You can change both anytime from the top bar.</p>
+        <div class="banner-group">
+          <span class="banner-group-label" data-i18n="languageLabel">Language</span>
+          <div class="lang-banner-actions" role="group" aria-label="Language">
+            <button type="button" class="lang-banner-btn" data-lang="en" aria-pressed="false">English</button>
+            <button type="button" class="lang-banner-btn" data-lang="ru" aria-pressed="false">Русский</button>
+          </div>
         </div>
-        <button type="button" id="lang-banner-skip" class="lang-banner-skip" data-i18n="bannerKeep">Keep the detected language</button>
+        <div class="banner-group">
+          <span class="banner-group-label" data-i18n="themeLabel">Theme</span>
+          <div class="banner-theme-actions" role="group" aria-label="Theme">
+            <button type="button" class="banner-theme-btn" data-theme="dark" aria-pressed="false">
+              <span class="banner-swatch" data-swatch="dark"></span><span data-i18n="themeDark">Dark</span>
+            </button>
+            <button type="button" class="banner-theme-btn" data-theme="light" aria-pressed="false">
+              <span class="banner-swatch" data-swatch="light"></span><span data-i18n="themeLight">Light</span>
+            </button>
+            <button type="button" class="banner-theme-btn" data-theme="nord" aria-pressed="false">
+              <span class="banner-swatch" data-swatch="nord"></span><span>Nord</span>
+            </button>
+            <button type="button" class="banner-theme-btn" data-theme="solar" aria-pressed="false">
+              <span class="banner-swatch" data-swatch="solar"></span><span>Solar</span>
+            </button>
+          </div>
+        </div>
+        <button type="button" id="banner-start" class="banner-start" data-i18n="bannerStart">Start</button>
+        <button type="button" id="lang-banner-skip" class="lang-banner-skip" data-i18n="bannerKeep">Skip — use the defaults</button>
       </div>
     </div>
 
@@ -37,8 +58,8 @@
         </label>
         <label class="picker"><span data-i18n="themeLabel">Theme</span>
           <select id="theme-select">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
+            <option value="dark" data-i18n="themeDark">Dark</option>
+            <option value="light" data-i18n="themeLight">Light</option>
             <option value="nord">Nord</option>
             <option value="solar">Solar</option>
           </select>

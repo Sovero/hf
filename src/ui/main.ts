@@ -46,8 +46,10 @@ const viewerEl = $<HTMLDivElement>('#viewer3d')
 const themeSelect = $<HTMLSelectElement>('#theme-select')
 const langSelect = $<HTMLSelectElement>('#lang-select')
 const langBanner = $<HTMLDivElement>('#lang-banner')
+const bannerStart = $<HTMLButtonElement>('#banner-start')
 const langBannerSkip = $<HTMLButtonElement>('#lang-banner-skip')
 const langBannerBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.lang-banner-btn'))
+const bannerThemeBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.banner-theme-btn'))
 const processingOverlay = $<HTMLDivElement>('#processing-overlay')
 const versionBadge = $<HTMLSpanElement>('#app-version')
 
@@ -126,11 +128,15 @@ function applyStaticText() {
   renderTicks() // rebuild tick tooltips/labels in the current language
 }
 
-/** Switch language, persist, and re-render everything user-visible. */
-function setLang(next: Lang) {
+/**
+ * Switch language and re-render everything user-visible. When `persist` is
+ * true (top-bar switcher) the choice is saved; the first-run banner previews
+ * without persisting so Start/Skip still own the outcome.
+ */
+function setLang(next: Lang, persist = true) {
   if (next === lang) return
   lang = next
-  saveLang(lang)
+  if (persist) saveLang(lang)
   langSelect.value = lang
   applyStaticText()
   if (current) {
@@ -140,27 +146,63 @@ function setLang(next: Lang) {
 }
 
 /**
- * One-time first-run prompt: when no language preference is stored yet, show
- * a banner over the app so the user picks a language before working.
+ * One-time first-run prompt: when no preference is stored yet, show a banner
+ * where the user picks a language and a theme, then confirms with Start.
+ * The chosen theme is applied live and persisted, so it survives relaunches.
  */
 function setupLangPrompt() {
   if (hasLangPreference()) return
-  // Detected language first, then the other one.
+
+  let chosenLang: Lang = lang // detected language, preselected
+  let chosenTheme = document.documentElement.dataset.theme ?? 'dark' // whatever is active
+
+  const setPressed = (btns: HTMLButtonElement[], value: string) => {
+    for (const b of btns) {
+      b.setAttribute('aria-pressed', (b.dataset.lang ?? b.dataset.theme) === value ? 'true' : 'false')
+    }
+  }
+
+  // Detected language first, then the other one. Clicking previews the UI
+  // language immediately (banner copy flips live) without persisting yet.
   langBannerBtns.forEach((b) => {
     b.style.order = b.dataset.lang === lang ? '0' : '1'
     b.addEventListener('click', () => {
       const v = b.dataset.lang
       if (v === 'en' || v === 'ru') {
-        saveLang(v) // persist even when v equals the detected language
-        if (v !== lang) setLang(v)
+        chosenLang = v
+        setPressed(langBannerBtns, v)
+        if (v !== lang) setLang(v, false)
       }
-      langBanner.hidden = true
     })
+  })
+
+  // Theme swatches apply live (banner recolors immediately) and persist.
+  bannerThemeBtns.forEach((b) => {
+    b.addEventListener('click', () => {
+      const v = b.dataset.theme
+      if (v) {
+        chosenTheme = v
+        setPressed(bannerThemeBtns, v)
+        applyTheme(v)
+      }
+    })
+  })
+
+  // Start persists the chosen language (even when it equals the detected one)
+  // and the chosen theme, then dismisses the banner for good.
+  bannerStart.addEventListener('click', () => {
+    saveLang(chosenLang)
+    if (chosenLang !== lang) setLang(chosenLang)
+    applyTheme(chosenTheme)
+    langBanner.hidden = true
   })
   langBannerSkip.addEventListener('click', () => {
     dismissLangPrompt()
     langBanner.hidden = true
   })
+
+  setPressed(langBannerBtns, chosenLang)
+  setPressed(bannerThemeBtns, chosenTheme)
   langBanner.hidden = false
   ;(langBanner.querySelector<HTMLButtonElement>(`.lang-banner-btn[data-lang="${lang}"]`) ?? langBannerBtns[0])?.focus()
 }
@@ -267,6 +309,7 @@ const THEME_VIEWER_BG: Record<string, string> = {
 function applyTheme(theme: string) {
   document.documentElement.dataset.theme = theme
   try { localStorage.setItem('hf-theme', theme) } catch { /* private mode */ }
+  themeSelect.value = theme
   viewer3d?.setBackground(THEME_VIEWER_BG[theme] ?? THEME_VIEWER_BG.dark)
 }
 
