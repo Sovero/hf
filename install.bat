@@ -39,18 +39,43 @@ REM Local version comes from package.json (single source of truth).
 set "LOCAL_VERSION="
 for /f "delims=" %%v in ('node -p "require('./package.json').version" 2^>nul') do set "LOCAL_VERSION=%%v"
 if not defined LOCAL_VERSION set "LOCAL_VERSION=0.0.0"
-
 set "HF_LOCAL=%LOCAL_VERSION%"
-set "NEW_VERSION="
-REM Queries https://api.github.com/repos/Sovero/hf/releases/latest and prints the
-REM tag (e.g. "v0.2.0") only when it is newer than the local version.
-for /f "delims=" %%t in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; try { $r = Invoke-RestMethod -Uri 'https://api.github.com/repos/Sovero/hf/releases/latest' -Headers @{ 'User-Agent'='HueForge-Installer' } -TimeoutSec 15 } catch { exit 0 }; $lv = $env:HF_LOCAL -split '\.'; $tv = ($r.tag_name -replace '^v','') -split '\.'; $lp = '{0:D6}{1:D6}{2:D6}' -f [int]$lv[0],[int]$lv[1],[int]$lv[2]; $tp = '{0:D6}{1:D6}{2:D6}' -f [int]$tv[0],[int]$tv[1],[int]$tv[2]; if ($tp -gt $lp) { $r.tag_name }" 2^>nul') do set "NEW_VERSION=%%t"
 
+REM update.ps1 prints the newer tag, "NEED_TOKEN", or nothing.
+set "NEW_VERSION="
+for /f "delims=" %%t in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" check 2^>nul') do set "NEW_VERSION=%%t"
+
+if not "!NEW_VERSION!"=="NEED_TOKEN" goto have_version
+echo   This repository is private - checking for updates needs a one-time
+echo   GitHub token. It is stored only on this PC, in %%APPDATA%%\HueForgeWeb.
+echo   Create one at https://github.com/settings/tokens?type=beta
+echo   (fine-grained: only Sovero/hf, Contents: Read + Metadata: Read).
+choice /c YN /n /m "  Enter a GitHub token now? [Y/N]: "
+if errorlevel 2 goto token_declined
+
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" save-token
+if errorlevel 1 goto token_failed
+echo   Token saved. Checking again...
+set "NEW_VERSION="
+for /f "delims=" %%t in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" check 2^>nul') do set "NEW_VERSION=%%t"
+if "!NEW_VERSION!"=="NEED_TOKEN" set "NEW_VERSION="
+goto have_version
+
+:token_declined
+echo   Token declined - continuing with the current files.
+set "NEW_VERSION="
+goto have_version
+
+:token_failed
+echo   Token not saved - continuing with the current files.
+set "NEW_VERSION="
+
+:have_version
 if not defined NEW_VERSION (
     echo   Already on the latest release (v%LOCAL_VERSION%).
     goto after_update
 )
-
 echo   Local: v%LOCAL_VERSION%   Latest: %NEW_VERSION%
 choice /c YN /n /m "  Update to %NEW_VERSION% now? [Y/N]: "
 if errorlevel 2 goto update_no
@@ -63,27 +88,27 @@ goto after_update
 :update_yes
 echo.
 echo   Downloading %NEW_VERSION% from GitHub...
-set "HF_TAG=%NEW_VERSION%"
-REM Fetches the release, prefers the hueforge-web-*.zip asset and falls back
-REM to GitHub's tag archive, then extracts to a temp folder.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $r = Invoke-RestMethod -Uri ('https://api.github.com/repos/Sovero/hf/releases/tags/' + $env:HF_TAG) -Headers @{ 'User-Agent'='HueForge-Installer' } -TimeoutSec 20; $asset = $r.assets | Where-Object { $_.name -like 'hueforge-web-*.zip' } | Select-Object -First 1; if ($asset) { $u = $asset.browser_download_url } else { $u = 'https://github.com/Sovero/hf/archive/refs/tags/' + $env:HF_TAG + '.zip' }; Invoke-WebRequest -Uri $u -OutFile ($env:TEMP + '\hf_update.zip') -UseBasicParsing; Expand-Archive -Path ($env:TEMP + '\hf_update.zip') -DestinationPath ($env:TEMP + '\hf_update') -Force"
-if errorlevel 1 (
-    echo   ERROR: could not download the update. Check your internet connection
-    echo   and try again - continuing with the current files.
-    goto after_update
-)
+set "UPDATE_SRC="
+for /f "delims=" %%d in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" download %NEW_VERSION% 2^>nul') do set "UPDATE_SRC=%%d"
+if errorlevel 1 goto update_failed
+if not defined UPDATE_SRC goto update_failed
 REM Copy the new tree over this folder. node_modules is kept (npm install
-REM below refreshes it); *.bat is kept so this running script is not replaced
-REM mid-run. New install.bat/start.bat arrive with the next fresh deploy.
-robocopy "%TEMP%\hf_update" "%PROJECT_DIR%" /E /XF *.bat /XD node_modules .git /NFL /NDL /NJH /NJS /NP >nul
-if errorlevel 8 (
-    echo   ERROR: could not copy the update files.
-    goto after_update
-)
+REM below refreshes it); *.bat and update.ps1 are kept so the running
+REM installer/updater is not replaced mid-run. They arrive with the next
+REM fresh deploy.
+robocopy "%UPDATE_SRC%" "%PROJECT_DIR%" /E /XF *.bat update.ps1 /XD node_modules .git /NFL /NDL /NJH /NJS /NP >nul
+if errorlevel 8 goto update_failed
 del "%TEMP%\hf_update.zip" >nul 2>&1
 rmdir /s /q "%TEMP%\hf_update" >nul 2>&1
 echo   Updated to %NEW_VERSION%.
-echo   (install.bat / start.bat changes, if any, apply on the next fresh install.)
+echo   (install.bat / start.bat / update.ps1 changes, if any, apply on the next fresh install.)
+goto after_update
+
+:update_failed
+echo   ERROR: could not apply the update. Check your internet connection
+echo   and try again - continuing with the current files.
+del "%TEMP%\hf_update.zip" >nul 2>&1
+rmdir /s /q "%TEMP%\hf_update" >nul 2>&1
 
 :after_update
 popd

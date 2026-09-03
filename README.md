@@ -15,6 +15,13 @@ download **STL / 3MF**. Colors are encoded by layer height (HueForge-style).
    - install all dependencies into the project folder,
    - offer to create a **desktop shortcut**,
    - start the app and open your browser.
+
+> **Private repository:** this repo is private, so the update check needs a
+> one-time GitHub token. On first run `install.bat` asks you to paste one
+> (create it at https://github.com/settings/tokens?type=beta — fine-grained,
+> only the `hf` repository, **Contents: Read** + **Metadata: Read**). The
+> token is stored only on that PC in `%APPDATA%\HueForgeWeb\github_token.txt`
+> and is used only for checking and downloading releases.
 4. Next time, just use the shortcut or double-click **`start.bat`** —
    it opens the browser at `http://127.0.0.1:5173`
    (and self-heals dependencies if the folder was moved or `node_modules` deleted).
@@ -40,8 +47,9 @@ shown in the app's top bar next to the title.
   (the committed tree — no `node_modules`/`dist`).
 - `install.bat` compares your local version (from `package.json`) with the
   **latest GitHub release** on every run and offers to download and apply the
-  update in place. No need to re-download the zip for updates — unless a new
-  `install.bat`/`start.bat` ships, in which case a fresh unzip applies those.
+  update in place (`update.ps1` does the actual API calls). No need to
+  re-download the zip for updates — unless a new `install.bat`/`start.bat`/
+  `update.ps1` ships, in which case a fresh unzip applies those.
 
 ## How to use
 
