@@ -205,7 +205,7 @@ function renderPalette() {
     swatch.className = 'palette-swatch'
     swatch.style.background = rgbToHex(entry.color)
     const label = document.createElement('span')
-    label.textContent = `#${entry.printOrder} · ${rgbToHex(entry.color)} · ~${nearestFilament(entry.color)}`
+    label.textContent = `#${entry.printOrder} · ${rgbToHex(entry.color)} · ~${nearestFilament(entry.color, lang)}`
     row.append(swatch, label)
     paletteList.appendChild(row)
   }

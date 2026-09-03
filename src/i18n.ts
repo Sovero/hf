@@ -115,6 +115,28 @@ export const dict: Dict = {
   ready: { en: 'Ready — {colors}.', ru: 'Готово — {colors}.' },
   processedAt: { en: 'Processed at {w}×{h}px', ru: 'Обработано: {w}×{h}px' },
 
+  // ---- filament color names (palette legend) ----
+  'filam.white': { en: 'White', ru: 'Белый' },
+  'filam.bone': { en: 'Off-white / Bone', ru: 'Бежевый / Слоновая кость' },
+  'filam.lightgray': { en: 'Light gray', ru: 'Светло-серый' },
+  'filam.silver': { en: 'Silver / Gray', ru: 'Серебристый / Серый' },
+  'filam.darkgray': { en: 'Dark gray', ru: 'Тёмно-серый' },
+  'filam.black': { en: 'Black', ru: 'Чёрный' },
+  'filam.red': { en: 'Red', ru: 'Красный' },
+  'filam.darkred': { en: 'Dark red', ru: 'Тёмно-красный' },
+  'filam.orange': { en: 'Orange', ru: 'Оранжевый' },
+  'filam.yellow': { en: 'Yellow', ru: 'Жёлтый' },
+  'filam.gold': { en: 'Gold', ru: 'Золотистый' },
+  'filam.green': { en: 'Green', ru: 'Зелёный' },
+  'filam.darkgreen': { en: 'Dark green', ru: 'Тёмно-зелёный' },
+  'filam.lightblue': { en: 'Light blue', ru: 'Голубой' },
+  'filam.blue': { en: 'Blue', ru: 'Синий' },
+  'filam.darkblue': { en: 'Dark blue', ru: 'Тёмно-синий' },
+  'filam.purple': { en: 'Purple', ru: 'Фиолетовый' },
+  'filam.pink': { en: 'Pink / Magenta', ru: 'Розовый / Пурпурный' },
+  'filam.brown': { en: 'Brown', ru: 'Коричневый' },
+  'filam.tan': { en: 'Tan / Skin', ru: 'Телесный / Бежевый' },
+
   // ---- loadImage errors ----
   errNotAnImage: {
     en: '"{name}" is not an image file.',

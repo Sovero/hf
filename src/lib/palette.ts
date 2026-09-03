@@ -1,4 +1,5 @@
 import type { RGB } from './types'
+import { t, type Lang } from '../i18n'
 
 /** Rec.709 luma, used to order colors dark → light. */
 export function luminance(c: RGB): number {
@@ -22,32 +23,41 @@ export function hexToRgb(hex: string): RGB {
   return { r: (v >> 16) & 0xff, g: (v >> 8) & 0xff, b: v & 0xff }
 }
 
-/** Common filament colors with names, for display in the legend. */
-export const COMMON_FILAMENTS: { name: string; color: RGB }[] = [
-  { name: 'White', color: { r: 245, g: 245, b: 245 } },
-  { name: 'Off-white / Bone', color: { r: 235, g: 228, b: 205 } },
-  { name: 'Light gray', color: { r: 200, g: 200, b: 200 } },
-  { name: 'Silver / Gray', color: { r: 155, g: 155, b: 158 } },
-  { name: 'Dark gray', color: { r: 95, g: 95, b: 95 } },
-  { name: 'Black', color: { r: 25, g: 25, b: 25 } },
-  { name: 'Red', color: { r: 200, g: 30, b: 30 } },
-  { name: 'Dark red', color: { r: 130, g: 20, b: 20 } },
-  { name: 'Orange', color: { r: 235, g: 120, b: 25 } },
-  { name: 'Yellow', color: { r: 240, g: 200, b: 30 } },
-  { name: 'Gold', color: { r: 200, g: 160, b: 40 } },
-  { name: 'Green', color: { r: 40, g: 150, b: 60 } },
-  { name: 'Dark green', color: { r: 30, g: 95, b: 45 } },
-  { name: 'Light blue', color: { r: 110, g: 180, b: 220 } },
-  { name: 'Blue', color: { r: 40, g: 90, b: 200 } },
-  { name: 'Dark blue', color: { r: 20, g: 45, b: 120 } },
-  { name: 'Purple', color: { r: 120, g: 50, b: 180 } },
-  { name: 'Pink / Magenta', color: { r: 220, g: 60, b: 140 } },
-  { name: 'Brown', color: { r: 120, g: 75, b: 40 } },
-  { name: 'Tan / Skin', color: { r: 220, g: 175, b: 130 } },
+/** Common filament colors with stable keys; display names live in i18n. */
+export interface Filament {
+  /** i18n key suffix, e.g. 'white' → 'filam.white'. */
+  key: string
+  color: RGB
+}
+
+export const COMMON_FILAMENTS: Filament[] = [
+  { key: 'white', color: { r: 245, g: 245, b: 245 } },
+  { key: 'bone', color: { r: 235, g: 228, b: 205 } },
+  { key: 'lightgray', color: { r: 200, g: 200, b: 200 } },
+  { key: 'silver', color: { r: 155, g: 155, b: 158 } },
+  { key: 'darkgray', color: { r: 95, g: 95, b: 95 } },
+  { key: 'black', color: { r: 25, g: 25, b: 25 } },
+  { key: 'red', color: { r: 200, g: 30, b: 30 } },
+  { key: 'darkred', color: { r: 130, g: 20, b: 20 } },
+  { key: 'orange', color: { r: 235, g: 120, b: 25 } },
+  { key: 'yellow', color: { r: 240, g: 200, b: 30 } },
+  { key: 'gold', color: { r: 200, g: 160, b: 40 } },
+  { key: 'green', color: { r: 40, g: 150, b: 60 } },
+  { key: 'darkgreen', color: { r: 30, g: 95, b: 45 } },
+  { key: 'lightblue', color: { r: 110, g: 180, b: 220 } },
+  { key: 'blue', color: { r: 40, g: 90, b: 200 } },
+  { key: 'darkblue', color: { r: 20, g: 45, b: 120 } },
+  { key: 'purple', color: { r: 120, g: 50, b: 180 } },
+  { key: 'pink', color: { r: 220, g: 60, b: 140 } },
+  { key: 'brown', color: { r: 120, g: 75, b: 40 } },
+  { key: 'tan', color: { r: 220, g: 175, b: 130 } },
 ]
 
-/** Closest common filament name for a color, by redmean distance. */
-export function nearestFilament(c: RGB): string {
+/**
+ * Closest common filament for a color (redmean distance), with the display
+ * name in the requested language.
+ */
+export function nearestFilament(c: RGB, lang: Lang = 'en'): string {
   let best = COMMON_FILAMENTS[0]
   let bestDist = Infinity
   for (const f of COMMON_FILAMENTS) {
@@ -60,5 +70,5 @@ export function nearestFilament(c: RGB): string {
       best = f
     }
   }
-  return best.name
+  return t(lang, `filam.${best.key}`)
 }

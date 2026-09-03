@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { t, word, mmOf } from '../i18n'
+import { nearestFilament } from '../lib/palette'
 
 describe('i18n', () => {
   it('formats tokens into dictionary entries', () => {
@@ -33,5 +34,15 @@ describe('i18n', () => {
   it('formats mm with the language unit', () => {
     expect(mmOf('en', 0.4)).toBe('0.40 mm')
     expect(mmOf('ru', 0.4)).toBe('0.40 мм')
+  })
+
+  it('localizes nearest-filament names', () => {
+    const nearBlack = { r: 20, g: 20, b: 20 }
+    expect(nearestFilament(nearBlack, 'en')).toBe('Black')
+    expect(nearestFilament(nearBlack, 'ru')).toBe('Чёрный')
+    const nearRed = { r: 210, g: 40, b: 40 }
+    expect(nearestFilament(nearRed, 'en')).toBe('Red')
+    expect(nearestFilament(nearRed, 'ru')).toBe('Красный')
+    expect(nearestFilament({ r: 245, g: 245, b: 245 }, 'ru')).toBe('Белый')
   })
 })
