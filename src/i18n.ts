@@ -1,6 +1,7 @@
 export type Lang = 'en' | 'ru'
 
 const STORAGE_KEY = 'hf-lang'
+const DISMISS_KEY = 'hf-lang-prompt-dismissed'
 
 export function isLang(v: string | null | undefined): v is Lang {
   return v === 'en' || v === 'ru'
@@ -24,6 +25,23 @@ export function saveLang(lang: Lang) {
   }
 }
 
+/** True when the user already made a language choice (or skipped the prompt). */
+export function hasLangPreference(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) !== null || localStorage.getItem(DISMISS_KEY) !== null
+  } catch {
+    return true // private mode: never nag
+  }
+}
+
+export function dismissLangPrompt() {
+  try {
+    localStorage.setItem(DISMISS_KEY, '1')
+  } catch {
+    /* private mode */
+  }
+}
+
 type Dict = Record<string, Record<Lang, string>>
 
 export const dict: Dict = {
@@ -35,6 +53,15 @@ export const dict: Dict = {
   },
   themeLabel: { en: 'Theme', ru: 'Тема' },
   languageLabel: { en: 'Language', ru: 'Язык' },
+  bannerTitle: { en: 'Choose your language', ru: 'Выберите язык' },
+  bannerHint: {
+    en: 'You can change it anytime from the top bar.',
+    ru: 'Изменить можно в любой момент в верхней панели.',
+  },
+  bannerKeep: {
+    en: 'Keep the detected language',
+    ru: 'Оставить язык браузера',
+  },
 
   // ---- sidebar panel headings ----
   panelImage: { en: '1 · Image', ru: '1 · Изображение' },

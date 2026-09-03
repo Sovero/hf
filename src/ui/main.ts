@@ -3,7 +3,7 @@ import { runPipeline, exportStl, export3mfFile, exportFilename, type PipelineRes
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, nearestFilament } from '../lib/palette'
 import { Viewer3D } from './viewer3d'
-import { t, word, loadLang, saveLang, type Lang } from '../i18n'
+import { t, word, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector(sel)
@@ -45,6 +45,9 @@ const maxInput = $<HTMLInputElement>('#max-mm')
 const viewerEl = $<HTMLDivElement>('#viewer3d')
 const themeSelect = $<HTMLSelectElement>('#theme-select')
 const langSelect = $<HTMLSelectElement>('#lang-select')
+const langBanner = $<HTMLDivElement>('#lang-banner')
+const langBannerSkip = $<HTMLButtonElement>('#lang-banner-skip')
+const langBannerBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.lang-banner-btn'))
 const processingOverlay = $<HTMLDivElement>('#processing-overlay')
 const versionBadge = $<HTMLSpanElement>('#app-version')
 
@@ -128,11 +131,38 @@ function setLang(next: Lang) {
   if (next === lang) return
   lang = next
   saveLang(lang)
+  langSelect.value = lang
   applyStaticText()
   if (current) {
     updateUI()
     showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
   }
+}
+
+/**
+ * One-time first-run prompt: when no language preference is stored yet, show
+ * a banner over the app so the user picks a language before working.
+ */
+function setupLangPrompt() {
+  if (hasLangPreference()) return
+  // Detected language first, then the other one.
+  langBannerBtns.forEach((b) => {
+    b.style.order = b.dataset.lang === lang ? '0' : '1'
+    b.addEventListener('click', () => {
+      const v = b.dataset.lang
+      if (v === 'en' || v === 'ru') {
+        saveLang(v) // persist even when v equals the detected language
+        if (v !== lang) setLang(v)
+      }
+      langBanner.hidden = true
+    })
+  })
+  langBannerSkip.addEventListener('click', () => {
+    dismissLangPrompt()
+    langBanner.hidden = true
+  })
+  langBanner.hidden = false
+  ;(langBanner.querySelector<HTMLButtonElement>(`.lang-banner-btn[data-lang="${lang}"]`) ?? langBannerBtns[0])?.focus()
 }
 
 function updateUI() {
@@ -392,6 +422,7 @@ versionBadge.textContent = `v${__APP_VERSION__}`
 langSelect.value = lang
 langSelect.addEventListener('change', () => setLang(langSelect.value as Lang))
 applyStaticText()
+setupLangPrompt()
 
 setupTheme()
 setupDropZone()

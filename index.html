@@ -12,6 +12,18 @@
     <link rel="stylesheet" href="/src/ui/styles.css" />
   </head>
   <body>
+    <div id="lang-banner" class="lang-banner" hidden role="dialog" aria-modal="true" aria-labelledby="lang-banner-title">
+      <div class="lang-banner-card">
+        <h2 id="lang-banner-title" data-i18n="bannerTitle">Choose your language</h2>
+        <p class="muted" data-i18n="bannerHint">You can change it anytime from the top bar.</p>
+        <div class="lang-banner-actions">
+          <button type="button" class="lang-banner-btn" data-lang="en">English</button>
+          <button type="button" class="lang-banner-btn" data-lang="ru">Русский</button>
+        </div>
+        <button type="button" id="lang-banner-skip" class="lang-banner-skip" data-i18n="bannerKeep">Keep the detected language</button>
+      </div>
+    </div>
+
     <header class="topbar">
       <h1>🎨 HueForge Web</h1>
       <span class="tagline" data-i18n="tagline">Image → multi-layer 3D-printable filament painting</span>
