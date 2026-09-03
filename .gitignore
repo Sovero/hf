@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Freebuff internal workspace data
+.freebuff/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS junk
+Thumbs.db
+.DS_Store

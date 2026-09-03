@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HueForge Web — Filament Paintings</title>
+    <script>try { const t = localStorage.getItem('hf-theme'); if (t) document.documentElement.dataset.theme = t } catch {}</script>
+    <link rel="stylesheet" href="/src/ui/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>🎨 HueForge Web</h1>
+      <span class="tagline">Image → multi-layer 3D-printable filament painting</span>
+      <label class="theme-picker">Theme
+        <select id="theme-select">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="nord">Nord</option>
+          <option value="solar">Solar</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <section class="panel">
+          <h2>1 · Image</h2>
+          <div id="drop-zone" class="drop-zone">
+            <p><strong>Drop an image here</strong></p>
+            <p class="muted">or click to browse — PNG / JPG / WebP</p>
+            <input id="file-input" type="file" accept="image/*" hidden />
+          </div>
+          <p id="image-info" class="muted small"></p>
+        </section>
+
+        <section class="panel">
+          <h2>2 · Colors</h2>
+          <div id="color-options" class="color-options">
+            <div class="slider-row">
+              <div class="slider-main">
+                <input id="colors-slider" type="range" min="2" max="24" step="1" value="4" aria-label="Number of colors" />
+                <div id="slider-ticks" class="slider-ticks"></div>
+              </div>
+              <input id="colors-value" class="colors-value" type="number" min="2" max="24" step="1" value="4" aria-label="Number of colors (type to set)" />
+            </div>
+            <p class="muted small slider-hint">Drag the slider, or type a count (2–24) in the box</p>
+          </div>
+          <h2>3 · Depth mode</h2>
+          <div class="mode-options">
+            <label><input type="radio" name="mode" value="dark" checked /> Dark = tall (shadows on top)</label>
+            <label><input type="radio" name="mode" value="light" /> Light = tall (highlights on top)</label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>4 · Size &amp; layers</h2>
+          <div class="param-grid">
+            <label>Width <input id="width-mm" type="number" value="150" min="20" max="500" step="1" /> mm</label>
+            <label>Height <input id="height-mm" type="number" value="150" min="20" max="500" step="1" /> mm</label>
+            <label>Base <input id="base-mm" type="number" value="0.8" min="0" max="5" step="0.1" /> mm</label>
+            <label>Max height <input id="max-mm" type="number" value="8" min="2" max="40" step="0.1" /> mm</label>
+          </div>
+          <p class="muted small">Colors are stacked as equal bands from base to max height.</p>
+        </section>
+
+        <section class="panel">
+          <h2>5 · Printability check</h2>
+          <div id="printability-list"></div>
+          <p id="printability-summary" class="muted small">Load an image to run the check.</p>
+        </section>
+
+        <section class="panel">
+          <h2>6 · Export</h2>
+          <div class="export-buttons">
+            <button id="btn-stl" disabled>Download STL</button>
+            <button id="btn-3mf" disabled>Download 3MF</button>
+          </div>
+          <p id="export-status" class="muted small"></p>
+        </section>
+
+        <section class="panel">
+          <h2>Palette &amp; print order</h2>
+          <div id="palette-list" class="palette-list"></div>
+          <p id="palette-summary" class="muted small"></p>
+        </section>
+      </aside>
+
+      <section class="viewers">
+        <div id="processing-overlay" class="processing-overlay" hidden>
+          <div class="spinner"></div>
+          <span>Processing…</span>
+        </div>
+        <div class="viewer-card">
+          <h3>Source</h3>
+          <div class="canvas-wrap"><canvas id="canvas-source"></canvas></div>
+        </div>
+        <div class="viewer-card">
+          <h3>Color-reduced (print preview)</h3>
+          <div class="canvas-wrap"><canvas id="canvas-quantized"></canvas></div>
+        </div>
+        <div class="viewer-card viewer-3d">
+          <h3>3D preview</h3>
+          <div id="viewer3d" class="viewer3d-wrap"></div>
+          <p class="muted small">Drag to rotate · scroll to zoom</p>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/ui/main.ts"></script>
+  </body>
+</html>

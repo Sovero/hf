@@ -1,0 +1,364 @@
+import './styles.css'
+import { runPipeline, exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
+import { analyzePrintability } from '../lib/printability'
+import { rgbToHex, nearestFilament } from '../lib/palette'
+import { Viewer3D } from './viewer3d'
+
+const $ = <T extends HTMLElement>(sel: string): T => {
+  const el = document.querySelector(sel)
+  if (!el) throw new Error(`Missing element: ${sel}`)
+  return el as T
+}
+
+let current: PipelineResult | null = null
+let currentFile: File | null = null
+let viewer3d: Viewer3D | null = null
+/** Guards against overlapping runs writing stale results (live reprocessing). */
+let runToken = 0
+
+const dropZone = $<HTMLDivElement>('#drop-zone')
+const fileInput = $<HTMLInputElement>('#file-input')
+const imageInfo = $<HTMLParagraphElement>('#image-info')
+const paletteList = $<HTMLDivElement>('#palette-list')
+const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
+const printabilityList = $<HTMLDivElement>('#printability-list')
+const printabilitySummary = $<HTMLParagraphElement>('#printability-summary')
+const exportStatus = $<HTMLParagraphElement>('#export-status')
+const btnStl = $<HTMLButtonElement>('#btn-stl')
+const btn3mf = $<HTMLButtonElement>('#btn-3mf')
+const canvasSource = $<HTMLCanvasElement>('#canvas-source')
+const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
+const colorsSlider = $<HTMLInputElement>('#colors-slider')
+const colorsValue = $<HTMLInputElement>('#colors-value')
+const sliderTicks = $<HTMLDivElement>('#slider-ticks')
+
+const SLIDER_MIN = 2
+const SLIDER_MAX = 24
+const PRESET_TICKS = [2, 4, 8, 12, 16, 24]
+const widthInput = $<HTMLInputElement>('#width-mm')
+const heightInput = $<HTMLInputElement>('#height-mm')
+const baseInput = $<HTMLInputElement>('#base-mm')
+const maxInput = $<HTMLInputElement>('#max-mm')
+const viewerEl = $<HTMLDivElement>('#viewer3d')
+const themeSelect = $<HTMLSelectElement>('#theme-select')
+const processingOverlay = $<HTMLDivElement>('#processing-overlay')
+
+function setProcessing(on: boolean) {
+  processingOverlay.hidden = !on
+  btnStl.disabled = on
+  btn3mf.disabled = on
+}
+
+/** Set the color count, refresh the UI, and reprocess if an image is loaded. */
+function applyCount(v: number) {
+  const clamped = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, Math.round(v) || SLIDER_MIN))
+  colorsSlider.value = String(clamped)
+  colorsValue.value = String(clamped)
+  renderTicks()
+  if (currentFile) void readFile(currentFile)
+}
+
+function readOptions() {
+  // Clamp every numeric input to sane bounds: Number() can yield NaN/±Infinity
+  // (e.g. "1e999", "abc"), which must never reach the geometry or exports.
+  const clampNum = (v: number, lo: number, hi: number, fallback: number) =>
+    Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback
+  const numColors = clampNum(Math.round(Number(colorsSlider.value)), 2, 24, 4)
+  const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
+  const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
+  const maxHeightMm = clampNum(Number(maxInput.value), baseMm + 2, 40, 8)
+  return {
+    numColors: numColors as 2 | 4 | 8 | 12 | 16 | 24,
+    darkIsTall,
+    widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
+    heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
+    baseMm,
+    maxHeightMm,
+  }
+}
+
+function showStatus(msg: string, isError = false) {
+  exportStatus.textContent = msg
+  exportStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'
+}
+
+async function readFile(file: File) {
+  currentFile = file
+  const token = ++runToken
+  showStatus('Processing…')
+  setProcessing(true)
+  try {
+    const result = await runPipeline(file, readOptions())
+    if (token !== runToken) return // a newer run superseded this one; it owns the UI
+    current = result
+    updateUI()
+    setProcessing(false)
+    showStatus(`Ready — ${current.quantized.palette.length} colors.`)
+  } catch (err) {
+    if (token !== runToken) return
+    setProcessing(false)
+    current = null
+    btnStl.disabled = true
+    btn3mf.disabled = true
+    printabilityList.innerHTML = ''
+    printabilitySummary.textContent = 'Load an image to run the check.'
+    showStatus(err instanceof Error ? err.message : String(err), true)
+  }
+}
+
+function updateUI() {
+  if (!current) return
+  drawSource()
+  drawQuantized()
+  renderPalette()
+  renderPrintability()
+  update3d()
+  btnStl.disabled = false
+  btn3mf.disabled = false
+  imageInfo.textContent = `Processed at ${current.image.width}×${current.image.height}px`
+}
+
+function renderPrintability() {
+  const report = analyzePrintability(current!)
+  printabilityList.innerHTML = ''
+  for (const check of report.checks) {
+    const row = document.createElement('div')
+    row.className = `check-row check-${check.level}`
+    const icon = document.createElement('span')
+    icon.className = 'check-icon'
+    icon.textContent = check.level === 'fail' ? '✕' : check.level === 'warn' ? '⚠' : '✓'
+    const body = document.createElement('div')
+    const title = document.createElement('div')
+    title.className = 'check-title'
+    title.textContent = check.title
+    const detail = document.createElement('div')
+    detail.className = 'check-detail'
+    detail.textContent = check.detail
+    body.append(title, detail)
+    row.append(icon, body)
+    printabilityList.appendChild(row)
+  }
+  printabilitySummary.textContent =
+    report.errors === 0 && report.warnings === 0
+      ? 'All checks passed'
+      : `${report.errors} error${report.errors === 1 ? '' : 's'} · ${report.warnings} warning${report.warnings === 1 ? '' : 's'}`
+}
+
+function drawSource() {
+  const { width, height, rgba } = current!.image
+  canvasSource.width = width
+  canvasSource.height = height
+  canvasSource.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0)
+}
+
+function drawQuantized() {
+  const { width, height, indexMap, palette } = current!.quantized
+  const rgba = new Uint8ClampedArray(width * height * 4)
+  for (let i = 0; i < width * height; i++) {
+    const c = palette[indexMap[i]]
+    rgba[i * 4] = c.r
+    rgba[i * 4 + 1] = c.g
+    rgba[i * 4 + 2] = c.b
+    rgba[i * 4 + 3] = 255
+  }
+  canvasQuantized.width = width
+  canvasQuantized.height = height
+  canvasQuantized.getContext('2d')!.putImageData(new ImageData(rgba, width, height), 0, 0)
+}
+
+function renderPalette() {
+  const palette = current!.palette
+  paletteList.innerHTML = ''
+  for (const entry of palette) {
+    const row = document.createElement('div')
+    row.className = 'palette-row'
+    const swatch = document.createElement('div')
+    swatch.className = 'palette-swatch'
+    swatch.style.background = rgbToHex(entry.color)
+    const label = document.createElement('span')
+    label.textContent = `#${entry.printOrder} · ${rgbToHex(entry.color)} · ~${nearestFilament(entry.color)}`
+    row.append(swatch, label)
+    paletteList.appendChild(row)
+  }
+  paletteSummary.textContent = `${palette.length} colors · export includes print order`
+}
+
+function update3d() {
+  viewer3d ??= new Viewer3D(viewerEl)
+  viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
+  viewer3d.setMesh(current!.mesh)
+}
+
+function triggerDownload(data: BlobPart, filename: string, type: string) {
+  const url = URL.createObjectURL(new Blob([data], { type }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+const THEME_VIEWER_BG: Record<string, string> = {
+  dark: '#101418',
+  light: '#e2e8ee',
+  nord: '#2e3440',
+  solar: '#ede5cf',
+}
+
+function applyTheme(theme: string) {
+  document.documentElement.dataset.theme = theme
+  try { localStorage.setItem('hf-theme', theme) } catch { /* private mode */ }
+  viewer3d?.setBackground(THEME_VIEWER_BG[theme] ?? THEME_VIEWER_BG.dark)
+}
+
+function setupTheme() {
+  const saved = (() => { try { return localStorage.getItem('hf-theme') } catch { return null } })()
+  const initial = saved && THEME_VIEWER_BG[saved] ? saved : 'dark'
+  themeSelect.value = initial
+  applyTheme(initial)
+  themeSelect.addEventListener('change', () => applyTheme(themeSelect.value))
+}
+
+function setupDropZone() {
+  dropZone.addEventListener('click', () => fileInput.click())
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files?.[0]
+    if (f) void readFile(f)
+  })
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault()
+    dropZone.classList.add('dragover')
+  })
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'))
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault()
+    dropZone.classList.remove('dragover')
+    const f = e.dataTransfer?.files?.[0]
+    if (f) void readFile(f)
+  })
+}
+
+function bindInputs() {
+  for (const el of document.querySelectorAll<HTMLInputElement>(
+    'input[name="mode"], #width-mm, #height-mm, #base-mm, #max-mm',
+  )) {
+    el.addEventListener('change', () => {
+      if (currentFile) void readFile(currentFile)
+    })
+  }
+
+  // Live reprocessing while dragging: debounced on input, flushed on release.
+  let debounceTimer: number | undefined
+  const scheduleReprocess = () => {
+    if (debounceTimer !== undefined) clearTimeout(debounceTimer)
+    debounceTimer = window.setTimeout(() => {
+      debounceTimer = undefined
+      if (currentFile) void readFile(currentFile)
+    }, 250)
+  }
+  const flushReprocess = () => {
+    if (debounceTimer !== undefined) {
+      clearTimeout(debounceTimer)
+      debounceTimer = undefined
+    }
+    if (currentFile) void readFile(currentFile)
+  }
+  colorsSlider.addEventListener('change', flushReprocess)
+  colorsSlider.addEventListener('input', () => {
+    colorsValue.value = colorsSlider.value
+    renderTicks()
+    scheduleReprocess()
+  })
+
+  // Manual entry: typing a count in the box applies it on change/blur.
+  colorsValue.addEventListener('change', () => {
+    if (colorsValue.value.trim() === '') {
+      colorsValue.value = colorsSlider.value // cleared box → revert to current
+      return
+    }
+    const raw = Number(colorsValue.value)
+    if (!Number.isFinite(raw)) {
+      colorsValue.value = colorsSlider.value
+      return
+    }
+    applyCount(raw)
+  })
+
+  // Keyboard control: arrows step by 1, Home/End jump to the ends,
+  // typing digits sets the count directly ("1" then "6" → 16).
+  let digitBuffer = ''
+  let digitTimer: number | undefined
+  const flushDigits = () => {
+    if (digitBuffer !== '') applyCount(Number(digitBuffer))
+    digitBuffer = ''
+    if (digitTimer !== undefined) clearTimeout(digitTimer)
+    digitTimer = undefined
+  }
+  colorsSlider.addEventListener('keydown', (e) => {
+    if (/^[0-9]$/.test(e.key)) {
+      e.preventDefault()
+      if (digitBuffer.length >= 2 || (digitBuffer === '' && e.key === '0')) return
+      digitBuffer += e.key
+      if (digitBuffer.length === 2) {
+        flushDigits()
+      } else if (digitTimer === undefined) {
+        digitTimer = window.setTimeout(flushDigits, 600)
+      }
+      return
+    }
+    if (e.key === 'Enter') { e.preventDefault(); flushDigits(); return }
+    if (e.key === 'Escape') {
+      digitBuffer = ''
+      if (digitTimer !== undefined) clearTimeout(digitTimer)
+      digitTimer = undefined
+      return
+    }
+    if (e.key === 'Home') { e.preventDefault(); applyCount(SLIDER_MIN); return }
+    if (e.key === 'End') { e.preventDefault(); applyCount(SLIDER_MAX); return }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); applyCount(Number(colorsSlider.value) + 1); return }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); applyCount(Number(colorsSlider.value) - 1); return }
+  })
+}
+
+/** Draw tick marks at the preset positions, highlighting the current value. */
+function renderTicks() {
+  sliderTicks.innerHTML = ''
+  const span = SLIDER_MAX - SLIDER_MIN
+  const current = Number(colorsSlider.value)
+  for (const v of PRESET_TICKS) {
+    const tick = document.createElement('span')
+    tick.className = 'slider-tick'
+    tick.style.left = `${((v - SLIDER_MIN) / span) * 100}%`
+    tick.title = `${v} colors`
+    if (v === current) tick.classList.add('active')
+    tick.addEventListener('click', () => applyCount(v))
+    const line = document.createElement('span')
+    line.className = 'tick-line'
+    const label = document.createElement('span')
+    label.className = 'tick-label'
+    label.textContent = String(v)
+    tick.append(line, label)
+    sliderTicks.appendChild(tick)
+  }
+}
+
+function setupExports() {
+  btnStl.addEventListener('click', () => {
+    if (!current) return
+    const filename = exportFilename(current, 'stl')
+    triggerDownload(exportStl(current) as unknown as BlobPart, filename, 'model/stl')
+    showStatus(`STL exported — ${filename}`)
+  })
+  btn3mf.addEventListener('click', () => {
+    if (!current) return
+    const filename = exportFilename(current, '3mf')
+    triggerDownload(export3mfFile(current, filename.slice(0, -4)) as unknown as BlobPart, filename, 'model/3mf')
+    showStatus(`3MF exported — ${filename} (colors + print order in metadata).`)
+  })
+}
+
+setupTheme()
+setupDropZone()
+bindInputs()
+setupExports()
+renderTicks()
