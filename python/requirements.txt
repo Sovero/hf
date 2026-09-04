@@ -1,0 +1,7 @@
+numpy>=1.24
+Pillow>=10.0
+# Optional (enables CLAHE and small-region cleanup):
+scikit-image>=0.21
+# Optional (enables the --auto-palette k-means path):
+scikit-learn>=1.3
+pytest>=7
