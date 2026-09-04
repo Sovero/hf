@@ -32,11 +32,11 @@ const MIN_SWAPS_WARN = 12
 /**
  * Analyze a finished pipeline result for 3D-printability concerns.
  *
- * The geometry is a per-column stepped relief: every column is solid from the
- * base up and all walls are vertical (≤90°), so higher layers always rest on
- * material below — true overhangs cannot occur and supports are never needed.
- * The real risks are thin color bands, feature resolution vs the nozzle, the
- * number of manual filament changes, and fragile isolated regions.
+ * The geometry is a per-column relief: every column is solid from the base up
+ * and all walls are vertical (≤90°), so higher layers always rest on material
+ * below — true overhangs cannot occur and supports are never needed. The real
+ * risks are thin color bands, feature resolution vs the nozzle, the number of
+ * manual filament changes, and fragile isolated regions.
  */
 export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): PrintabilityReport {
   const checks: PrintabilityCheck[] = []
@@ -58,7 +58,8 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
     if (pos[i + 1] > heightMm) heightMm = pos[i + 1]
   }
 
-  const bandMm = n > 1 ? (maxH - minH) / (n - 1) : maxH - minH
+  // Each filament band owns 1/N of the relief height (base..max).
+  const bandMm = n > 1 ? (maxH - minH) / n : maxH - minH
   const layersPerBand = bandMm / LAYER_MM
   const totalLayers = maxH / LAYER_MM
   const swaps = n - 1

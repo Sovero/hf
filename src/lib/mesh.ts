@@ -19,6 +19,11 @@ type Pt3 = [number, number, number]
  *
  * Geometry: X spans `settings.widthMm`, Y spans `settings.heightMm`,
  * Z is the print direction (up). 1 unit = 1 mm.
+ *
+ * Orientation: row 0 of the input image is the *top* of the photo. It is
+ * mirrored to the far (max-Y) edge of the model so that the printed top face,
+ * viewed like a picture lying flat on the bed, matches the original image
+ * instead of appearing vertically flipped.
  */
 export function buildMesh(
   field: HeightField,
@@ -30,14 +35,25 @@ export function buildMesh(
   const dx = settings.widthMm / W
   const dy = settings.heightMm / H
 
+  // Mirror rows vertically (row r ↔ row H-1-r): the mesh is built from the
+  // mirrored copies so all geometry/winding logic below stays untouched.
+  const values = new Float32Array(field.values.length)
+  for (let r = 0; r < H; r++) {
+    values.set(field.values.subarray(r * W, (r + 1) * W), (H - 1 - r) * W)
+  }
+  const colorsMap = new Uint8Array(cellColors.length)
+  for (let r = 0; r < H; r++) {
+    colorsMap.set(cellColors.subarray(r * W, (r + 1) * W), (H - 1 - r) * W)
+  }
+
   const positions: number[] = []
   const colors: number[] = []
 
   const heightAt = (i: number, j: number): number | null =>
-    i >= 0 && j >= 0 && i < W && j < H ? field.values[j * W + i] : null
+    i >= 0 && j >= 0 && i < W && j < H ? values[j * W + i] : null
 
   const colorAt = (i: number, j: number): RGB =>
-    i >= 0 && j >= 0 && i < W && j < H ? (palette[cellColors[j * W + i]] ?? GRAY) : GRAY
+    i >= 0 && j >= 0 && i < W && j < H ? (palette[colorsMap[j * W + i]] ?? GRAY) : GRAY
 
   /** Emit one triangle, oriented so its normal points toward (nx, ny, nz). */
   const pushTri = (a: Pt3, b: Pt3, c: Pt3, color: RGB, nx: number, ny: number, nz: number) => {
@@ -64,9 +80,11 @@ export function buildMesh(
   }
 
   // ---- Top faces (normal +Z) ----
+  // Read from the mirrored `values` array (same source the walls use), so the
+  // top face of every cell lands exactly where its walls expect it.
   for (let j = 0; j < H; j++) {
     for (let i = 0; i < W; i++) {
-      const z = field.values[j * W + i]
+      const z = values[j * W + i]
       pushQuad(
         [i * dx, j * dy, z],
         [(i + 1) * dx, j * dy, z],

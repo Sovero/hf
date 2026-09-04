@@ -1,24 +1,25 @@
 import type { HeightField, PrintSettings, QuantizedImage } from './types'
 
 /**
- * Turn palette indices into per-pixel heights (mm).
+ * Turn per-pixel relief positions into a height field in mm.
  *
- * Palette is ordered darkest → lightest (index 0 = darkest).
- * With darkIsTall, the darkest color is the tallest band (printed last,
- * on top — classic HueForge). With lightIsTall (darkIsTall=false), the
- * lightest color is tallest.
+ * `QuantizedImage.luminance` already holds a normalized 0..1 relief position
+ * per pixel (0 = printed first, at the base; 1 = tallest, printed last),
+ * derived from image brightness. This maps it linearly into the print height
+ * range, producing a smooth brightness relief — exactly the way a HueForge
+ * style model encodes an image: darker image areas sit lower, brighter ones
+ * rise, and the filament color of each pixel is decided by the height band
+ * its column reaches (so every printed layer has a single color).
  */
 export function buildHeightField(image: QuantizedImage, settings: PrintSettings): HeightField {
-  const n = image.palette.length
+  const { width, height, luminance } = image
   const usable = settings.maxHeightMm - settings.baseMm
-  const step = n > 1 ? usable / (n - 1) : 0
-  const values = new Float32Array(image.width * image.height)
+  const values = new Float32Array(width * height)
 
   for (let i = 0; i < values.length; i++) {
-    const idx = image.indexMap[i]
-    const band = settings.darkIsTall ? n - 1 - idx : idx
-    values[i] = settings.baseMm + band * step
+    const t = luminance[i]
+    values[i] = settings.baseMm + usable * (Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0)
   }
 
-  return { width: image.width, height: image.height, values }
+  return { width, height, values }
 }

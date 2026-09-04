@@ -96,12 +96,12 @@ export const dict: Dict = {
 
   // ---- depth mode ----
   depthDark: {
-    en: 'Dark = tall (shadows on top)',
-    ru: 'Тёмный = высокий (тени сверху)',
+    en: 'Dark image areas stand tallest (printed last, on top)',
+    ru: 'Тёмные участки изображения — самые высокие (печатаются последними, сверху)',
   },
   depthLight: {
-    en: 'Light = tall (highlights on top)',
-    ru: 'Светлый = высокий (светлые тона сверху)',
+    en: 'Bright image areas stand tallest (highlights printed last, on top)',
+    ru: 'Светлые участки изображения — самые высокие (печатаются последними, сверху)',
   },
 
   // ---- size & layers ----
@@ -111,8 +111,8 @@ export const dict: Dict = {
   paramMax: { en: 'Max height', ru: 'Макс. высота' },
   unitMm: { en: 'mm', ru: 'мм' },
   sizeHint: {
-    en: 'Colors are stacked as equal bands from base to max height.',
-    ru: 'Цвета складываются равными полосами от основания до максимальной высоты.',
+    en: 'Pixel brightness sets the height; each of the N colors owns one height band from base to max, so a color switch always happens between whole layers — one color per printed layer.',
+    ru: 'Высота зависит от яркости пикселя; каждый из N цветов занимает одну полосу высоты от основания до максимума, поэтому смена цвета всегда происходит между целыми слоями — один цвет на слой.',
   },
 
   // ---- printability ----
@@ -124,14 +124,22 @@ export const dict: Dict = {
     en: '{colors} · export includes print order',
     ru: '{colors} · в файл включён порядок печати',
   },
+  paletteChange: {
+    en: 'Change this color (pick a filament color)',
+    ru: 'Изменить этот цвет (выберите цвет филамента)',
+  },
+  paletteReset: {
+    en: 'Reset to the auto-detected color',
+    ru: 'Вернуть автоматически подобранный цвет',
+  },
 
   // ---- export ----
   btnStl: { en: 'Download STL', ru: 'Скачать STL' },
   btn3mf: { en: 'Download 3MF', ru: 'Скачать 3MF' },
   exportStlDone: { en: 'STL exported — {filename}', ru: 'STL экспортирован — {filename}' },
   export3mfDone: {
-    en: '3MF exported — {filename} (colors + print order in metadata).',
-    ru: '3MF экспортирован — {filename} (цвета и порядок печати в метаданных).',
+    en: '3MF exported — {filename} (Bambu Studio project with color swaps).',
+    ru: '3MF экспортирован — {filename} (проект Bambu Studio со сменами цвета).',
   },
 
   // ---- viewers ----

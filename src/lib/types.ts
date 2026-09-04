@@ -12,12 +12,21 @@ export interface LoadedImage {
   rgba: Uint8ClampedArray
 }
 
-/** Result of color quantization: a palette plus per-pixel palette indices. */
+/**
+ * Result of quantization: the ordered filament palette plus, for every pixel,
+ * which filament band it belongs to and its normalized relief position.
+ */
 export interface QuantizedImage {
-  /** Palette sorted darkest → lightest. */
+  /** Palette sorted darkest → lightest (band colors, printable order dark→light). */
   palette: RGB[]
-  /** Per-pixel index into `palette`. */
+  /** Per-pixel index into `palette` — the color its top surface will show. */
   indexMap: Uint8Array
+  /**
+   * Per-pixel relief position 0..1 along the print height (0 = printed first,
+   * at the base; 1 = printed last, tallest). Brightness-derived: with
+   * darkIsTall it is inverted so dark image areas stand the tallest.
+   */
+  luminance: Float32Array
   width: number
   height: number
 }

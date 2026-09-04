@@ -1,7 +1,7 @@
 import type { HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
 import { loadImageFromFile } from './loadImage'
 import type { Lang } from '../i18n'
-import { quantize, mapToPalette } from './quantize'
+import { quantize, mapToLuminanceBands } from './quantize'
 import { sortByLuminance } from './palette'
 import { buildHeightField } from './heightmap'
 import { buildMesh } from './mesh'
@@ -11,7 +11,11 @@ import { generate3mf } from './export3mf'
 /** One palette entry with its role in the print order. */
 export interface PaletteEntry {
   color: RGB
-  /** Z-height of this color's top surface (mm). */
+  /**
+   * Z-height of the top of this filament's height band (mm). Color changes
+   * happen here: below this height the whole model prints in this band's
+   * filament, above it in the next one — so each printed layer is one color.
+   */
   topZMm: number
   /** 1 = first filament loaded, N = last (top) color. */
   printOrder: number
@@ -37,15 +41,16 @@ export interface PipelineOptions {
 }
 
 /**
- * Full pipeline: image → quantize → luminance-sorted palette → heights → mesh.
- * Palette is always ordered darkest → lightest; band index depends on depth mode.
+ * Full pipeline: image → quantize palette → luminance bands → relief heights
+ * → mesh. Brightness decides each pixel's height, and its filament band is
+ * the height band its column reaches; every printed layer is one color.
  */
 export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang = 'en'): Promise<PipelineResult> {
   const image = await loadImageFromFile(file, lang)
 
   const rawPalette = quantize(image.rgba, opts.numColors)
   const palette = sortByLuminance(rawPalette)
-  const quantized = mapToPalette(image.rgba, palette, image.width, image.height)
+  const quantized = mapToLuminanceBands(image.rgba, palette, image.width, image.height, opts.darkIsTall)
 
   return finishPipeline(image, quantized, opts)
 }
@@ -67,12 +72,13 @@ export function finishPipeline(
   const mesh = buildMesh(field, quantized.indexMap, quantized.palette, settings)
 
   const n = quantized.palette.length
-  const step = n > 1 ? (settings.maxHeightMm - settings.baseMm) / (n - 1) : 0
-  const palette: PaletteEntry[] = quantized.palette.map((color, idx) => ({
-    color,
-    topZMm: settings.baseMm + (settings.darkIsTall ? n - 1 - idx : idx) * step,
-    printOrder: settings.darkIsTall ? n - idx : idx + 1,
-  }))
+  const usable = settings.maxHeightMm - settings.baseMm
+  // Each filament owns one contiguous block of the total height (base..max), so
+  // a tool change at its top always lands on a whole-layer boundary.
+  const palette: PaletteEntry[] = quantized.palette.map((color, idx) => {
+    const printOrder = settings.darkIsTall ? n - idx : idx + 1
+    return { color, topZMm: settings.baseMm + (usable * printOrder) / n, printOrder }
+  })
 
   return { image, quantized, palette, field, mesh, darkIsTall: opts.darkIsTall }
 }
@@ -105,5 +111,10 @@ export function export3mfFile(result: PipelineResult, name: string): Uint8Array 
     PaletteHex: result.quantized.palette.map((c) => `${c.r.toString(16).padStart(2, '0')}${c.g.toString(16).padStart(2, '0')}${c.b.toString(16).padStart(2, '0')}`).join(','),
     PrintOrder: result.palette.map((p) => p.printOrder).join(','),
   }
-  return generate3mf({ mesh: result.mesh, modelName: name, printSettings: hints })
+  return generate3mf({
+    mesh: result.mesh,
+    modelName: name,
+    bands: result.palette,
+    printSettings: hints,
+  })
 }

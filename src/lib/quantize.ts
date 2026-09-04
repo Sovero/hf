@@ -110,40 +110,73 @@ export function quantize(rgba: Uint8ClampedArray, numColors: number): RGB[] {
   return palette
 }
 
-/** Squared perceptual-ish distance between two colors. */
-function colorDistanceSq(a: RGB, b: RGB): number {
-  const rmean = (a.r + b.r) / 2
-  const dr = a.r - b.r
-  const dg = a.g - b.g
-  const db = a.b - b.b
-  // Redmean approximation of CIE76.
-  return ((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db)
+/** Rec.709 luma (0..1) of the RGB triple starting at rgba[i*4]. */
+function pixelLuma(rgba: Uint8ClampedArray, i: number): number {
+  const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2]
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+
+/** 1st / 99th percentile of an image's luma distribution (auto contrast). */
+function contrastRange(raw: Float32Array): [number, number] {
+  const HIST = 256
+  const hist = new Uint32Array(HIST)
+  for (let i = 0; i < raw.length; i++) {
+    hist[Math.min(HIST - 1, Math.max(0, Math.round(raw[i] * (HIST - 1))))]++
+  }
+  const total = raw.length
+  const target = (pct: number) => Math.max(0, Math.round(total * pct))
+  let lo = 0
+  let acc = 0
+  for (let h = 0; h < HIST; h++) {
+    acc += hist[h]
+    if (acc > target(0.01)) { lo = h / (HIST - 1); break }
+  }
+  let hi = 1
+  acc = 0
+  for (let h = HIST - 1; h >= 0; h--) {
+    acc += hist[h]
+    if (acc > target(0.01)) { hi = h / (HIST - 1); break }
+  }
+  if (hi - lo < 1 / (HIST - 1)) {
+    // Nearly uniform image — fall back to the full 0..1 range.
+    return [0, 1]
+  }
+  return [lo, hi]
 }
 
 /**
- * Map every pixel to its nearest palette color.
- * Returns a QuantizedImage with the palette sorted darkest → lightest.
+ * Assign every pixel to one of `palette.length` luminance bands.
+ *
+ * HueForge-style: a pixel's brightness decides how tall its column is, and
+ * therefore which filament band its top surface ends in. The palette (sorted
+ * darkest → lightest) provides the band colors in dark → light print order
+ * when light pixels are the tallest; with `darkIsTall` the darkest image
+ * areas stand the tallest instead and the band colors follow light → dark.
  */
-export function mapToPalette(rgba: Uint8ClampedArray, palette: RGB[], width: number, height: number): QuantizedImage {
+export function mapToLuminanceBands(
+  rgba: Uint8ClampedArray,
+  palette: RGB[],
+  width: number,
+  height: number,
+  darkIsTall: boolean,
+): QuantizedImage {
   const pixelCount = width * height
-  const indexMap = new Uint8Array(pixelCount)
-  const paletteIndex = new Array(palette.length)
-  for (let i = 0; i < palette.length; i++) paletteIndex[i] = i
+  const n = Math.max(1, palette.length)
+  const raw = new Float32Array(pixelCount)
+  for (let i = 0; i < pixelCount; i++) raw[i] = pixelLuma(rgba, i)
+  const [lo, hi] = contrastRange(raw)
+  const span = Math.max(1e-6, hi - lo)
 
+  const indexMap = new Uint8Array(pixelCount)
+  const luminance = new Float32Array(pixelCount)
   for (let i = 0; i < pixelCount; i++) {
-    const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2]
-    let best = 0
-    let bestDist = Infinity
-    for (const idx of paletteIndex) {
-      const c = palette[idx]
-      const d = colorDistanceSq({ r, g, b }, c)
-      if (d < bestDist) {
-        bestDist = d
-        best = idx
-      }
-    }
-    indexMap[i] = best
+    let x = Math.min(1, Math.max(0, (raw[i] - lo) / span))
+    if (darkIsTall) x = 1 - x
+    luminance[i] = x
+    const band = Math.min(n - 1, Math.floor(x * n)) // 0 = printed first (bottom)
+    // Bottom bands carry the darkest palette color unless dark is tallest.
+    indexMap[i] = darkIsTall ? n - 1 - band : band
   }
 
-  return { palette, indexMap, width, height }
+  return { palette, indexMap, luminance, width, height }
 }

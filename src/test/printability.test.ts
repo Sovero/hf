@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { quantize, mapToPalette } from '../lib/quantize'
+import { quantize, mapToLuminanceBands } from '../lib/quantize'
 import { sortByLuminance } from '../lib/palette'
 import { finishPipeline, type PipelineResult } from '../lib/pipeline'
 import { analyzePrintability } from '../lib/printability'
@@ -40,7 +40,7 @@ type TestSettings = PrintSettings & { numColors: 2 | 4 | 8 | 12 | 16 | 24 }
 function run(image: { width: number; height: number; rgba: Uint8ClampedArray }, settings: TestSettings): PipelineResult {
   const rawPalette = quantize(image.rgba, settings.numColors)
   const palette = sortByLuminance(rawPalette)
-  const q = mapToPalette(image.rgba, palette, image.width, image.height)
+  const q = mapToLuminanceBands(image.rgba, palette, image.width, image.height, settings.darkIsTall)
   return finishPipeline(image, q, {
     numColors: settings.numColors,
     darkIsTall: settings.darkIsTall,
