@@ -27,6 +27,13 @@ export interface QuantizedImage {
    * darkIsTall it is inverted so dark image areas stand the tallest.
    */
   luminance: Float32Array
+  /**
+   * Top of each height band as a fraction of the usable height (base..max),
+   * bottom → top. Bands are equal-population: band `b` owns roughly 1/N of
+   * the image's pixels, so every filament color covers at least ~100/N % of
+   * the print. The last entry is always 1 (the tallest point).
+   */
+  bandTops: number[]
   width: number
   height: number
 }
@@ -61,4 +68,6 @@ export interface PrintSettings {
   maxHeightMm: number
   /** Whether the darkest color is tallest (printed last, on top). */
   darkIsTall: boolean
+  /** Chosen print layer height in mm (used for swap-layer math). */
+  layerMm: number
 }

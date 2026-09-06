@@ -1,4 +1,5 @@
 import type { PipelineResult } from './pipeline'
+import { MIN_REGION_CELLS } from './quantize'
 import { t, word, mmOf, type Lang } from '../i18n'
 
 export type CheckLevel = 'ok' | 'warn' | 'fail'
@@ -16,12 +17,8 @@ export interface PrintabilityReport {
   warnings: number
 }
 
-/** Typical FDM layer height (mm). */
-const LAYER_MM = 0.2
 /** Typical nozzle diameter (mm). */
 const NOZZLE_MM = 0.4
-/** A connected region smaller than 3×3 cells counts as a fragile speck. */
-const MIN_COMPONENT_CELLS = 9
 /** Warn when at least this many specks appear. */
 const MIN_SPECKS = 5
 /** ...or when specks cover this fraction of the image. */
@@ -43,13 +40,6 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
 
   // ---- Geometry facts derived from the result itself ----
   const n = result.quantized.palette.length
-  let maxH = 0
-  let minH = Infinity
-  const values = result.field.values
-  for (let i = 0; i < values.length; i++) {
-    if (values[i] > maxH) maxH = values[i]
-    if (values[i] < minH) minH = values[i]
-  }
   let widthMm = 0
   let heightMm = 0
   const pos = result.mesh.positions
@@ -58,10 +48,15 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
     if (pos[i + 1] > heightMm) heightMm = pos[i + 1]
   }
 
-  // Each filament band owns 1/N of the relief height (base..max).
-  const bandMm = n > 1 ? (maxH - minH) / n : maxH - minH
-  const layersPerBand = bandMm / LAYER_MM
-  const totalLayers = maxH / LAYER_MM
+  // The layer height the user chose drives all band/layer math. Each filament
+  // band owns 1/N of the usable relief height (base..max), and the model's
+  // total height is the user's chosen max — band tops are snapped around it,
+  // so the ideal band size is what determines thin-band risk.
+  const layerMm = result.settings.layerMm
+  const usable = result.settings.maxHeightMm - result.settings.baseMm
+  const bandMm = n > 1 ? usable / n : usable
+  const layersPerBand = bandMm / layerMm
+  const totalLayers = result.settings.maxHeightMm / layerMm
   const swaps = n - 1
   // Finest resolvable detail is limited by the finer axis: if either axis
   // produces cells below the nozzle width, detail on that axis will smear.
@@ -75,12 +70,12 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
   const regionsText = (v: number) => word(lang, v, 'regions')
 
   // ---- 1. Color band thickness ----
-  if (bandMm < LAYER_MM) {
+  if (bandMm < layerMm) {
     checks.push({
       id: 'bands',
       level: 'fail',
       title: str('pbBandsTitleFail'),
-      detail: str('pbBandsDetailFail', { band: mm(bandMm), layer: mm(LAYER_MM) }),
+      detail: str('pbBandsDetailFail', { band: mm(bandMm), layer: mm(layerMm) }),
     })
   } else if (bandMm < NOZZLE_MM) {
     checks.push({
@@ -90,7 +85,7 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
       detail: str('pbBandsDetailWarn', {
         band: mm(bandMm),
         layersText: layersText(layersPerBand),
-        layer: mm(LAYER_MM),
+        layer: mm(layerMm),
         nozzle: mm(NOZZLE_MM),
       }),
     })
@@ -102,18 +97,18 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
       detail: str('pbBandsDetailOk', {
         band: mm(bandMm),
         layersText: layersText(layersPerBand),
-        layer: mm(LAYER_MM),
+        layer: mm(layerMm),
       }),
     })
   }
 
   // ---- 2. Feature resolution vs nozzle ----
-  if (cellMm < LAYER_MM) {
+  if (cellMm < layerMm) {
     checks.push({
       id: 'resolution',
       level: 'fail',
       title: str('pbResTitleFail'),
-      detail: str('pbResDetailFail', { cell: mm(cellMm), layer: mm(LAYER_MM) }),
+      detail: str('pbResDetailFail', { cell: mm(cellMm), layer: mm(layerMm) }),
     })
   } else if (cellMm < NOZZLE_MM) {
     checks.push({
@@ -184,11 +179,11 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
 }
 
 /**
- * Count connected same-color regions smaller than MIN_COMPONENT_CELLS cells
+ * Count connected same-color regions smaller than MIN_REGION_CELLS cells
  * (4-connectivity). These are quantization speckles / tiny islands that print
  * poorly — the closest this geometry comes to "unsupported" features.
  */
-function findIsolatedRegions(indexMap: Uint8Array, width: number, height: number): { specks: number; speckCells: number } {
+export function findIsolatedRegions(indexMap: Uint8Array, width: number, height: number): { specks: number; speckCells: number } {
   const total = width * height
   const visited = new Uint8Array(total)
   const stack: number[] = []
@@ -223,7 +218,7 @@ function findIsolatedRegions(indexMap: Uint8Array, width: number, height: number
         stack.push(p + width)
       }
     }
-    if (size < MIN_COMPONENT_CELLS) {
+    if (size < MIN_REGION_CELLS) {
       specks++
       speckCells += size
     }

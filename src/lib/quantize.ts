@@ -145,38 +145,212 @@ function contrastRange(raw: Float32Array): [number, number] {
 }
 
 /**
- * Assign every pixel to one of `palette.length` luminance bands.
+ * Assign every pixel to one of `numColors` luminance bands and derive the
+ * band colors from the image itself.
  *
  * HueForge-style: a pixel's brightness decides how tall its column is, and
- * therefore which filament band its top surface ends in. The palette (sorted
- * darkest → lightest) provides the band colors in dark → light print order
- * when light pixels are the tallest; with `darkIsTall` the darkest image
- * areas stand the tallest instead and the band colors follow light → dark.
+ * therefore which filament band its top surface ends in. Band 0 covers the
+ * lowest relief slice and is printed first (bottom); its pixels are the
+ * darkest (or, with `darkIsTall`, the brightest — the relief is inverted).
+ *
+ * Bands are equal-population, not equal-width: pixels are ordered by relief
+ * position and each band takes the next slice of ~1/N of the pixels. This
+ * guarantees every filament color covers at least ~100/N % of the print's
+ * painted area, whatever the image's brightness histogram looks like.
+ *
+ * The palette is NOT a separate color quantization: each band's color is the
+ * average color of the pixels assigned to it, so a colorful image keeps the
+ * hues its brightness slices actually contain. Because Rec.709 luma is
+ * linear, band means are automatically ordered dark → light, and empty bands
+ * (fewer pixels than colors) inherit the color of the nearest populated band.
  */
+/** Smallest connected same-band region kept as-is (3×3 cells). */
+export const MIN_REGION_CELLS = 9
+
+/** Equal-population band labels for a relief array (0 = bottom band). */
+function bandLabels(x: Float32Array, n: number, darkIsTall: boolean, pixelCount: number): Uint8Array {
+  const HIST = 256
+  const hist = new Uint32Array(HIST)
+  for (let i = 0; i < pixelCount; i++) {
+    hist[Math.min(HIST - 1, Math.round(x[i] * (HIST - 1)))]++
+  }
+  const cum = new Uint32Array(HIST + 1)
+  for (let h = 0; h < HIST; h++) cum[h + 1] = cum[h] + hist[h]
+  const indexMap = new Uint8Array(pixelCount)
+  const rankInBin = new Uint32Array(HIST)
+  for (let i = 0; i < pixelCount; i++) {
+    const bin = Math.min(HIST - 1, Math.round(x[i] * (HIST - 1)))
+    const rank = cum[bin] + rankInBin[bin]++
+    const band = Math.min(n - 1, Math.floor((rank * n) / pixelCount))
+    indexMap[i] = darkIsTall ? n - 1 - band : band
+  }
+  return indexMap
+}
+
+/** Equal-population band boundaries (fractions of the relief height, 0..1). */
+function bandTopsFrom(x: Float32Array, n: number, pixelCount: number): number[] {
+  const HIST = 256
+  const hist = new Uint32Array(HIST)
+  for (let i = 0; i < pixelCount; i++) {
+    hist[Math.min(HIST - 1, Math.round(x[i] * (HIST - 1)))]++
+  }
+  const cum = new Uint32Array(HIST + 1)
+  for (let h = 0; h < HIST; h++) cum[h + 1] = cum[h] + hist[h]
+  const bandTops: number[] = new Array(n)
+  for (let b = 0; b < n - 1; b++) {
+    const need = ((b + 1) * pixelCount) / n
+    let h = 0
+    while (h < HIST && cum[h] < need) h++
+    bandTops[b] = Math.min(1, h / HIST)
+  }
+  bandTops[n - 1] = 1
+  return bandTops
+}
+
+/**
+ * Flatten fragile isolated regions of a relief field.
+ *
+ * Finds connected components of the same band smaller than `minArea` pixels
+ * (4-connectivity) and replaces each one's relief position with the mean of
+ * its outside neighbors, so a thin tower or a speck merges into the local
+ * ground level. Bands, colors and heights are re-derived afterwards, keeping
+ * a pixel's color a pure function of its height. Returns a new array.
+ */
+export function removeIsolatedRegions(
+  x: Float32Array,
+  labels: Uint8Array,
+  width: number,
+  height: number,
+  minArea: number = MIN_REGION_CELLS,
+): Float32Array {
+  const total = width * height
+  const out = new Float32Array(x)
+  const visited = new Uint8Array(total)
+  const stack: number[] = []
+  const comp: number[] = []
+
+  for (let start = 0; start < total; start++) {
+    if (visited[start]) continue
+    const color = labels[start]
+    comp.length = 0
+    stack.length = 0
+    stack.push(start)
+    visited[start] = 1
+    while (stack.length > 0) {
+      const p = stack.pop()!
+      comp.push(p)
+      const px = p % width
+      if (px > 0 && !visited[p - 1] && labels[p - 1] === color) {
+        visited[p - 1] = 1
+        stack.push(p - 1)
+      }
+      if (px < width - 1 && !visited[p + 1] && labels[p + 1] === color) {
+        visited[p + 1] = 1
+        stack.push(p + 1)
+      }
+      if (p >= width && !visited[p - width] && labels[p - width] === color) {
+        visited[p - width] = 1
+        stack.push(p - width)
+      }
+      if (p < total - width && !visited[p + width] && labels[p + width] === color) {
+        visited[p + width] = 1
+        stack.push(p + width)
+      }
+    }
+
+    if (comp.length < minArea) {
+      // 4-neighbors with a different label sit outside the component (same
+      // label + adjacency is exactly what defines the component).
+      let sum = 0
+      let cnt = 0
+      for (const p of comp) {
+        const px = p % width
+        if (px > 0 && labels[p - 1] !== color) { sum += x[p - 1]; cnt++ }
+        if (px < width - 1 && labels[p + 1] !== color) { sum += x[p + 1]; cnt++ }
+        if (p >= width && labels[p - width] !== color) { sum += x[p - width]; cnt++ }
+        if (p < total - width && labels[p + width] !== color) { sum += x[p + width]; cnt++ }
+      }
+      if (cnt > 0) {
+        const mean = sum / cnt
+        for (const p of comp) out[p] = mean
+      }
+    }
+  }
+
+  return out
+}
+
 export function mapToLuminanceBands(
   rgba: Uint8ClampedArray,
-  palette: RGB[],
+  numColors: number,
   width: number,
   height: number,
   darkIsTall: boolean,
 ): QuantizedImage {
   const pixelCount = width * height
-  const n = Math.max(1, palette.length)
+  const n = Math.max(1, numColors)
   const raw = new Float32Array(pixelCount)
   for (let i = 0; i < pixelCount; i++) raw[i] = pixelLuma(rgba, i)
   const [lo, hi] = contrastRange(raw)
   const span = Math.max(1e-6, hi - lo)
 
-  const indexMap = new Uint8Array(pixelCount)
-  const luminance = new Float32Array(pixelCount)
+  // Per-pixel relief position x (0 = base, 1 = tallest).
+  const x = new Float32Array(pixelCount)
   for (let i = 0; i < pixelCount; i++) {
-    let x = Math.min(1, Math.max(0, (raw[i] - lo) / span))
-    if (darkIsTall) x = 1 - x
-    luminance[i] = x
-    const band = Math.min(n - 1, Math.floor(x * n)) // 0 = printed first (bottom)
-    // Bottom bands carry the darkest palette color unless dark is tallest.
-    indexMap[i] = darkIsTall ? n - 1 - band : band
+    let v = Math.min(1, Math.max(0, (raw[i] - lo) / span))
+    if (darkIsTall) v = 1 - v
+    x[i] = v
   }
 
-  return { palette, indexMap, luminance, width, height }
+  // Automatically flatten fragile isolated regions (same-band specks under
+  // 3×3 cells) into their surroundings, then re-derive bands and colors from
+  // the cleaned relief — a pixel's color stays a pure function of its height.
+  // Images too small to contain a 3×3 neighborhood are left untouched: there
+  // every pixel is a "speck" and the relief itself is legitimate detail.
+  const canClean = width >= 3 && height >= 3
+  const labels0 = canClean ? bandLabels(x, n, darkIsTall, pixelCount) : null
+  const relief = canClean
+    ? removeIsolatedRegions(x, labels0!, width, height, MIN_REGION_CELLS)
+    : x
+
+  // Assign bands by rank on the cleaned relief: each band takes the next
+  // slice of ⌊count/n⌋ or ⌈count/n⌉ pixels, so no color covers a
+  // negligible area and no speck can survive.
+  const indexMap = bandLabels(relief, n, darkIsTall, pixelCount)
+  const bandTops = bandTopsFrom(relief, n, pixelCount)
+
+  // Band colors = mean color of the pixels in each slice (dark → light).
+  const bandSums = Array.from({ length: n }, () => [0, 0, 0] as [number, number, number])
+  const bandCounts = new Uint32Array(n)
+  for (let i = 0; i < pixelCount; i++) {
+    const slice = darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
+    const p = i * 4
+    bandSums[slice][0] += rgba[p]
+    bandSums[slice][1] += rgba[p + 1]
+    bandSums[slice][2] += rgba[p + 2]
+    bandCounts[slice]++
+  }
+
+  // Palette index k (dark → light) draws its color from the slice that
+  // matches its position in the depth mode.
+  const palette: RGB[] = new Array(n)
+  for (let k = 0; k < n; k++) {
+    const b = darkIsTall ? n - 1 - k : k
+    if (bandCounts[b] === 0) continue
+    const s = bandSums[b]
+    const c = bandCounts[b]
+    palette[k] = { r: Math.round(s[0] / c), g: Math.round(s[1] / c), b: Math.round(s[2] / c) }
+  }
+  // Empty palette slots (fewer pixels than colors) inherit the color of the
+  // nearest populated slot, preferring the darker side.
+  for (let k = 0; k < n; k++) {
+    if (palette[k]) continue
+    for (let d = 1; d < n; d++) {
+      if (k - d >= 0 && palette[k - d]) { palette[k] = palette[k - d]; break }
+      if (k + d < n && palette[k + d]) { palette[k] = palette[k + d]; break }
+    }
+    palette[k] ??= { r: 0, g: 0, b: 0 }
+  }
+
+  return { palette, indexMap, luminance: relief, bandTops, width, height }
 }

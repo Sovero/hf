@@ -28,15 +28,31 @@
           <div class="banner-theme-actions" role="group" aria-label="Theme">
             <button type="button" class="banner-theme-btn" data-theme="dark" aria-pressed="false">
               <span class="banner-swatch" data-swatch="dark"></span><span data-i18n="themeDark">Dark</span>
+              <span class="theme-tip" role="tooltip" hidden>
+                <span class="theme-tip-name" data-i18n="themeDark">Dark</span>
+                <span class="theme-tip-palette"></span>
+              </span>
             </button>
             <button type="button" class="banner-theme-btn" data-theme="light" aria-pressed="false">
               <span class="banner-swatch" data-swatch="light"></span><span data-i18n="themeLight">Light</span>
+              <span class="theme-tip" role="tooltip" hidden>
+                <span class="theme-tip-name" data-i18n="themeLight">Light</span>
+                <span class="theme-tip-palette"></span>
+              </span>
             </button>
             <button type="button" class="banner-theme-btn" data-theme="nord" aria-pressed="false">
               <span class="banner-swatch" data-swatch="nord"></span><span>Nord</span>
+              <span class="theme-tip" role="tooltip" hidden>
+                <span class="theme-tip-name">Nord</span>
+                <span class="theme-tip-palette"></span>
+              </span>
             </button>
             <button type="button" class="banner-theme-btn" data-theme="solar" aria-pressed="false">
               <span class="banner-swatch" data-swatch="solar"></span><span>Solar</span>
+              <span class="theme-tip" role="tooltip" hidden>
+                <span class="theme-tip-name">Solar</span>
+                <span class="theme-tip-palette"></span>
+              </span>
             </button>
           </div>
         </div>
@@ -105,6 +121,7 @@
             <label><span data-i18n="paramHeight">Height</span> <input id="height-mm" type="number" value="150" min="20" max="500" step="1" /> <span data-i18n="unitMm">mm</span></label>
             <label><span data-i18n="paramBase">Base</span> <input id="base-mm" type="number" value="0.8" min="0" max="5" step="0.1" /> <span data-i18n="unitMm">mm</span></label>
             <label><span data-i18n="paramMax">Max height</span> <input id="max-mm" type="number" value="8" min="2" max="40" step="0.1" /> <span data-i18n="unitMm">mm</span></label>
+            <label><span data-i18n="paramLayer">Layer height</span> <input id="layer-mm" type="number" value="0.2" min="0.04" max="0.6" step="0.02" /> <span data-i18n="unitMm">mm</span></label>
           </div>
           <p class="muted small" data-i18n="sizeHint">Colors are stacked as equal bands from base to max height.</p>
         </section>
@@ -120,6 +137,7 @@
           <div class="export-buttons">
             <button id="btn-stl" disabled data-i18n="btnStl">Download STL</button>
             <button id="btn-3mf" disabled data-i18n="btn3mf">Download 3MF</button>
+            <button id="btn-describe" disabled data-i18n="btnDescribe">Download Describe.txt</button>
           </div>
           <p id="export-status" class="muted small"></p>
         </section>

@@ -1,9 +1,11 @@
 import './styles.css'
-import { runPipeline, exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
+import { runPipeline, finishPipeline, exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
+import { describeExport } from '../lib/describe'
 import { analyzePrintability } from '../lib/printability'
-import { rgbToHex, nearestFilament } from '../lib/palette'
+import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
+import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
-import { t, word, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
+import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector(sel)
@@ -29,6 +31,7 @@ const printabilitySummary = $<HTMLParagraphElement>('#printability-summary')
 const exportStatus = $<HTMLParagraphElement>('#export-status')
 const btnStl = $<HTMLButtonElement>('#btn-stl')
 const btn3mf = $<HTMLButtonElement>('#btn-3mf')
+const btnDescribe = $<HTMLButtonElement>('#btn-describe')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
 const colorsSlider = $<HTMLInputElement>('#colors-slider')
@@ -42,6 +45,7 @@ const widthInput = $<HTMLInputElement>('#width-mm')
 const heightInput = $<HTMLInputElement>('#height-mm')
 const baseInput = $<HTMLInputElement>('#base-mm')
 const maxInput = $<HTMLInputElement>('#max-mm')
+const layerInput = $<HTMLInputElement>('#layer-mm')
 const viewerEl = $<HTMLDivElement>('#viewer3d')
 const themeSelect = $<HTMLSelectElement>('#theme-select')
 const langSelect = $<HTMLSelectElement>('#lang-select')
@@ -57,6 +61,7 @@ function setProcessing(on: boolean) {
   processingOverlay.hidden = !on
   btnStl.disabled = on
   btn3mf.disabled = on
+  btnDescribe.disabled = on
 }
 
 /** Set the color count, refresh the UI, and reprocess if an image is loaded. */
@@ -65,7 +70,63 @@ function applyCount(v: number) {
   colorsSlider.value = String(clamped)
   colorsValue.value = String(clamped)
   renderTicks()
+  saveSettings()
   if (currentFile) void readFile(currentFile)
+}
+
+// ---- persisted print settings (color count + size), like language/theme ----
+const SETTINGS_KEY = 'hf-settings'
+
+type Settings = {
+  colors: number
+  widthMm: number
+  heightMm: number
+  baseMm: number
+  maxMm: number
+  layerMm: number
+}
+
+/** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
+function clampNum(v: number, lo: number, hi: number, fb: number): number {
+  return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb
+}
+
+/** Read the current UI values and persist them (mirrors readOptions' clamps). */
+function saveSettings() {
+  try {
+    const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
+    const settings: Settings = {
+      colors: Math.round(clampNum(Number(colorsSlider.value), SLIDER_MIN, SLIDER_MAX, 4)),
+      widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
+      heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
+      baseMm,
+      maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
+      layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
+    }
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Apply stored settings to the controls; corrupt/missing data is ignored. */
+function restoreSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    if (!raw) return
+    const s = JSON.parse(raw) as Partial<Settings>
+    const colors = Math.round(clampNum(Number(s.colors), SLIDER_MIN, SLIDER_MAX, 4))
+    const baseMm = clampNum(Number(s.baseMm), 0, 5, 0.8)
+    colorsSlider.value = String(colors)
+    colorsValue.value = String(colors)
+    widthInput.value = String(clampNum(Number(s.widthMm), 20, 500, 150))
+    heightInput.value = String(clampNum(Number(s.heightMm), 20, 500, 150))
+    baseInput.value = String(baseMm)
+    maxInput.value = String(clampNum(Number(s.maxMm), baseMm + 2, 40, 8))
+    layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
+  } catch {
+    /* ignore corrupt settings */
+  }
 }
 
 function readOptions() {
@@ -84,6 +145,7 @@ function readOptions() {
     heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
     baseMm,
     maxHeightMm,
+    layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
   }
 }
 
@@ -101,6 +163,7 @@ async function readFile(file: File) {
     const result = await runPipeline(file, readOptions(), lang)
     if (token !== runToken) return // a newer run superseded this one; it owns the UI
     current = result
+    autoPalette = result.quantized.palette.map((c) => ({ ...c }))
     updateUI()
     setProcessing(false)
     showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
@@ -110,6 +173,7 @@ async function readFile(file: File) {
     current = null
     btnStl.disabled = true
     btn3mf.disabled = true
+    btnDescribe.disabled = true
     printabilityList.innerHTML = ''
     printabilitySummary.textContent = tr('pbDefault')
     showStatus(err instanceof Error ? err.message : String(err), true)
@@ -178,19 +242,51 @@ function setupLangPrompt() {
 
   // Theme swatches: hover/focus peeks at the theme without persisting, click
   // commits it (applies live and saves). Leaving a swatch reverts the peek so
-  // the banner always shows the committed theme again.
+  // the banner always shows the committed theme again. A tooltip above the
+  // swatch names the theme and shows a mini palette of its colors.
   const peekTheme = (theme: string) => applyTheme(theme, false)
   const peeked: HTMLButtonElement[] = []
+
+  // CSS variables sampled for the mini palette. They are read from the live
+  // document, which the peek already recolored to the hovered theme, so the
+  // dots always match the theme being previewed.
+  const THEME_TIP_VARS = ['--accent', '--accent-2', '--bg', '--panel-2', '--text']
+  const tipDot = (v: string) => {
+    const dot = document.createElement('span')
+    dot.className = 'theme-tip-dot'
+    dot.style.background = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888'
+    return dot
+  }
+  const showTip = (b: HTMLButtonElement) => {
+    const tip = b.querySelector<HTMLElement>('.theme-tip')
+    const palette = tip?.querySelector('.theme-tip-palette')
+    if (!tip || !palette) return
+    palette.replaceChildren(...THEME_TIP_VARS.map(tipDot))
+    tip.hidden = false
+  }
+  const hideTip = (b: HTMLButtonElement) => {
+    const tip = b.querySelector<HTMLElement>('.theme-tip')
+    if (tip) tip.hidden = true
+  }
+
   bannerThemeBtns.forEach((b) => {
-    b.addEventListener('mouseenter', () => peekTheme(b.dataset.theme ?? ''))
-    b.addEventListener('mouseleave', () => peekTheme(chosenTheme))
+    b.addEventListener('mouseenter', () => {
+      peekTheme(b.dataset.theme ?? '')
+      showTip(b)
+    })
+    b.addEventListener('mouseleave', () => {
+      hideTip(b)
+      peekTheme(chosenTheme)
+    })
     b.addEventListener('focus', () => {
       peeked.push(b)
       peekTheme(b.dataset.theme ?? '')
+      showTip(b)
     })
     b.addEventListener('blur', () => {
       const i = peeked.indexOf(b)
       if (i >= 0) peeked.splice(i, 1)
+      hideTip(b)
       if (peeked.length === 0) peekTheme(chosenTheme)
     })
     b.addEventListener('click', () => {
@@ -198,6 +294,7 @@ function setupLangPrompt() {
       if (v) {
         chosenTheme = v
         peeked.length = 0
+        hideTip(b)
         setPressed(bannerThemeBtns, v)
         applyTheme(v) // persist
       }
@@ -205,10 +302,14 @@ function setupLangPrompt() {
   })
 
   // Start persists the chosen language (even when it equals the detected one)
-  // and the chosen theme, then dismisses the banner for good.
+  // and the theme the user is currently looking at, then dismisses the banner.
+  // Persisting the live theme (not the stale `chosenTheme`) matters because a
+  // hover/focus peek previews without committing — someone who hovers Solar
+  // and hits Start expects Solar, not the default they started from.
   bannerStart.addEventListener('click', () => {
     saveLang(chosenLang)
     if (chosenLang !== lang) setLang(chosenLang)
+    chosenTheme = document.documentElement.dataset.theme ?? 'dark'
     applyTheme(chosenTheme)
     langBanner.hidden = true
   })
@@ -232,6 +333,7 @@ function updateUI() {
   update3d()
   btnStl.disabled = false
   btn3mf.disabled = false
+  btnDescribe.disabled = false
   imageInfo.textContent = tr('processedAt', { w: current.image.width, h: current.image.height })
 }
 
@@ -283,18 +385,99 @@ function drawQuantized() {
   canvasQuantized.getContext('2d')!.putImageData(new ImageData(rgba, width, height), 0, 0)
 }
 
+/** Snapshot of the auto-quantized palette, so any color can be reset. */
+let autoPalette: RGB[] = []
+
+/**
+ * Replace one palette color and rebuild everything that depends on it.
+ * Heights never change (they come from the index map), so only the mesh
+ * colors, previews, 3D view, and exports are affected.
+ */
+function setPaletteColor(idx: number, rgb: RGB, fullUpdate = true) {
+  if (!current) return
+  current.quantized.palette[idx] = rgb
+  current = finishPipeline(current.image, current.quantized, readOptions())
+  drawQuantized()
+  update3d()
+  if (fullUpdate) updateUI()
+}
+
 function renderPalette() {
   const palette = current!.palette
   paletteList.innerHTML = ''
-  for (const entry of palette) {
+  // Sheet thickness per print order, from the snapped band tops: a band's
+  // thickness is the gap between its top and the band below it (the base for
+  // the first band). Heights never change on color edits, so compute once.
+  const thicknessByOrder = new Map<number, { mm: number; layers: number }>()
+  const sorted = [...palette].sort((a, b) => a.topZMm - b.topZMm)
+  let prevTop = current!.settings.baseMm
+  for (const e of sorted) {
+    const mm = e.topZMm - prevTop
+    const layers = Math.max(1, Math.round(mm / current!.settings.layerMm))
+    thicknessByOrder.set(e.printOrder, { mm, layers })
+    prevTop = e.topZMm
+  }
+  for (let i = 0; i < palette.length; i++) {
+    const entry = palette[i]
     const row = document.createElement('div')
     row.className = 'palette-row'
-    const swatch = document.createElement('div')
-    swatch.className = 'palette-swatch'
-    swatch.style.background = rgbToHex(entry.color)
+
+    // Native color picker styled as a swatch; live previews while dragging.
+    const picker = document.createElement('input')
+    picker.type = 'color'
+    picker.className = 'palette-picker'
+    picker.value = rgbToHex(entry.color)
+    picker.title = tr('paletteChange')
+    picker.ariaLabel = tr('paletteChange')
+
     const label = document.createElement('span')
-    label.textContent = `#${entry.printOrder} · ${rgbToHex(entry.color)} · ~${nearestFilament(entry.color, lang)}`
-    row.append(swatch, label)
+    label.className = 'palette-label'
+    const labelMain = document.createElement('span')
+    labelMain.className = 'palette-label-main'
+    const labelSub = document.createElement('span')
+    labelSub.className = 'palette-label-sub'
+    // Read the live palette entry (current.palette[i]) rather than the stale
+    // `entry` captured above, so the label tracks live color edits too.
+    const labelText = () => {
+      const live = current!.palette[i]
+      return `#${live.printOrder} · ${rgbToHex(live.color)} · ~${nearestFilament(live.color, lang)}`
+    }
+    const subText = () => {
+      const live = current!.palette[i]
+      const t = thicknessByOrder.get(live.printOrder)
+      return t ? `${mmOf(lang, t.mm)} · ${word(lang, t.layers, 'layers')}` : ''
+    }
+    labelMain.textContent = labelText()
+    labelSub.textContent = subText()
+    label.append(labelMain, labelSub)
+
+    // Restore the auto-quantized color for this entry.
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.className = 'palette-reset'
+    reset.textContent = '↺'
+    reset.title = tr('paletteReset')
+    reset.ariaLabel = tr('paletteReset')
+    reset.addEventListener('click', () => {
+      const auto = autoPalette[i]
+      if (!auto) return
+      picker.value = rgbToHex(auto)
+      setPaletteColor(i, { ...auto })
+      labelMain.textContent = labelText()
+    })
+
+    // Live: update previews/3D only, keep the open picker alive.
+    picker.addEventListener('input', () => {
+      setPaletteColor(i, hexToRgb(picker.value), false)
+      labelMain.textContent = labelText()
+    })
+    // Commit: full re-render (palette list, printability, status).
+    picker.addEventListener('change', () => {
+      setPaletteColor(i, hexToRgb(picker.value))
+      showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }))
+    })
+
+    row.append(picker, label, reset)
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
@@ -364,9 +547,10 @@ function setupDropZone() {
 
 function bindInputs() {
   for (const el of document.querySelectorAll<HTMLInputElement>(
-    'input[name="mode"], #width-mm, #height-mm, #base-mm, #max-mm',
+    'input[name="mode"], #width-mm, #height-mm, #base-mm, #max-mm, #layer-mm',
   )) {
     el.addEventListener('change', () => {
+      saveSettings()
       if (currentFile) void readFile(currentFile)
     })
   }
@@ -387,7 +571,10 @@ function bindInputs() {
     }
     if (currentFile) void readFile(currentFile)
   }
-  colorsSlider.addEventListener('change', flushReprocess)
+  colorsSlider.addEventListener('change', () => {
+    flushReprocess()
+    saveSettings()
+  })
   colorsSlider.addEventListener('input', () => {
     colorsValue.value = colorsSlider.value
     renderTicks()
@@ -479,9 +666,17 @@ function setupExports() {
     triggerDownload(export3mfFile(current, filename.slice(0, -4)) as unknown as BlobPart, filename, 'model/3mf')
     showStatus(tr('export3mfDone', { filename }))
   })
+  btnDescribe.addEventListener('click', () => {
+    if (!current) return
+    const filename = exportFilename(current, 'txt')
+    triggerDownload(describeExport(current, filename), filename, 'text/plain;charset=utf-8')
+    showStatus(tr('describeDone', { filename }))
+  })
 }
 
 versionBadge.textContent = `v${__APP_VERSION__}`
+
+restoreSettings()
 
 // Language: apply immediately (before first paint), bind the switcher.
 langSelect.value = lang

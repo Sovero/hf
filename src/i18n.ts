@@ -109,10 +109,11 @@ export const dict: Dict = {
   paramHeight: { en: 'Height', ru: 'Высота' },
   paramBase: { en: 'Base', ru: 'Основание' },
   paramMax: { en: 'Max height', ru: 'Макс. высота' },
+  paramLayer: { en: 'Layer height', ru: 'Высота слоя' },
   unitMm: { en: 'mm', ru: 'мм' },
   sizeHint: {
-    en: 'Pixel brightness sets the height; each of the N colors owns one height band from base to max, so a color switch always happens between whole layers — one color per printed layer.',
-    ru: 'Высота зависит от яркости пикселя; каждый из N цветов занимает одну полосу высоты от основания до максимума, поэтому смена цвета всегда происходит между целыми слоями — один цвет на слой.',
+    en: 'Each of the N colors prints as a flat sheet of its own height: every pixel of a color stands at the same height, so the top surface is smooth and a color switch always happens between whole layers — one color per printed layer.',
+    ru: 'Каждый из N цветов печатается как плоский лист своей высоты: все пиксели одного цвета стоят на одной высоте, поэтому верхняя поверхность гладкая, а смена цвета всегда происходит между целыми слоями — один цвет на слой.',
   },
 
   // ---- printability ----
@@ -136,7 +137,9 @@ export const dict: Dict = {
   // ---- export ----
   btnStl: { en: 'Download STL', ru: 'Скачать STL' },
   btn3mf: { en: 'Download 3MF', ru: 'Скачать 3MF' },
+  btnDescribe: { en: 'Download Describe.txt', ru: 'Скачать Describe.txt' },
   exportStlDone: { en: 'STL exported — {filename}', ru: 'STL экспортирован — {filename}' },
+  describeDone: { en: 'Describe.txt exported — {filename}', ru: 'Describe.txt экспортирован — {filename}' },
   export3mfDone: {
     en: '3MF exported — {filename} (Bambu Studio project with color swaps).',
     ru: '3MF экспортирован — {filename} (проект Bambu Studio со сменами цвета).',
@@ -249,13 +252,13 @@ export const dict: Dict = {
   },
   pbSupportTitleWarn: { en: 'Fragile isolated regions', ru: 'Хрупкие изолированные участки' },
   pbSupportDetailWarn: {
-    en: 'All walls are vertical (≤90°) and every layer rests on material below, so no supports or true overhangs exist — but {regionsText} (under 3×3 cells, ~{fraction}% of the image) will print as fragile towers or speckles. Smooth the image or reduce the color count.',
-    ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на материал снизу, поэтому поддержки не нужны — но {regionsText} (меньше 3×3 ячеек, ~{fraction}% изображения) напечатаются как хрупкие столбики или крапинки. Сгладьте изображение или уменьшите число цветов.',
+    en: 'All walls are vertical (≤90°) and every layer rests on material below, so no supports or true overhangs exist. Fragile isolated regions are flattened automatically, but {regionsText} (under 3×3 cells, ~{fraction}% of the image) still remain — they are too close to a color boundary to smooth away. Try a higher color count or a smoother image.',
+    ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на материал снизу, поэтому поддержки не нужны. Хрупкие изолированные участки убираются автоматически, но {regionsText} (меньше 3×3 ячеек, ~{fraction}% изображения) всё ещё остаются — они слишком близки к границе цвета, чтобы их сгладить. Увеличьте число цветов или возьмите более гладкое изображение.',
   },
   pbSupportTitleOk: { en: 'Support & overhangs', ru: 'Поддержки и нависания' },
   pbSupportDetailOk: {
-    en: 'All walls are vertical (≤90°) and every layer is supported from below — no supports needed, no overhang risk.',
-    ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на нижний — поддержки не нужны, нависаний нет.',
+    en: 'All walls are vertical (≤90°) and every layer is supported from below — no supports needed, no overhang risk. Fragile isolated regions were flattened automatically.',
+    ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на нижний — поддержки не нужны, нависаний нет. Хрупкие изолированные участки сглажены автоматически.',
   },
 }
 

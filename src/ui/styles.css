@@ -333,12 +333,66 @@ body {
   font-size: 0.8rem;
 }
 
-.palette-swatch {
+.palette-picker {
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 4px;
+  padding: 0;
   border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
   flex-shrink: 0;
+}
+
+.palette-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.palette-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.palette-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.palette-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.palette-label-main {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-label-sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.palette-reset {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  flex-shrink: 0;
+}
+
+.palette-reset:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 #printability-list {
@@ -551,6 +605,7 @@ body {
 }
 
 .banner-theme-btn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -572,6 +627,45 @@ body {
 .banner-theme-btn[aria-pressed='true'] {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 22%, var(--panel-2));
+}
+
+/* Tooltip shown on hover/focus: theme name + mini palette of its colors. */
+.theme-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.theme-tip[hidden] {
+  display: none;
+}
+
+.theme-tip-palette {
+  display: flex;
+  gap: 3px;
+}
+
+.theme-tip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(128, 128, 128, 0.5);
 }
 
 .banner-swatch {

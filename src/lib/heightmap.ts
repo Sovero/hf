@@ -1,25 +1,47 @@
 import type { HeightField, PrintSettings, QuantizedImage } from './types'
 
 /**
- * Turn per-pixel relief positions into a height field in mm.
+ * Top of each height band in mm (bottom → top). Every internal band top is
+ * snapped to the whole-layer grid of the chosen layer height so a tool change
+ * always lands exactly on a slicer layer; the final band's top is the model's
+ * top surface and is clamped to the user's max-height value exactly instead of
+ * the grid-rounded value. Rounding can collide two boundaries (a band thinner
+ * than half a layer), so tops are forced to stay strictly increasing, at
+ * least one layer apart — in that degenerate case the final top overshoots
+ * the max height rather than break monotonicity (exports filter such changes).
+ */
+export function snappedBandTops(image: QuantizedImage, settings: PrintSettings): number[] {
+  const n = image.palette.length
+  const usable = settings.maxHeightMm - settings.baseMm
+  const layerMm = settings.layerMm
+  const out: number[] = []
+  for (let b = 0; b < n; b++) {
+    const ideal = settings.baseMm + usable * image.bandTops[b]
+    const snapped = Math.round(ideal / layerMm) * layerMm
+    const min = (out.length > 0 ? out[out.length - 1] : settings.baseMm) + layerMm
+    const top = b === n - 1 ? settings.maxHeightMm : snapped
+    out.push(Math.max(top, min))
+  }
+  return out
+}
+
+/**
+ * Turn per-pixel band labels into a height field in mm.
  *
- * `QuantizedImage.luminance` already holds a normalized 0..1 relief position
- * per pixel (0 = printed first, at the base; 1 = tallest, printed last),
- * derived from image brightness. This maps it linearly into the print height
- * range, producing a smooth brightness relief — exactly the way a HueForge
- * style model encodes an image: darker image areas sit lower, brighter ones
- * rise, and the filament color of each pixel is decided by the height band
- * its column reaches (so every printed layer has a single color).
+ * HueForge-style stepped geometry: every pixel of a color band stands at
+ * exactly the top of its band — a flat-topped sheet — so the top surface of
+ * the lightest band is perfectly smooth and each printed layer carries a
+ * single color. Heights are the band tops snapped to the layer-height grid,
+ * so the geometry agrees with the exported tool changes to the millimeter.
  */
 export function buildHeightField(image: QuantizedImage, settings: PrintSettings): HeightField {
-  const { width, height, luminance } = image
-  const usable = settings.maxHeightMm - settings.baseMm
+  const { width, height, indexMap, palette } = image
+  const n = palette.length
+  const tops = snappedBandTops(image, settings)
   const values = new Float32Array(width * height)
-
   for (let i = 0; i < values.length; i++) {
-    const t = luminance[i]
-    values[i] = settings.baseMm + usable * (Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0)
+    const slice = settings.darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
+    values[i] = tops[Math.min(slice, tops.length - 1)]
   }
-
   return { width, height, values }
 }

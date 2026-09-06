@@ -1,9 +1,8 @@
 import type { HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
 import { loadImageFromFile } from './loadImage'
 import type { Lang } from '../i18n'
-import { quantize, mapToLuminanceBands } from './quantize'
-import { sortByLuminance } from './palette'
-import { buildHeightField } from './heightmap'
+import { mapToLuminanceBands } from './quantize'
+import { buildHeightField, snappedBandTops } from './heightmap'
 import { buildMesh } from './mesh'
 import { generateBinaryStl } from './exportStl'
 import { generate3mf } from './export3mf'
@@ -29,6 +28,8 @@ export interface PipelineResult {
   mesh: Mesh
   /** True when the darkest color is the tallest (printed last, on top). */
   darkIsTall: boolean
+  /** The resolved print settings (incl. chosen layer height). */
+  settings: PrintSettings
 }
 
 export interface PipelineOptions {
@@ -38,6 +39,8 @@ export interface PipelineOptions {
   heightMm: number
   baseMm: number
   maxHeightMm: number
+  /** Print layer height in mm; defaults to 0.2 when omitted. */
+  layerMm?: number
 }
 
 /**
@@ -48,9 +51,9 @@ export interface PipelineOptions {
 export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang = 'en'): Promise<PipelineResult> {
   const image = await loadImageFromFile(file, lang)
 
-  const rawPalette = quantize(image.rgba, opts.numColors)
-  const palette = sortByLuminance(rawPalette)
-  const quantized = mapToLuminanceBands(image.rgba, palette, image.width, image.height, opts.darkIsTall)
+  // The palette is derived from the image's luminance bands, so no separate
+  // color quantization step is needed — band colors are the band contents.
+  const quantized = mapToLuminanceBands(image.rgba, opts.numColors, image.width, image.height, opts.darkIsTall)
 
   return finishPipeline(image, quantized, opts)
 }
@@ -66,21 +69,26 @@ export function finishPipeline(
     baseMm: opts.baseMm,
     maxHeightMm: opts.maxHeightMm,
     darkIsTall: opts.darkIsTall,
+    layerMm: opts.layerMm ?? 0.2,
   }
 
   const field = buildHeightField(quantized, settings)
   const mesh = buildMesh(field, quantized.indexMap, quantized.palette, settings)
 
   const n = quantized.palette.length
-  const usable = settings.maxHeightMm - settings.baseMm
-  // Each filament owns one contiguous block of the total height (base..max), so
-  // a tool change at its top always lands on a whole-layer boundary.
+  // Each filament owns one contiguous block of the total height (base..max);
+  // its top comes from the equal-population band boundaries, snapped to the
+  // whole-layer grid of the chosen layer height, so a tool change always lands
+  // exactly on a slicer layer. buildHeightField uses the same snapped tops, so
+  // the mesh geometry and the swap schedule agree to the millimeter.
+  const snappedSlice = snappedBandTops(quantized, settings)
   const palette: PaletteEntry[] = quantized.palette.map((color, idx) => {
     const printOrder = settings.darkIsTall ? n - idx : idx + 1
-    return { color, topZMm: settings.baseMm + (usable * printOrder) / n, printOrder }
+    const slice = settings.darkIsTall ? n - 1 - idx : idx
+    return { color, topZMm: snappedSlice[slice], printOrder }
   })
 
-  return { image, quantized, palette, field, mesh, darkIsTall: opts.darkIsTall }
+  return { image, quantized, palette, field, mesh, darkIsTall: opts.darkIsTall, settings }
 }
 
 export function exportStl(result: PipelineResult): ArrayBuffer {
@@ -91,7 +99,7 @@ export function exportStl(result: PipelineResult): ArrayBuffer {
  * Descriptive export filename, e.g. hueforge-16colors-150x150mm.stl.
  * Dimensions come from the mesh bounds so they always match the geometry.
  */
-export function exportFilename(result: PipelineResult, extension: 'stl' | '3mf'): string {
+export function exportFilename(result: PipelineResult, extension: 'stl' | '3mf' | 'txt'): string {
   const n = result.quantized.palette.length
   let w = 0
   let h = 0

@@ -115,9 +115,16 @@ ${triangleLines.join('\n')}
 
   // ---- Tool-change schedule: swap to extruder k at the top of band k-1 ----
   const byOrder = [...bands].sort((a, b) => a.printOrder - b.printOrder)
+  // Tallest point of the geometry — a change above it would print nothing.
+  let maxZ = 0
+  const meshPos = mesh.positions
+  for (let i = 2; i < meshPos.length; i += 3) {
+    if (meshPos[i] > maxZ) maxZ = meshPos[i]
+  }
   const layerLines: string[] = []
   for (let k = 1; k < byOrder.length; k++) {
     const topZ = Number(byOrder[k - 1].topZMm.toFixed(6))
+    if (topZ >= maxZ - 1e-9) continue // grid snapping can overshoot the top
     const color = byOrder[k].color
     layerLines.push(
       `<layer top_z="${topZ}" type="2" extruder="${k + 1}" color="${hex6(color.r, color.g, color.b)}" extra="" gcode="tool_change"/>`,
