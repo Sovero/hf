@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { transmission, columnColor } from '../lib/transmission'
+import { transmission, columnColor, transmittedBandColors } from '../lib/transmission'
 import { finishPipeline } from '../lib/pipeline'
 import type { PipelineResult } from '../lib/pipeline'
 import type { LoadedImage, QuantizedImage, RGB } from '../lib/types'
@@ -32,7 +32,30 @@ describe('transmission model', () => {
     const c = columnColor(result, 2.6)
     expect(c.r).toBeCloseTo(255, 0) // lightest filament, single sheet on base
   })
-})
+
+  it('uses per-filament τ from quantized.tauMm', () => {
+    // Print order bottom → top: white, gray170, dark85, black; slot 2 of the
+    // quantized palette (dark → light) is the gray sheet printed second.
+    const opaque = makeResult()
+    opaque.quantized.tauMm = [1.2, 1.2, 0.1, 1.2] // gray sheet hides everything
+    const trans = makeResult()
+    trans.quantized.tauMm = [1.2, 1.2, 10, 1.2] // gray sheet, light passes through
+    const grayOpaque = columnColor(opaque, 4.4) // white base + gray sheet
+    const grayClear = columnColor(trans, 4.4)
+    expect(grayOpaque.r).toBeCloseTo(170, 0) // white below fully covered
+    expect(grayClear.r).toBeGreaterThan(240) // white shines through
+    expect(grayClear.r).toBeGreaterThan(grayOpaque.r)
+  })
+
+  it('transmittedBandColors indexes the blended color of each band bottom → top', () => {
+    const result = makeResult()
+    const bands = transmittedBandColors(result)
+    expect(bands).toHaveLength(4)
+    expect(bands[0].r).toBeCloseTo(255, 0) // bottom band: pure sheet on base
+    expect(bands[3].r).toBeGreaterThan(0) // black top lifted by sheets below
+    expect(bands[3].r).toBeLessThan(bands[0].r)
+  })
+});
 
 const PALETTE_4: RGB[] = [
   { r: 0, g: 0, b: 0 },

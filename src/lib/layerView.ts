@@ -1,6 +1,6 @@
 import type { PipelineResult } from './pipeline'
 import { snappedBandTops } from './heightmap'
-import { columnColor } from './transmission'
+import { transmittedBandColors } from './transmission'
 
 export interface LayerViewResult {
   /** RGBA pixels (row-major) of the print at height z, ready for ImageData. */
@@ -47,10 +47,13 @@ export function layerView(result: PipelineResult, zMm: number): LayerViewResult 
   const bandColor = palette[settings.darkIsTall ? n - 1 - activeBand : activeBand]
 
   const rgba = new Uint8ClampedArray(width * height * 4)
+  // A finished column's color depends only on its top band — look up the n
+  // pre-blended column colors once instead of re-stacking sheets per pixel.
+  const blends = transmittedBandColors(result)
   for (let i = 0; i < width * height; i++) {
     const slice = settings.darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
     const columnTop = tops[Math.min(slice, n - 1)]
-    const c = columnTop <= z + eps ? columnColor(result, columnTop) : bandColor
+    const c = columnTop <= z + eps ? blends[slice] : bandColor
     rgba[i * 4] = Math.round(c.r)
     rgba[i * 4 + 1] = Math.round(c.g)
     rgba[i * 4 + 2] = Math.round(c.b)

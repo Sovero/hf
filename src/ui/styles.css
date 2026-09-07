@@ -379,6 +379,57 @@ body {
   white-space: nowrap;
 }
 
+.palette-tau {
+  width: 3.6rem;
+  flex-shrink: 0;
+  padding: 0.15rem 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.palette-tau:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.calib {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.calib-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.calib-select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.calib-canvas {
+  max-width: 100%;
+  height: auto;
+  cursor: crosshair;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  align-self: start;
+}
+
 .palette-reset {
   background: none;
   border: 1px solid var(--border);

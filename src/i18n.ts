@@ -146,6 +146,31 @@ export const dict: Dict = {
     en: 'Your colors in print order. Click a swatch to change it, ★ to pick a real filament from a Russian manufacturer’s catalog, ↺ to reset.',
     ru: 'Ваши цвета в порядке печати. Щёлкните по образцу, чтобы изменить цвет; ★ — выбрать реальный филамент из каталога российских производителей; ↺ — вернуть.',
   },
+  paletteTau: {
+    en: 'Opacity length τ (mm): the thickness that hides ~63% of the layer below. Bigger = more opaque. Calibrate per spool with a swatch for accurate previews.',
+    ru: 'Длина пропускания τ (мм): толщина, скрывающая ~63% слоя ниже. Больше = плотнее. Для точных предпросмотров откалибруйте филамент по образцу.',
+  },
+  calibIntro: {
+    en: 'Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.',
+    ru: 'Непрозрачность каждого филамента: распечатайте образец для выбранного цвета, сфотографируйте его — приложение подберёт τ по вашему фото, и предпросмотр совпадёт с реальной катушкой.',
+  },
+  calibDownload: { en: 'Swatch STL', ru: 'Образец STL' },
+  calibDownloadDone: {
+    en: 'Calibration swatch exported — {filename} (+ instructions .txt).',
+    ru: 'Образец для калибровки экспортирован — {filename} (+ инструкция .txt).',
+  },
+  calibClickBase: {
+    en: 'Photo loaded. Click the bare base area (no step) first.',
+    ru: 'Фото загружено. Сначала щёлкните по чистому основанию (без ступени).',
+  },
+  calibClickStep: {
+    en: 'Click step {n} of {total} ({t} mm) — from thinnest to thickest.',
+    ru: 'Щёлкните ступень {n} из {total} ({t} мм) — от тонкой к толстой.',
+  },
+  calibFitDone: {
+    en: 'Fitted τ = {tau} mm for this filament — previews updated.',
+    ru: 'Подобрано τ = {tau} мм для этого филамента — предпросмотры обновлены.',
+  },
   helpViewerSource: {
     en: 'The original picture you loaded.',
     ru: 'Исходная картинка, которую вы загрузили.',

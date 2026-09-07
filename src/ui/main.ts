@@ -3,6 +3,9 @@ import { runPipeline, finishPipeline, exportStl, export3mfFile, exportFilename, 
 import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, customFilaments, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId } from '../lib/filamentLibrary'
 import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
+import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
+import { DEFAULT_TAU_MM, transmittedBandColors } from '../lib/transmission'
+import type { QuantizedImage } from '../lib/types'
 import { layerView } from '../lib/layerView'
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
@@ -32,6 +35,11 @@ const fileInput = $<HTMLInputElement>('#file-input')
 const imageInfo = $<HTMLParagraphElement>('#image-info')
 const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
+const calibColor = $<HTMLSelectElement>('#calib-color')
+const calibDownload = $<HTMLButtonElement>('#calib-download')
+const calibPhoto = $<HTMLInputElement>('#calib-photo')
+const calibCanvas = $<HTMLCanvasElement>('#calib-canvas')
+const calibStatus = $<HTMLParagraphElement>('#calib-status')
 const printabilityList = $<HTMLDivElement>('#printability-list')
 const printabilitySummary = $<HTMLParagraphElement>('#printability-summary')
 const pbBadge = $<HTMLSpanElement>('#pb-badge')
@@ -195,6 +203,7 @@ async function readFile(file: File) {
     const result = await runPipeline(file, readOptions(), lang)
     if (token !== runToken) return // a newer run superseded this one; it owns the UI
     current = result
+    initTau(current.quantized)
     autoPalette = result.quantized.palette.map((c) => ({ ...c }))
     updateUI()
     if (referencePlan) updateApplyButton() // image availability changes Apply
@@ -431,14 +440,34 @@ function drawSource() {
   canvasSource.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0)
 }
 
+/** Ensure the quantized image carries a per-slot τ array (default everywhere). */
+function initTau(q: QuantizedImage) {
+  if (!q.tauMm || q.tauMm.length !== q.palette.length) {
+    q.tauMm = q.palette.map(() => DEFAULT_TAU_MM)
+  }
+}
+
+/** τ of palette slot i, clamped — the input's live value may be mid-edit. */
+function tauOfSlot(i: number): number {
+  const tau = current?.quantized.tauMm?.[i]
+  return typeof tau === 'number' && Number.isFinite(tau) && tau > 0
+    ? Math.min(6, Math.max(0.2, tau))
+    : DEFAULT_TAU_MM
+}
+
 function drawQuantized() {
   const { width, height, indexMap, palette } = current!.quantized
+  const n = palette.length
+  // The finished print shows translucent blends, not opaque band colors:
+  // per band, look up the transmitted column color (per-filament τ-aware).
+  const blends = transmittedBandColors(current!)
   const rgba = new Uint8ClampedArray(width * height * 4)
   for (let i = 0; i < width * height; i++) {
-    const c = palette[indexMap[i]]
-    rgba[i * 4] = c.r
-    rgba[i * 4 + 1] = c.g
-    rgba[i * 4 + 2] = c.b
+    const slice = current!.settings.darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
+    const c = blends[slice] ?? palette[indexMap[i]]
+    rgba[i * 4] = Math.round(c.r)
+    rgba[i * 4 + 1] = Math.round(c.g)
+    rgba[i * 4 + 2] = Math.round(c.b)
     rgba[i * 4 + 3] = 255
   }
   canvasQuantized.width = width
@@ -862,7 +891,8 @@ function renderPalette() {
     const subText = () => {
       const live = current!.palette[i]
       const t = thicknessByOrder.get(live.printOrder)
-      return t ? `${mmOf(lang, t.mm)} · ${word(lang, t.layers, 'layers')}` : ''
+      const tauPart = ` · τ ${tauOfSlot(i).toFixed(2)} mm`
+      return t ? `${mmOf(lang, t.mm)} · ${word(lang, t.layers, 'layers')}${tauPart}` : tauPart
     }
     labelMain.textContent = labelText()
     labelSub.textContent = subText()
@@ -883,6 +913,26 @@ function renderPalette() {
       }
       popAnchor = libBtn
       openLibraryPopover(i, libBtn)
+    })
+
+    // Per-filament opacity length τ (mm) — fitted from a calibration swatch
+    // or set by hand; drives the translucent preview blends.
+    const tauInput = document.createElement('input')
+    tauInput.type = 'number'
+    tauInput.className = 'palette-tau'
+    tauInput.min = '0.2'
+    tauInput.max = '6'
+    tauInput.step = '0.1'
+    tauInput.value = tauOfSlot(i).toFixed(2)
+    tauInput.title = tr('paletteTau')
+    tauInput.ariaLabel = `${tr('paletteTau')} — #${entry.printOrder}`
+    tauInput.addEventListener('input', () => {
+      const v = Number(tauInput.value)
+      if (!current || !Number.isFinite(v) || v <= 0) return
+      current.quantized.tauMm![i] = Math.min(6, Math.max(0.2, v))
+      drawQuantized()
+      drawLayerView()
+      labelSub.textContent = subText()
     })
 
     // Restore the auto-quantized color for this entry.
@@ -918,13 +968,23 @@ function renderPalette() {
       showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }))
     })
 
-    row.append(picker, label, libBtn, reset)
+    row.append(picker, label, tauInput, libBtn, reset)
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
   // Keep assignments aligned with the (possibly changed) color count.
   filamentAssignments.length = palette.length
   for (let i = 0; i < palette.length; i++) filamentAssignments[i] ??= null
+  // Calibration color picker follows the palette rows (keep the selection).
+  const prevCalib = calibColor.value
+  calibColor.replaceChildren()
+  palette.forEach((e, idx) => {
+    const opt = document.createElement('option')
+    opt.value = String(idx)
+    opt.textContent = `#${e.printOrder} · ${rgbToHex(e.color)}`
+    calibColor.appendChild(opt)
+  })
+  if ([...calibColor.options].some((o) => o.value === prevCalib)) calibColor.value = prevCalib
 }
 
 function update3d() {
@@ -932,6 +992,110 @@ function update3d() {
   viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
   viewer3d.setMesh(current!.mesh)
 }
+
+// ---- Per-filament opacity calibration (swatch print + photo fit) ---------
+
+/** Photo-derived sample of the bare base area (absorbs exposure). */
+let calibBase: RGB | null = null
+/** Sampled steps, thin → thick, one per CALIB_STEPS entry. */
+let calibSamples: CalibSample[] = []
+
+/** Palette slot of the print's base color (sheet 0 — the opaque backdrop). */
+function baseSlotIndex(): number {
+  const n = current!.quantized.palette.length
+  return current!.settings.darkIsTall ? n - 1 : 0
+}
+
+/** Mean RGB of a small square around the click point on the photo canvas. */
+function sampleMean(canvas: HTMLCanvasElement, cx: number, cy: number, radius: number): RGB {
+  const ctx = canvas.getContext('2d')!
+  const x0 = Math.max(0, Math.round(cx - radius))
+  const y0 = Math.max(0, Math.round(cy - radius))
+  const w = Math.min(canvas.width - x0, 2 * radius + 1)
+  const h = Math.min(canvas.height - y0, 2 * radius + 1)
+  const d = ctx.getImageData(x0, y0, w, h).data
+  let r = 0
+  let g = 0
+  let b = 0
+  for (let i = 0; i < d.length; i += 4) {
+    r += d[i]
+    g += d[i + 1]
+    b += d[i + 2]
+  }
+  const cnt = d.length / 4
+  return { r: Math.round(r / cnt), g: Math.round(g / cnt), b: Math.round(b / cnt) }
+}
+
+calibDownload.addEventListener('click', () => {
+  if (!current) return
+  const slot = Number(calibColor.value)
+  const color = current.quantized.palette[slot]
+  const base = current.quantized.palette[baseSlotIndex()]
+  const sw = buildCalibrationSwatch(color, rgbToHex(base), current.settings.layerMm)
+  const name = `hueforge-calib-${rgbToHex(color).slice(1)}`
+  triggerDownload(sw.stl as unknown as BlobPart, `${name}.stl`, 'model/stl')
+  triggerDownload(sw.info, `${name}.txt`, 'text/plain;charset=utf-8')
+  showStatus(tr('calibDownloadDone', { filename: `${name}.stl` }))
+})
+
+calibPhoto.addEventListener('change', () => {
+  const file = calibPhoto.files?.[0]
+  if (!file || !current) return
+  const img = new Image()
+  img.onload = () => {
+    calibBase = null
+    calibSamples = []
+    const scale = Math.min(1, 420 / img.width)
+    calibCanvas.width = Math.max(1, Math.round(img.width * scale))
+    calibCanvas.height = Math.max(1, Math.round(img.height * scale))
+    calibCanvas.getContext('2d')!.drawImage(img, 0, 0, calibCanvas.width, calibCanvas.height)
+    calibCanvas.hidden = false
+    calibStatus.textContent = tr('calibClickBase')
+    URL.revokeObjectURL(img.src)
+  }
+  img.src = URL.createObjectURL(file)
+})
+
+calibCanvas.addEventListener('click', (e) => {
+  if (!current || calibCanvas.hidden) return
+  const rect = calibCanvas.getBoundingClientRect()
+  const cx = ((e.clientX - rect.left) / rect.width) * calibCanvas.width
+  const cy = ((e.clientY - rect.top) / rect.height) * calibCanvas.height
+  const rgb = sampleMean(calibCanvas, cx, cy, 8)
+  if (!calibBase) {
+    calibBase = rgb
+    calibStatus.textContent = tr('calibClickStep', {
+      n: 1,
+      total: CALIB_STEPS.length,
+      t: CALIB_STEPS[0].toFixed(2),
+    })
+    return
+  }
+  const idx = calibSamples.length
+  calibSamples.push({ thicknessMm: CALIB_STEPS[idx], rgb })
+  if (calibSamples.length < CALIB_STEPS.length) {
+    calibStatus.textContent = tr('calibClickStep', {
+      n: idx + 2,
+      total: CALIB_STEPS.length,
+      t: CALIB_STEPS[idx + 1].toFixed(2),
+    })
+    return
+  }
+  // All steps sampled — fit τ for the selected slot and refresh previews.
+  const slot = Number(calibColor.value)
+  initTau(current.quantized)
+  const tau = fitTau(
+    calibSamples,
+    calibBase,
+    current.quantized.palette[baseSlotIndex()],
+    current.quantized.palette[slot],
+  )
+  current.quantized.tauMm![slot] = tau
+  drawQuantized()
+  drawLayerView()
+  renderPalette()
+  calibStatus.textContent = tr('calibFitDone', { tau: tau.toFixed(2) })
+})
 
 function triggerDownload(data: BlobPart, filename: string, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }))
@@ -1280,7 +1444,13 @@ function applyReference() {
   layerInput.value = String(o.layerMm)
   saveSettings()
 
+  const keepTau = current.quantized.tauMm
   current = reprocessWithReference(current.image, plan)
+  initTau(current.quantized)
+  // Keep fitted τ when the reference apply keeps the same color count.
+  if (keepTau && keepTau.length === current.quantized.palette.length) {
+    current.quantized.tauMm = keepTau
+  }
   autoPalette = current.quantized.palette.map((c) => ({ ...c }))
   updateUI()
   showStatus(tr('refAppliedDone', { colors: word(lang, current.quantized.palette.length, 'colors') }))

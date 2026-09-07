@@ -34,6 +34,12 @@ export interface QuantizedImage {
    * the print. The last entry is always 1 (the tallest point).
    */
   bandTops: number[]
+  /**
+   * Per-band opacity length τ in mm (transmission model), indexed like
+   * `palette` (dark → light). Optional: missing/invalid entries fall back to
+   * the default τ. Fitted per filament from a printed calibration swatch.
+   */
+  tauMm?: number[]
   width: number
   height: number
 }
