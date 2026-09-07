@@ -4,6 +4,7 @@ import { buildHeightField } from '../lib/heightmap'
 import { buildMesh } from '../lib/mesh'
 import { quantize, mapToLuminanceBands, removeIsolatedRegions, MIN_REGION_CELLS } from '../lib/quantize'
 import { findIsolatedRegions } from '../lib/printability'
+import { fitResolution, NOZZLE_MM } from '../lib/printConsts'
 import { sortByLuminance, luminance, hexToRgb, rgbToHex } from '../lib/palette'
 import { generateBinaryStl } from '../lib/exportStl'
 import { generate3mf } from '../lib/export3mf'
@@ -16,6 +17,19 @@ const PALETTE_4: RGB[] = [
   { r: 170, g: 170, b: 170 },
   { r: 255, g: 255, b: 255 },
 ]
+
+describe('print resolution fit', () => {
+  it('gives cells of at least one nozzle width for common print sizes', () => {
+    expect(150 / fitResolution(150)).toBeGreaterThanOrEqual(NOZZLE_MM - 1e-9)
+    expect(200 / fitResolution(200)).toBeGreaterThanOrEqual(NOZZLE_MM - 1e-9)
+    expect(40 / fitResolution(40)).toBeGreaterThanOrEqual(NOZZLE_MM - 1e-9)
+  })
+
+  it('caps at MAX_DIMENSION and floors at 16 px', () => {
+    expect(fitResolution(400)).toBeLessThanOrEqual(512)
+    expect(fitResolution(5)).toBe(16)
+  })
+})
 
 function settings(overrides: Partial<PrintSettings> = {}): PrintSettings {
   return {
@@ -589,6 +603,56 @@ describe('auto-removal of fragile isolated regions', () => {
     const out = removeIsolatedRegions(x, labels, w, h, MIN_REGION_CELLS)
     expect(out[0]).toBeCloseTo(0.8)           // 4×4 = 16 cells, kept
     expect(out[4 * w + 4]).toBeCloseTo(0.4)   // background untouched
+  })
+
+  it('merges a boundary-straddling speck into the band it touches most', () => {
+    const w = 12, h = 12
+    // Band-0 background with a tall band-2 strip at columns 8..9.
+    const x = new Float32Array(w * h).fill(0.2)
+    const labels = new Uint8Array(w * h)
+    for (let y = 0; y < h; y++) {
+      for (const xx of [8, 9]) {
+        labels[y * w + xx] = 2
+        x[y * w + xx] = 0.9
+      }
+    }
+    // A 2×2 band-1 speck pressed between them: band 0 on the left/top/bottom,
+    // band 2 on the right — it straddles the 0/2 boundary without being
+    // 4-connected to either mainland region.
+    for (const [yy, xx] of [[5, 6], [5, 7], [6, 6], [6, 7]]) {
+      labels[yy * w + xx] = 1
+      x[yy * w + xx] = 0.55
+    }
+    const out = removeIsolatedRegions(x, labels, w, h, MIN_REGION_CELLS)
+
+    // The 4-cell speck (size 4 < 9) merges into band 0 — the majority touch —
+    // so its cells take band 0's value (0.2), not a blurred mid value.
+    expect(out[5 * w + 6]).toBeCloseTo(0.2)
+    expect(out[6 * w + 7]).toBeCloseTo(0.2)
+    // The band-2 strip (≥ minArea) and the background are untouched.
+    expect(out[5 * w + 8]).toBeCloseTo(0.9)
+    expect(out[0]).toBeCloseTo(0.2)
+  })
+
+  it('iterates cleanup until a noisy gradient has zero specks', () => {
+    const w = 48, h = 48
+    const rgba = new Uint8ClampedArray(w * h * 4)
+    for (let y = 0; y < h; y++) {
+      for (let xx = 0; xx < w; xx++) {
+        const p = (y * w + xx) * 4
+        const base = Math.round(255 * ((xx + y) / (w + h - 2)))
+        // Deterministic hash noise punches sub-3×3 holes across the gradient.
+        const noise = ((xx * 73856093) ^ (y * 19349663)) % 97
+        const v = Math.max(0, Math.min(255, base + (noise < 5 ? 140 : noise > 92 ? -140 : 0)))
+        rgba[p] = v
+        rgba[p + 1] = v
+        rgba[p + 2] = v
+        rgba[p + 3] = 255
+      }
+    }
+    const q = mapToLuminanceBands(rgba, 6, w, h, false)
+    const { specks: remaining } = findIsolatedRegions(q.indexMap, w, h)
+    expect(remaining).toBe(0)
   })
 
   it('removes every speck from a speckled image through the full quantizer', () => {

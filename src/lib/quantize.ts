@@ -167,6 +167,55 @@ function contrastRange(raw: Float32Array): [number, number] {
 /** Smallest connected same-band region kept as-is (3×3 cells). */
 export const MIN_REGION_CELLS = 9
 
+/** A connected component of same-band pixels (4-connectivity). */
+interface Component {
+  cells: number[]
+  color: number
+}
+
+/**
+ * All connected same-label components (4-connectivity), any size.
+ * Single allocation-free flood fill reused for cleanup and neighbors.
+ */
+export function components(labels: Uint8Array, width: number, height: number): Component[] {
+  const total = width * height
+  const visited = new Uint8Array(total)
+  const stack: number[] = []
+  const out: Component[] = []
+
+  for (let start = 0; start < total; start++) {
+    if (visited[start]) continue
+    const color = labels[start]
+    const cells: number[] = []
+    stack.length = 0
+    stack.push(start)
+    visited[start] = 1
+    while (stack.length > 0) {
+      const p = stack.pop()!
+      cells.push(p)
+      const px = p % width
+      if (px > 0 && !visited[p - 1] && labels[p - 1] === color) {
+        visited[p - 1] = 1
+        stack.push(p - 1)
+      }
+      if (px < width - 1 && !visited[p + 1] && labels[p + 1] === color) {
+        visited[p + 1] = 1
+        stack.push(p + 1)
+      }
+      if (p >= width && !visited[p - width] && labels[p - width] === color) {
+        visited[p - width] = 1
+        stack.push(p - width)
+      }
+      if (p < total - width && !visited[p + width] && labels[p + width] === color) {
+        visited[p + width] = 1
+        stack.push(p + width)
+      }
+    }
+    out.push({ cells, color })
+  }
+  return out
+}
+
 /** Equal-population band labels for a relief array (0 = bottom band). */
 function bandLabels(x: Float32Array, n: number, darkIsTall: boolean, pixelCount: number): Uint8Array {
   const HIST = 256
@@ -208,13 +257,41 @@ function bandTopsFrom(x: Float32Array, n: number, pixelCount: number): number[] 
 }
 
 /**
- * Flatten fragile isolated regions of a relief field.
+ * Different-band neighbors of a component with their relief values.
+ * (4-neighbors with a different label sit outside the component — same-label
+ * adjacency is exactly what defines it.)
+ */
+function outsideNeighbors(
+  comp: Component,
+  labels: Uint8Array,
+  x: Float32Array,
+  width: number,
+  height: number,
+): { colors: number[]; values: number[] } {
+  const total = width * height
+  const colors: number[] = []
+  const values: number[] = []
+  for (const p of comp.cells) {
+    const px = p % width
+    if (px > 0 && labels[p - 1] !== comp.color) { colors.push(labels[p - 1]); values.push(x[p - 1]) }
+    if (px < width - 1 && labels[p + 1] !== comp.color) { colors.push(labels[p + 1]); values.push(x[p + 1]) }
+    if (p >= width && labels[p - width] !== comp.color) { colors.push(labels[p - width]); values.push(x[p - width]) }
+    if (p < total - width && labels[p + width] !== comp.color) { colors.push(labels[p + width]); values.push(x[p + width]) }
+  }
+  return { colors, values }
+}
+
+/**
+ * Merge fragile isolated regions (< `minArea` cells, 4-connectivity) into
+ * their surroundings so specks never reach the mesh.
  *
- * Finds connected components of the same band smaller than `minArea` pixels
- * (4-connectivity) and replaces each one's relief position with the mean of
- * its outside neighbors, so a thin tower or a speck merges into the local
- * ground level. Bands, colors and heights are re-derived afterwards, keeping
- * a pixel's color a pure function of its height. Returns a new array.
+ * A component that touches a single different band takes that band's mean
+ * relief value — it joins the ground it grows out of. A component straddling
+ * a color boundary takes the majority band's mean, so the boundary keeps its
+ * shape instead of blurring into a mid value. Components with no outside
+ * neighbors (whole-image single band) pass through untouched.
+ *
+ * Returns a new relief array; labels and colors are re-derived from it.
  */
 export function removeIsolatedRegions(
   x: Float32Array,
@@ -223,58 +300,35 @@ export function removeIsolatedRegions(
   height: number,
   minArea: number = MIN_REGION_CELLS,
 ): Float32Array {
-  const total = width * height
   const out = new Float32Array(x)
-  const visited = new Uint8Array(total)
-  const stack: number[] = []
-  const comp: number[] = []
 
-  for (let start = 0; start < total; start++) {
-    if (visited[start]) continue
-    const color = labels[start]
-    comp.length = 0
-    stack.length = 0
-    stack.push(start)
-    visited[start] = 1
-    while (stack.length > 0) {
-      const p = stack.pop()!
-      comp.push(p)
-      const px = p % width
-      if (px > 0 && !visited[p - 1] && labels[p - 1] === color) {
-        visited[p - 1] = 1
-        stack.push(p - 1)
-      }
-      if (px < width - 1 && !visited[p + 1] && labels[p + 1] === color) {
-        visited[p + 1] = 1
-        stack.push(p + 1)
-      }
-      if (p >= width && !visited[p - width] && labels[p - width] === color) {
-        visited[p - width] = 1
-        stack.push(p - width)
-      }
-      if (p < total - width && !visited[p + width] && labels[p + width] === color) {
-        visited[p + width] = 1
-        stack.push(p + width)
+  for (const comp of components(labels, width, height)) {
+    if (comp.cells.length >= minArea) continue
+    const { colors, values } = outsideNeighbors(comp, labels, x, width, height)
+    if (colors.length === 0) continue
+
+    // Majority vote over the touching bands, ties broken by the closer band
+    // in value, then by the lower band id (deterministic).
+    const tally = new Map<number, { count: number; sum: number }>()
+    for (let i = 0; i < colors.length; i++) {
+      const t = tally.get(colors[i]) ?? { count: 0, sum: 0 }
+      t.count++
+      t.sum += values[i]
+      tally.set(colors[i], t)
+    }
+    let bestColor = colors[0]
+    let best = tally.get(bestColor)!
+    for (const [color, t] of tally) {
+      if (
+        t.count > best.count ||
+        (t.count === best.count && Math.abs(t.sum / t.count - x[comp.cells[0]]!) < Math.abs(best.sum / best.count - x[comp.cells[0]]!))
+      ) {
+        bestColor = color
+        best = t
       }
     }
-
-    if (comp.length < minArea) {
-      // 4-neighbors with a different label sit outside the component (same
-      // label + adjacency is exactly what defines the component).
-      let sum = 0
-      let cnt = 0
-      for (const p of comp) {
-        const px = p % width
-        if (px > 0 && labels[p - 1] !== color) { sum += x[p - 1]; cnt++ }
-        if (px < width - 1 && labels[p + 1] !== color) { sum += x[p + 1]; cnt++ }
-        if (p >= width && labels[p - width] !== color) { sum += x[p - width]; cnt++ }
-        if (p < total - width && labels[p + width] !== color) { sum += x[p + width]; cnt++ }
-      }
-      if (cnt > 0) {
-        const mean = sum / cnt
-        for (const p of comp) out[p] = mean
-      }
-    }
+    const mean = best.sum / best.count
+    for (const p of comp.cells) out[p] = mean
   }
 
   return out
@@ -307,11 +361,22 @@ export function mapToLuminanceBands(
   // the cleaned relief — a pixel's color stays a pure function of its height.
   // Images too small to contain a 3×3 neighborhood are left untouched: there
   // every pixel is a "speck" and the relief itself is legitimate detail.
+  //
+  // Flattening a boundary-straddling speck can still leave sub-area fragments
+  // on the re-derived bands, so the pass repeats until no specks remain (or a
+  // fixed guard limit — every pass strictly reduces sub-area cell count).
   const canClean = width >= 3 && height >= 3
-  const labels0 = canClean ? bandLabels(x, n, darkIsTall, pixelCount) : null
-  const relief = canClean
-    ? removeIsolatedRegions(x, labels0!, width, height, MIN_REGION_CELLS)
-    : x
+  let relief: Float32Array = x
+  if (canClean) {
+    for (let pass = 0; pass < 8; pass++) {
+      const labels0 = bandLabels(relief, n, darkIsTall, pixelCount)
+      const cleaned = removeIsolatedRegions(relief, labels0, width, height, MIN_REGION_CELLS)
+      const labels1 = bandLabels(cleaned, n, darkIsTall, pixelCount)
+      const remaining = components(labels1, width, height).filter((c) => c.cells.length < MIN_REGION_CELLS).length
+      relief = cleaned
+      if (remaining === 0) break
+    }
+  }
 
   // Assign bands by rank on the cleaned relief: each band takes the next
   // slice of ⌊count/n⌋ or ⌈count/n⌉ pixels, so no color covers a

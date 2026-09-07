@@ -1,0 +1,26 @@
+{
+  "feature": "import-reference-3mf",
+  "mode": "semi",
+  "depth": "normal",
+  "phase": 8,
+  "status": "done",
+  "requirements": {"total": 10, "open": 0, "inSpec": 0, "inTicket": 10, "done": 10},
+  "tickets": [
+    {"id": "01", "slug": "reference-parser", "status": "done", "blockedBy": []},
+    {"id": "02", "slug": "reference-apply", "status": "done", "blockedBy": ["01"]},
+    {"id": "03", "slug": "reference-ui", "status": "done", "blockedBy": ["01", "02"]}
+  ],
+  "completedTickets": 3,
+  "totalTickets": 3,
+  "lastGreenCommit": "9358fbc",
+  "blind": {
+    "brief": "Add the next HueForge feature — Import and analyze reference 3MF",
+    "verdict": "implemented",
+    "drift": []
+  },
+  "concerns": [
+    "Bundle-size warning from Vite (pre-existing, not introduced by this feature).",
+    "Changes are uncommitted by workspace policy; say the word to commit."
+  ],
+  "next": "Idle. Feature complete and verified."
+}

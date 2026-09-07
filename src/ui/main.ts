@@ -1,8 +1,13 @@
 import './styles.css'
 import { runPipeline, finishPipeline, exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
+import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, customFilaments, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId } from '../lib/filamentLibrary'
 import { describeExport } from '../lib/describe'
+import { layerView } from '../lib/layerView'
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
+import { parseReference3mf, Reference3mfParseError } from '../lib/reference3mf'
+import { planReferenceApply, reprocessWithReference, type ReferenceApplyPlan } from '../lib/referenceApply'
+import type { Reference3mfAnalysis } from '../lib/reference3mf'
 import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
@@ -16,6 +21,15 @@ const $ = <T extends HTMLElement>(sel: string): T => {
 let current: PipelineResult | null = null
 let currentFile: File | null = null
 let viewer3d: Viewer3D | null = null
+/** Panel ids with a hide button — every collapsible sidebar section. */
+type PanelId = 'img' | 'colors' | 'size' | 'pb' | 'ref' | 'export' | 'palette'
+let hiddenPanels: PanelId[] = []
+/** details element per panel id, resolved once at startup. */
+const panelEls: Partial<Record<PanelId, HTMLDetailsElement>> = {}
+function panelEl(id: PanelId): HTMLDetailsElement {
+  if (!panelEls[id]) panelEls[id] = document.getElementById(`${id}-details`) as HTMLDetailsElement
+  return panelEls[id]!
+}
 /** Guards against overlapping runs writing stale results (live reprocessing). */
 let runToken = 0
 let lang: Lang = loadLang()
@@ -28,12 +42,19 @@ const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
 const printabilityList = $<HTMLDivElement>('#printability-list')
 const printabilitySummary = $<HTMLParagraphElement>('#printability-summary')
+const pbBadge = $<HTMLSpanElement>('#pb-badge')
 const exportStatus = $<HTMLParagraphElement>('#export-status')
 const btnStl = $<HTMLButtonElement>('#btn-stl')
 const btn3mf = $<HTMLButtonElement>('#btn-3mf')
 const btnDescribe = $<HTMLButtonElement>('#btn-describe')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
+const canvasLayer = $<HTMLCanvasElement>('#canvas-layer')
+const layerSlider = $<HTMLInputElement>('#layer-slider')
+const layerTicks = $<HTMLDivElement>('#layer-ticks')
+const layerReadout = $<HTMLSpanElement>('#layer-readout')
+const layerSwatch = $<HTMLSpanElement>('#layer-swatch')
+const layerBand = $<HTMLSpanElement>('#layer-band')
 const colorsSlider = $<HTMLInputElement>('#colors-slider')
 const colorsValue = $<HTMLInputElement>('#colors-value')
 const sliderTicks = $<HTMLDivElement>('#slider-ticks')
@@ -56,6 +77,24 @@ const langBannerBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('
 const bannerThemeBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.banner-theme-btn'))
 const processingOverlay = $<HTMLDivElement>('#processing-overlay')
 const versionBadge = $<HTMLSpanElement>('#app-version')
+
+// Reference 3MF panel elements
+const refDrop = $<HTMLDivElement>('#ref-drop')
+const refInput = $<HTMLInputElement>('#ref-input')
+const refReport = $<HTMLDivElement>('#ref-report')
+const refStatus = $<HTMLParagraphElement>('#ref-status')
+const refModelLine = $<HTMLParagraphElement>('#ref-model-line')
+const refPaletteEl = $<HTMLDivElement>('#ref-palette')
+const refSwaps = $<HTMLParagraphElement>('#ref-swaps')
+const refMissingSection = $<HTMLDivElement>('#ref-missing-section')
+const refMissing = $<HTMLParagraphElement>('#ref-missing')
+const refWarningsSection = $<HTMLDivElement>('#ref-warnings-section')
+const refWarningsEl = $<HTMLDivElement>('#ref-warnings')
+const refApplyBtn = $<HTMLButtonElement>('#ref-apply')
+const refApplyNote = $<HTMLParagraphElement>('#ref-apply-note')
+const refEmpty = $<HTMLParagraphElement>('#ref-empty')
+const refError = $<HTMLParagraphElement>('#ref-error')
+const refBadge = $<HTMLSpanElement>('#ref-badge')
 
 function setProcessing(on: boolean) {
   processingOverlay.hidden = !on
@@ -84,6 +123,8 @@ type Settings = {
   baseMm: number
   maxMm: number
   layerMm: number
+  /** Panel ids (e.g. 'ref', 'pb') the user explicitly hid; remembers across restarts. */
+  hiddenPanels: PanelId[]
 }
 
 /** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
@@ -102,6 +143,7 @@ function saveSettings() {
       baseMm,
       maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
+      hiddenPanels,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -124,9 +166,44 @@ function restoreSettings() {
     baseInput.value = String(baseMm)
     maxInput.value = String(clampNum(Number(s.maxMm), baseMm + 2, 40, 8))
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
+    hiddenPanels = Array.isArray(s.hiddenPanels)
+      ? s.hiddenPanels.filter((k) => ['img', 'colors', 'size', 'pb', 'ref', 'export', 'palette'].includes(k))
+      : []
   } catch {
     /* ignore corrupt settings */
   }
+}
+
+function ensureRestoreVisible() {
+  for (const key of ['img', 'colors', 'size', 'pb', 'ref', 'export', 'palette'] as const) {
+    const el = panelEl(key)
+    const hidden = hiddenPanels.includes(key)
+    // A hidden panel keeps its summary row visible with an "Unhide" hint;
+    // the body stays collapsed. Closed-but-not-hidden keeps everything.
+    el.classList.toggle('panel-hidden', hidden)
+    let hint = el.querySelector<HTMLSpanElement>(':scope > summary .ref-restore-hint')
+    if (!hint) {
+      hint = document.createElement('span')
+      hint.className = 'ref-restore-hint'
+      hint.dataset.i18n = 'panelHiddenRestore'
+      hint.setAttribute('role', 'button')
+      hint.tabIndex = 0
+      el.querySelector('summary')?.appendChild(hint)
+    }
+    hint.textContent = tr('panelHiddenRestore')
+    hint.hidden = !hidden
+    el.open = hidden ? false : el.open
+  }
+}
+
+function setPanelHidden(panel: PanelId, hidden: boolean) {
+  if (hidden) {
+    if (!hiddenPanels.includes(panel)) hiddenPanels = [...hiddenPanels, panel]
+  } else {
+    hiddenPanels = hiddenPanels.filter((k) => k !== panel)
+  }
+  ensureRestoreVisible()
+  saveSettings()
 }
 
 function readOptions() {
@@ -146,6 +223,7 @@ function readOptions() {
     baseMm,
     maxHeightMm,
     layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
+    hiddenPanels: hiddenPanels,
   }
 }
 
@@ -165,6 +243,7 @@ async function readFile(file: File) {
     current = result
     autoPalette = result.quantized.palette.map((c) => ({ ...c }))
     updateUI()
+    if (referencePlan) updateApplyButton() // image availability changes Apply
     setProcessing(false)
     showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
   } catch (err) {
@@ -176,6 +255,7 @@ async function readFile(file: File) {
     btnDescribe.disabled = true
     printabilityList.innerHTML = ''
     printabilitySummary.textContent = tr('pbDefault')
+    pbBadge.hidden = true
     showStatus(err instanceof Error ? err.message : String(err), true)
   }
 }
@@ -186,6 +266,14 @@ function applyStaticText() {
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) {
     const key = el.dataset.i18n
     if (key) el.textContent = tr(key)
+  }
+  // Help: every [data-help] element gets a localized tooltip; sections also
+  // title themselves so hovering anywhere on the intro paragraph explains it.
+  for (const el of document.querySelectorAll<HTMLElement>('[data-help]')) {
+    const key = el.dataset.help
+    if (!key) continue
+    el.title = tr(key)
+    el.ariaLabel = tr(key)
   }
   colorsSlider.ariaLabel = tr('sliderAria')
   colorsValue.ariaLabel = tr('sliderValueAria')
@@ -331,6 +419,7 @@ function updateUI() {
   renderPalette()
   renderPrintability()
   update3d()
+  drawLayerView()
   btnStl.disabled = false
   btn3mf.disabled = false
   btnDescribe.disabled = false
@@ -361,6 +450,23 @@ function renderPrintability() {
     report.errors === 0 && report.warnings === 0
       ? tr('allPassed')
       : `${word(lang, report.errors, 'errors')} · ${word(lang, report.warnings, 'warnings')}`
+  setPbBadge(report)
+  ensureRestoreVisible()
+}
+
+/** Collapsed-summary badge: worst finding at a glance without expanding. */
+function setPbBadge(report: ReturnType<typeof analyzePrintability>) {
+  if (report.errors > 0) {
+    pbBadge.className = 'ref-badge error'
+    pbBadge.textContent = `✕ ${word(lang, report.errors, 'errors')}`
+  } else if (report.warnings > 0) {
+    pbBadge.className = 'ref-badge partial'
+    pbBadge.textContent = `⚠ ${word(lang, report.warnings, 'warnings')}`
+  } else {
+    pbBadge.className = 'ref-badge complete'
+    pbBadge.textContent = `✓ ${tr('allPassed')}`
+  }
+  pbBadge.hidden = false
 }
 
 function drawSource() {
@@ -385,8 +491,116 @@ function drawQuantized() {
   canvasQuantized.getContext('2d')!.putImageData(new ImageData(rgba, width, height), 0, 0)
 }
 
+// ---- Layer-by-layer view -------------------------------------------------
+
+/** Current position of the layer-view slider, as a fraction of total layers. */
+let layerPos = 1 // 1 = top (final picture) on first load
+
+/** Swap layers (1-indexed) — the layers where a new filament starts. */
+function swapLayers(result: PipelineResult): number[] {
+  const layerMm = result.settings.layerMm
+  const total = Math.max(1, Math.round(result.settings.maxHeightMm / layerMm))
+  const tops = [...result.palette].sort((a, b) => a.topZMm - b.topZMm).map((p) => p.topZMm)
+  const layers: number[] = [1]
+  for (const z of tops) {
+    const l = Math.round(z / layerMm)
+    if (l > 1 && l <= total && layers[layers.length - 1] !== l) layers.push(l)
+  }
+  return layers
+}
+
+/** Rebuild the swap ticks under the layer slider, highlighting the active one. */
+function renderLayerTicks(result: PipelineResult, currentLayer: number) {
+  const total = Math.max(1, Math.round(result.settings.maxHeightMm / result.settings.layerMm))
+  const swaps = swapLayers(result)
+  layerTicks.replaceChildren()
+  for (const l of swaps) {
+    const tick = document.createElement('span')
+    tick.className = 'slider-tick layer-tick'
+    // Same thumb-travel math as renderTicks: thumb center sits at 8px +
+    // fraction × (100% − 16px) so ticks align with real slider positions.
+    const frac = total > 1 ? (l - 1) / (total - 1) : 0
+    tick.style.left = `calc(8px + ${frac} * (100% - 16px))`
+    tick.title = tr('layerOfTotal', { n: l, total, z: (l * result.settings.layerMm).toFixed(2) })
+    if (l === currentLayer) tick.classList.add('active')
+    const line = document.createElement('span')
+    line.className = 'tick-line'
+    tick.appendChild(line)
+    tick.addEventListener('click', () => {
+      layerPos = (l - 1) / Math.max(1, total - 1)
+      layerSlider.value = String(l)
+      drawLayerView()
+    })
+    layerTicks.appendChild(tick)
+  }
+}
+
+/** Redraw the layer-view canvas and readout from the current layerPos. */
+function drawLayerView() {
+  if (!current) return
+  const total = Math.max(1, Math.round(current.settings.maxHeightMm / current.settings.layerMm))
+  const l = Math.round(layerPos * (total - 1)) + 1
+  layerSlider.max = String(total)
+  layerSlider.value = String(l)
+  const z = l * current.settings.layerMm
+  const view = layerView(current, z)
+
+  const { width, height } = current.image
+  canvasLayer.width = width
+  canvasLayer.height = height
+  canvasLayer.getContext('2d')!.putImageData(new ImageData(view.rgba, width, height), 0, 0)
+
+  // Readout: layer position + the filament being printed at this height.
+  layerReadout.textContent = tr('layerOfTotal', { n: view.layer, total: view.totalLayers, z: z.toFixed(2) })
+  const activeSlice = view.activeBand
+  const n = current.quantized.palette.length
+  const entry = current.palette.find((p) => (current!.settings.darkIsTall ? n - p.printOrder : p.printOrder - 1) === activeSlice)
+  if (entry) {
+    const hex = rgbToHex(entry.color)
+    layerSwatch.hidden = false
+    layerSwatch.style.background = hex
+    layerBand.textContent =
+      view.layer >= view.totalLayers
+        ? tr('layerTopDone')
+        : tr('layerSwappingTo', { n: entry.printOrder, name: nearestFilament(entry.color, lang) })
+  } else {
+    layerSwatch.hidden = true
+    layerBand.textContent = tr('layerBase')
+  }
+  renderLayerTicks(current, view.layer)
+}
+
+layerSlider.addEventListener('input', () => {
+  const total = Math.max(1, Math.round((current?.settings.maxHeightMm ?? 8) / (current?.settings.layerMm ?? 0.2)))
+  const l = Number(layerSlider.value)
+  layerPos = total > 1 ? (l - 1) / (total - 1) : 1
+  drawLayerView()
+})
+
 /** Snapshot of the auto-quantized palette, so any color can be reset. */
 let autoPalette: RGB[] = []
+
+/**
+ * Library filament assigned to each palette slot (by palette index). Keyed
+ * by slot, not color, so it survives color tweaks and follows the band.
+ * A null slot falls back to the nearest library suggestion.
+ */
+let filamentAssignments: (string | null)[] = []
+
+/** Library filament for a slot: the assignment, else the nearest suggestion. */
+function filamentForSlot(idx: number): LibraryChoice {
+  const assigned = filamentAssignments[idx] ? findFilament(filamentAssignments[idx]!) : undefined
+  if (assigned) return assigned
+  const used = filamentAssignments.filter((id): id is string => id !== null)
+  return nearestLibraryFilament(current!.quantized.palette[idx], used)
+}
+
+/** Human label for a slot's filament: "Bestfilament · PLA · Белый". */
+function filamentLabel(choice: LibraryChoice): string {
+  const colorName = lang === 'ru' ? choice.color.nameRu : choice.color.nameEn
+  const brand = choice.brandId === CUSTOM_BRAND_ID ? tr('filamMyBrand') : choice.brandName
+  return `${brand} · ${materialName(choice.materialId)} · ${colorName}`
+}
 
 /**
  * Replace one palette color and rebuild everything that depends on it.
@@ -401,6 +615,252 @@ function setPaletteColor(idx: number, rgb: RGB, fullUpdate = true) {
   update3d()
   if (fullUpdate) updateUI()
 }
+
+/** One row of the filament-library popover: a <select> for one axis. */
+function librarySelect(
+  labelText: string,
+  options: { value: string; label: string }[],
+  value: string,
+  onChange: (v: string) => void,
+): HTMLLabelElement {
+  const label = document.createElement('label')
+  label.className = 'filam-lib-field'
+  const span = document.createElement('span')
+  span.textContent = labelText
+  const select = document.createElement('select')
+  for (const opt of options) {
+    const o = document.createElement('option')
+    o.value = opt.value
+    o.textContent = opt.label
+    select.appendChild(o)
+  }
+  select.value = value
+  select.addEventListener('change', () => onChange(select.value))
+  label.append(span, select)
+  return label
+}
+
+/**
+ * Filament-library popover for one palette slot: pick brand → material →
+ * color from the Russian-manufacturer library, or clear back to the
+ * nearest-suggestion fallback.
+ */
+function openLibraryPopover(slotIdx: number, anchor: HTMLElement) {
+  closeLibraryPopover()
+  const pop = document.createElement('div')
+  pop.className = 'filam-pop'
+  pop.id = 'filam-pop'
+
+  const title = document.createElement('div')
+  title.className = 'filam-pop-title'
+  title.textContent = tr('filamLibraryTitle')
+  const hint = document.createElement('div')
+  hint.className = 'filam-pop-hint'
+  hint.textContent = tr('filamLibraryHint')
+  pop.append(title, hint)
+
+  const choice = filamentForSlot(slotIdx)
+  let brandId = choice.brandId
+  let materialId = choice.materialId
+
+  const colorPreview = document.createElement('div')
+  colorPreview.className = 'filam-pop-color'
+  const colorSwatch = document.createElement('span')
+  colorSwatch.className = 'filam-pop-swatch'
+  const colorName = document.createElement('span')
+  colorName.className = 'filam-pop-colorname'
+
+  /** Inline "add own filament" form (visible only in the My brand). */
+  const addForm = document.createElement('div')
+  addForm.className = 'filam-add-form'
+  addForm.hidden = true
+  const addName = document.createElement('input')
+  addName.type = 'text'
+  addName.className = 'filam-add-name'
+  addName.placeholder = tr('filamAddNamePlaceholder')
+  addName.ariaLabel = tr('filamAddName')
+  addName.maxLength = 40
+  const addColor = document.createElement('input')
+  addColor.type = 'color'
+  addColor.className = 'filam-add-color'
+  addColor.value = '#cc2222'
+  addColor.ariaLabel = tr('filamAddColor')
+  const addBtn = document.createElement('button')
+  addBtn.type = 'button'
+  addBtn.className = 'filam-add-btn'
+  addBtn.textContent = tr('filamAddBtn')
+  addForm.append(addName, addColor, addBtn)
+
+  const myEmpty = document.createElement('div')
+  myEmpty.className = 'filam-my-empty'
+  myEmpty.textContent = tr('filamMyEmpty')
+
+  const rebuild = (keepColor: boolean) => {
+    const isMy = brandId === CUSTOM_BRAND_ID
+    addForm.hidden = !isMy
+    myEmpty.hidden = !isMy || customFilaments().length > 0
+
+    // The visible list: catalog colors for a real brand, customs for My.
+    let choices: { id: string; hex: string; name: string; custom?: boolean }[]
+    if (isMy) {
+      choices = customFilaments()
+        .filter((f) => f.materialId === materialId)
+        .map((f) => ({ id: f.id, hex: f.hex, name: lang === 'ru' ? f.nameRu : f.nameEn, custom: true }))
+    } else {
+      const material = LIBRARY[brandId][materialId]
+      choices = material.colors.map((c) => ({ id: c.id, hex: c.hex, name: lang === 'ru' ? c.nameRu : c.nameEn }))
+    }
+    const ids = new Set(choices.map((c) => c.id))
+    if (!keepColor || !ids.has(pop.dataset.colorId ?? '')) {
+      pop.dataset.colorId = choices[0]?.id ?? ''
+    }
+    const current = choices.find((c) => c.id === pop.dataset.colorId)
+    colorPreview.replaceChildren()
+    if (current) {
+      colorSwatch.style.background = current.hex
+      colorName.textContent = current.name
+      colorPreview.append(colorSwatch, colorName)
+    }
+    grid.replaceChildren()
+    for (const c of choices) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'filam-grid-btn'
+      btn.title = c.name
+      btn.ariaLabel = `${brandId} ${materialId} ${c.name}`
+      const sw = document.createElement('span')
+      sw.className = 'filam-grid-swatch'
+      sw.style.background = c.hex
+      btn.appendChild(sw)
+      if (c.id === pop.dataset.colorId) btn.classList.add('active')
+      if (c.custom) {
+        btn.classList.add('custom')
+        const del = document.createElement('span')
+        del.className = 'filam-grid-del'
+        del.textContent = '✕'
+        del.title = tr('filamDelete')
+        del.ariaLabel = tr('filamDelete')
+        del.addEventListener('click', (ev) => {
+          ev.stopPropagation()
+          if (!confirm(tr('filamDeleteConfirm'))) return
+          removeCustomFilament(c.id)
+          if (filamentAssignments.includes(c.id)) {
+            filamentAssignments = filamentAssignments.map((a) => (a === c.id ? null : a))
+          }
+          rebuild(false)
+          renderPalette()
+        })
+        btn.appendChild(del)
+      }
+      btn.addEventListener('click', () => {
+        pop.dataset.colorId = c.id
+        commit()
+      })
+      grid.appendChild(btn)
+    }
+  }
+
+  const commit = () => {
+    const fullId = pop.dataset.colorId
+    if (!fullId) return
+    filamentAssignments[slotIdx] = fullId
+    const c = findFilament(fullId)
+    if (!c) return
+    // Adopt the catalog color so the preview/print matches the real plastic.
+    setPaletteColor(slotIdx, { ...c.color.rgb })
+    renderPalette()
+    closeLibraryPopover()
+  }
+
+  addBtn.addEventListener('click', () => {
+    const hex = /^#[0-9a-f]{6}$/i.test(addColor.value) ? addColor.value : '#888888'
+    const added = addCustomFilament({ name: addName.value, hex, materialId: materialId as MaterialId })
+    brandId = CUSTOM_BRAND_ID
+    pop.dataset.colorId = added.id
+    rebuild(false)
+    commit()
+  })
+
+  const brandField = librarySelect(
+    tr('filamBrandLabel'),
+    [{ value: CUSTOM_BRAND_ID, label: tr('filamMyBrand') }, ...BRANDS.map((b) => ({ value: b.id, label: b.name }))],
+    brandId,
+    (v) => {
+      brandId = v
+      rebuild(false)
+    },
+  )
+  const materialField = librarySelect(
+    tr('filamMaterialLabel'),
+    MATERIALS.map((m) => ({ value: m, label: materialName(m) })),
+    materialId,
+    (v) => {
+      materialId = v as typeof materialId
+      rebuild(false)
+    },
+  )
+  const colorField = document.createElement('div')
+  colorField.className = 'filam-lib-field'
+  const colorLabel = document.createElement('span')
+  colorLabel.textContent = tr('filamColorLabel')
+  colorField.append(colorLabel)
+
+  const grid = document.createElement('div')
+  grid.className = 'filam-grid'
+
+  const clearBtn = document.createElement('button')
+  clearBtn.type = 'button'
+  clearBtn.className = 'filam-clear'
+  clearBtn.textContent = tr('filamClear')
+  clearBtn.addEventListener('click', () => {
+    filamentAssignments[slotIdx] = null
+    renderPalette()
+    closeLibraryPopover()
+  })
+
+  const closeBtn = document.createElement('button')
+  closeBtn.type = 'button'
+  closeBtn.className = 'filam-close'
+  closeBtn.textContent = '✕'
+  closeBtn.title = tr('filamClose')
+  closeBtn.ariaLabel = tr('filamClose')
+  closeBtn.addEventListener('click', closeLibraryPopover)
+
+  pop.append(closeBtn, brandField, materialField, colorField, colorPreview, grid, addForm, myEmpty, clearBtn)
+  document.body.appendChild(pop)
+  rebuild(true)
+
+  // Position next to the anchor, clamped to the viewport.
+  const r = anchor.getBoundingClientRect()
+  pop.style.visibility = 'hidden'
+  requestAnimationFrame(() => {
+    const pw = pop.offsetWidth
+    const ph = pop.offsetHeight
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))
+    const top = Math.min(r.bottom + 6, window.innerHeight - ph - 8)
+    pop.style.left = `${left}px`
+    pop.style.top = `${top}px`
+    pop.style.visibility = ''
+  })
+  activePopSlot = slotIdx
+}
+
+let activePopSlot: number | null = null
+let popAnchor: HTMLElement | null = null
+
+function closeLibraryPopover() {
+  document.getElementById('filam-pop')?.remove()
+  activePopSlot = null
+  popAnchor = null
+}
+
+/** Close the popover on any outside click. */
+document.addEventListener('click', (e) => {
+  const pop = document.getElementById('filam-pop')
+  if (!pop) return
+  if (pop.contains(e.target as Node) || popAnchor?.contains(e.target as Node)) return
+  closeLibraryPopover()
+})
 
 function renderPalette() {
   const palette = current!.palette
@@ -438,9 +898,11 @@ function renderPalette() {
     labelSub.className = 'palette-label-sub'
     // Read the live palette entry (current.palette[i]) rather than the stale
     // `entry` captured above, so the label tracks live color edits too.
+    const choice = filamentForSlot(i)
     const labelText = () => {
       const live = current!.palette[i]
-      return `#${live.printOrder} · ${rgbToHex(live.color)} · ~${nearestFilament(live.color, lang)}`
+      const filam = ` · ${filamentLabel(filamentForSlot(i))}`
+      return `#${live.printOrder} · ${rgbToHex(live.color)} · ~${nearestFilament(live.color, lang)}${filam}`
     }
     const subText = () => {
       const live = current!.palette[i]
@@ -450,6 +912,23 @@ function renderPalette() {
     labelMain.textContent = labelText()
     labelSub.textContent = subText()
     label.append(labelMain, labelSub)
+
+    // Filament-library button: pick a real catalog plastic for this band.
+    const libBtn = document.createElement('button')
+    libBtn.type = 'button'
+    libBtn.className = 'palette-lib'
+    libBtn.textContent = filamentAssignments[i] ? '★' : '☆'
+    libBtn.title = `${tr('filamPick')} — ${filamentLabel(choice)}`
+    libBtn.ariaLabel = `${tr('filamPick')} — ${filamentLabel(choice)}`
+    libBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (activePopSlot === i) {
+        closeLibraryPopover()
+        return
+      }
+      popAnchor = libBtn
+      openLibraryPopover(i, libBtn)
+    })
 
     // Restore the auto-quantized color for this entry.
     const reset = document.createElement('button')
@@ -464,11 +943,18 @@ function renderPalette() {
       picker.value = rgbToHex(auto)
       setPaletteColor(i, { ...auto })
       labelMain.textContent = labelText()
+      libBtn.textContent = filamentAssignments[i] ? '★' : '☆'
     })
 
     // Live: update previews/3D only, keep the open picker alive.
     picker.addEventListener('input', () => {
       setPaletteColor(i, hexToRgb(picker.value), false)
+      // Manual color edits release the catalog assignment: the band now has
+      // its own color and the library falls back to the nearest suggestion.
+      if (filamentAssignments[i]) {
+        filamentAssignments[i] = null
+        libBtn.textContent = '☆'
+      }
       labelMain.textContent = labelText()
     })
     // Commit: full re-render (palette list, printability, status).
@@ -477,10 +963,13 @@ function renderPalette() {
       showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }))
     })
 
-    row.append(picker, label, reset)
+    row.append(picker, label, libBtn, reset)
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
+  // Keep assignments aligned with the (possibly changed) color count.
+  filamentAssignments.length = palette.length
+  for (let i = 0; i < palette.length; i++) filamentAssignments[i] ??= null
 }
 
 function update3d() {
@@ -639,7 +1128,10 @@ function renderTicks() {
   for (const v of PRESET_TICKS) {
     const tick = document.createElement('span')
     tick.className = 'slider-tick'
-    tick.style.left = `${((v - SLIDER_MIN) / span) * 100}%`
+    // Match the range-input thumb travel: thumb center sits at thumbHalf +
+    // fraction × (trackWidth − thumbWidth). Chromium/Edge default thumb = 16px.
+    const frac = (v - SLIDER_MIN) / span
+    tick.style.left = `calc(8px + ${frac} * (100% - 16px))`
     tick.title = word(lang, v, 'colors')
     if (v === current) tick.classList.add('active')
     tick.addEventListener('click', () => applyCount(v))
@@ -651,6 +1143,243 @@ function renderTicks() {
     tick.append(line, label)
     sliderTicks.appendChild(tick)
   }
+}
+
+// ---- Reference 3MF: analyze first, apply only by explicit action ----
+
+let referenceAnalysis: Reference3mfAnalysis | null = null
+let referencePlan: ReferenceApplyPlan | null = null
+
+function currentEditorOptions() {
+  const o = readOptions()
+  return {
+    numColors: o.numColors as number,
+    darkIsTall: o.darkIsTall,
+    widthMm: o.widthMm,
+    heightMm: o.heightMm,
+    baseMm: o.baseMm,
+    maxHeightMm: o.maxHeightMm,
+    layerMm: o.layerMm,
+  }
+}
+
+function showRefError(code: string, fallback: string) {
+  const key = `refErr${code.charAt(0).toUpperCase()}${code.slice(1)}`
+  let message: string
+  try {
+    message = tr(key)
+  } catch {
+    message = fallback
+  }
+  refError.textContent = message
+  refError.hidden = false
+}
+
+function setRefBadge(kind: 'empty' | 'ready' | 'complete' | 'partial' | 'error' | 'analyzing') {
+  const keyMap = {
+    empty: 'refBadgeEmpty',
+    ready: 'refBadgeReady',
+    complete: 'refBadgeComplete',
+    partial: 'refBadgePartial',
+    error: 'refBadgeError',
+    analyzing: 'refBadgeAnalyzing',
+  } as const
+  refBadge.className = `ref-badge ${kind}`
+  refBadge.dataset.kind = kind
+  refBadge.dataset.i18n = keyMap[kind]
+  refBadge.textContent = tr(keyMap[kind])
+}
+
+function resetReferenceUI() {
+  refReport.hidden = true
+  refError.hidden = true
+  refApplyBtn.disabled = true
+  refApplyNote.textContent = ''
+}
+
+function renderReferenceReport() {
+  if (!referenceAnalysis) return
+  const a = referenceAnalysis
+  refEmpty.hidden = true
+  refReport.hidden = false
+  refError.hidden = true
+
+  refStatus.textContent = a.status === 'complete' ? tr('refComplete') : tr('refPartial')
+  refStatus.className = `ref-status ${a.status}`
+  setRefBadge(a.status)
+  refModelLine.textContent = tr('refModelLine', {
+    w: parseFloat(a.model.widthMm.toFixed(2)),
+    h: parseFloat(a.model.heightMm.toFixed(2)),
+    z: parseFloat(a.model.maxHeightMm.toFixed(2)),
+    tris: word(lang, a.model.triangleCount, 'tris'),
+    unit: a.model.unit,
+  })
+
+  refPaletteEl.innerHTML = ''
+  for (const entry of a.palette) {
+    const row = document.createElement('div')
+    row.className = 'ref-palette-row'
+    const swatch = document.createElement('span')
+    swatch.className = 'ref-swatch'
+    swatch.style.background = entry.hex
+    const label = document.createElement('span')
+    label.className = 'ref-swatch-label'
+    label.textContent = `#${entry.printOrder} · ${entry.hex}`
+    row.append(swatch, label)
+    refPaletteEl.appendChild(row)
+  }
+
+  if (a.swaps.length > 0) {
+    refSwaps.innerHTML = ''
+    for (const swap of a.swaps) {
+      const line = document.createElement('div')
+      line.textContent = tr('refSwapLine', {
+        z: swap.topZMm.toFixed(2),
+        layer: swap.layer !== undefined ? tr('refSwapLayer', { layer: swap.layer }) : '',
+      })
+      refSwaps.appendChild(line)
+    }
+  } else {
+    refSwaps.textContent = tr('refNoSwaps')
+  }
+
+  if (a.missingFields.length > 0) {
+    refMissingSection.hidden = false
+    refMissing.textContent = a.missingFields.join(' · ')
+  } else {
+    refMissingSection.hidden = true
+  }
+
+  if (a.warnings.length > 0) {
+    refWarningsSection.hidden = false
+    refWarningsEl.innerHTML = ''
+    for (const w of a.warnings) {
+      const item = document.createElement('div')
+      item.textContent = w
+      refWarningsEl.appendChild(item)
+    }
+  } else {
+    refWarningsSection.hidden = true
+  }
+
+  updateApplyButton()
+}
+
+function updateApplyButton() {
+  if (!referencePlan || !referencePlan.canApply) {
+    refApplyBtn.disabled = true
+    refApplyNote.textContent = referenceAnalysis && !current
+      ? tr('refNeedsImage')
+      : referencePlan?.blockedReason ?? ''
+    return
+  }
+  if (!current) {
+    refApplyBtn.disabled = true
+    refApplyNote.textContent = tr('refNeedsImage')
+    return
+  }
+  refApplyBtn.disabled = false
+  refApplyNote.textContent = ''
+}
+
+async function analyzeReference(file: File) {
+  resetReferenceUI()
+  refStatus.className = 'ref-status'
+  refStatus.textContent = tr('refAnalyzing')
+  refReport.hidden = false
+  // Force the panel visible even if the user hid it earlier — an explicit
+  // file drop/pick is a clear intent to work with the reference report.
+  if (hiddenPanels.includes('ref')) setPanelHidden('ref', false)
+  panelEl('ref').open = true
+  setRefBadge('analyzing')
+  try {
+    referenceAnalysis = await parseReference3mf(file)
+    referencePlan = planReferenceApply(referenceAnalysis, currentEditorOptions())
+    renderReferenceReport()
+  } catch (err) {
+    referenceAnalysis = null
+    referencePlan = null
+    refReport.hidden = true
+    setRefBadge('error')
+    if (err instanceof Reference3mfParseError) {
+      showRefError(err.code, err.message)
+    } else {
+      refError.textContent = tr('refError')
+      refError.hidden = false
+    }
+  }
+  ensureRestoreVisible()
+}
+
+function applyReference() {
+  if (!referencePlan || !referencePlan.canApply) return
+  if (!current || !currentFile) return
+  const plan = referencePlan
+  const o = plan.options
+  // Load the reference values into the shared controls (persisted like
+  // manual edits), then rebuild from the current image with overrides.
+  colorsSlider.value = String(o.numColors)
+  colorsValue.value = String(o.numColors)
+  renderTicks()
+  const modeInput = document.querySelector<HTMLInputElement>(`input[name="mode"][value="${o.darkIsTall ? 'dark' : 'light'}"]`)
+  if (modeInput) modeInput.checked = true
+  widthInput.value = String(o.widthMm)
+  heightInput.value = String(o.heightMm)
+  baseInput.value = String(o.baseMm)
+  maxInput.value = String(o.maxHeightMm)
+  layerInput.value = String(o.layerMm)
+  saveSettings()
+
+  current = reprocessWithReference(current.image, plan)
+  autoPalette = current.quantized.palette.map((c) => ({ ...c }))
+  updateUI()
+  showStatus(tr('refAppliedDone', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+}
+
+function setupReference() {
+  refDrop.addEventListener('click', () => refInput.click())
+  refInput.addEventListener('change', () => {
+    const f = refInput.files?.[0]
+    if (f) void analyzeReference(f)
+  })
+  refDrop.addEventListener('dragover', (e) => {
+    e.preventDefault()
+    refDrop.classList.add('dragover')
+  })
+  refDrop.addEventListener('dragleave', () => refDrop.classList.remove('dragover'))
+  refDrop.addEventListener('drop', (e) => {
+    e.preventDefault()
+    refDrop.classList.remove('dragover')
+    const f = e.dataTransfer?.files?.[0]
+    if (f) void analyzeReference(f)
+  })
+  refApplyBtn.addEventListener('click', applyReference)
+
+  // Hide/restore buttons for the collapsible panels — one delegated handler.
+  // "Hide this section" collapses the panel and remembers the choice across
+  // restarts; the summary then shows an "Unhide" hint that brings it back.
+  document.querySelector('.sidebar')?.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    const hideBtn = target.closest<HTMLButtonElement>('[data-action="hide-panel"]')
+    if (hideBtn && ['img', 'colors', 'size', 'pb', 'ref', 'export', 'palette'].includes(hideBtn.dataset.panel!)) {
+      setPanelHidden(hideBtn.dataset.panel as PanelId, true)
+      return
+    }
+    const restoreHint = target.closest<HTMLElement>('.ref-restore-hint')
+    if (restoreHint) {
+      const details = restoreHint.closest('details')
+      const key = (Object.entries(panelEls).find(([, el]) => el === details)?.[0] ?? null) as PanelId | null
+      if (key) setPanelHidden(key, false)
+      return
+    }
+    // Clicking anywhere on a hidden panel's title row also restores it.
+    const summaryHit = target.closest('details.panel-hidden > summary')
+    if (summaryHit) {
+      const key = (Object.entries(panelEls).find(([, el]) => el === summaryHit.parentElement)?.[0] ?? null) as PanelId | null
+      if (key) setPanelHidden(key, false)
+    }
+  })
+  ensureRestoreVisible()
 }
 
 function setupExports() {
@@ -688,4 +1417,5 @@ setupTheme()
 setupDropZone()
 bindInputs()
 setupExports()
+setupReference()
 renderTicks()

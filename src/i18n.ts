@@ -45,6 +45,132 @@ export function dismissLangPrompt() {
 type Dict = Record<string, Record<Lang, string>>
 
 export const dict: Dict = {
+  // ---- help: section intros and control tooltips (en/ru) ----
+  helpWelcome: {
+    en: 'Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.',
+    ru: 'Добро пожаловать! Превратите любую картинку в многоцветную 3D-печатную картину: загрузите изображение, выберите количество цветов филамента и скачайте модель с инструкцией по смене цвета. Проходите пронумерованные разделы сверху вниз — предпросмотры обновляются сразу.',
+  },
+  helpImage: {
+    en: 'Start here. Drop in a photo or drawing — the app will reduce it to flat color bands for printing.',
+    ru: 'Начните здесь. Загрузите фото или рисунок — приложение сведёт его к плоским цветовым полосам для печати.',
+  },
+  helpDropZone: {
+    en: 'Click to choose a file, or drag an image onto this area. PNG, JPG and WebP work best.',
+    ru: 'Нажмите, чтобы выбрать файл, или перетащите изображение на эту область. Лучше всего подходят PNG, JPG и WebP.',
+  },
+  helpColors: {
+    en: 'How many filament colors to print with. More colors = smoother shading, but more manual filament swaps.',
+    ru: 'Сколько цветов филамента использовать. Больше цветов — плавнее переходы, но больше ручных смен филамента.',
+  },
+  helpColorsSlider: {
+    en: 'Drag to change the color count; click a tick mark for a quick preset (2–24).',
+    ru: 'Потяните, чтобы изменить количество цветов; щёлкните по метке для быстрого выбора (2–24).',
+  },
+  helpColorsValue: {
+    en: 'Type an exact color count from 2 to 24 and press Enter.',
+    ru: 'Введите точное количество цветов от 2 до 24 и нажмите Enter.',
+  },
+  helpDepth: {
+    en: 'Which parts of the picture stand tallest: light areas or dark ones. This sets the print order of the colors.',
+    ru: 'Какие участки картинки самые высокие — светлые или тёмные. Это задаёт порядок печати цветов.',
+  },
+  helpDepthLight: {
+    en: 'Highlights print last, on top — good for light-on-dark pictures.',
+    ru: 'Светлые участки печатаются последними, сверху — подходит для светлого на тёмном фоне.',
+  },
+  helpDepthDark: {
+    en: 'Shadows print last, on top — good for dark-on-light pictures.',
+    ru: 'Тёмные участки печатаются последними, сверху — подходит для тёмного на светлом фоне.',
+  },
+  helpSize: {
+    en: 'Physical print dimensions and layer settings. The resolution of the working image adapts to the print size automatically.',
+    ru: 'Физические размеры печати и настройки слоёв. Разрешение рабочего изображения подстраивается под размер печати автоматически.',
+  },
+  helpWidth: {
+    en: 'Print width in millimeters (20–500).',
+    ru: 'Ширина печати в миллиметрах (20–500).',
+  },
+  helpHeight: {
+    en: 'Print height in millimeters (20–500).',
+    ru: 'Высота печати в миллиметрах (20–500).',
+  },
+  helpBase: {
+    en: 'Thickness of the solid base slab the color bands build on (0–5 mm).',
+    ru: 'Толщина сплошной подложки, на которой растут цветовые полосы (0–5 мм).',
+  },
+  helpMax: {
+    en: 'Total model height including the base (2–40 mm). Each color band occupies part of it.',
+    ru: 'Полная высота модели вместе с подложкой (2–40 мм). Каждый цвет занимает свою часть.',
+  },
+  helpLayerMm: {
+    en: 'Slicer layer height (0.04–0.6 mm). Color swaps always land exactly on a layer boundary.',
+    ru: 'Высота слоя в слайсере (0,04–0,6 мм). Смены цвета всегда попадают точно на границу слоя.',
+  },
+  helpPrintability: {
+    en: 'Automatic check of your settings: band thickness, detail size vs nozzle, fragile specks, and the number of swaps. Fix anything marked with ⚠ or ✕.',
+    ru: 'Автоматическая проверка настроек: толщина полос, размер деталей против сопла, хрупкие участки и число смен. Исправьте всё, что помечено ⚠ или ✕.',
+  },
+  helpReference: {
+    en: 'Have a finished HueForge or Bambu project? Drop its 3MF here to see its size, colors and swap schedule — and copy them into your work with one click.',
+    ru: 'Есть готовый проект HueForge или Bambu? Загрузите его 3MF сюда, чтобы увидеть размер, цвета и расписание смен — и перенести их в свою работу одним нажатием.',
+  },
+  helpRefDrop: {
+    en: 'Click or drop a .3mf file. Analysis is read-only — nothing changes until you press Apply.',
+    ru: 'Нажмите или перетащите файл .3mf. Анализ только читает файл — ничего не меняется, пока вы не нажмёте «Применить».',
+  },
+  helpRefApply: {
+    en: 'Copy the reference’s sizes, colors and swap schedule onto your current image. Your image itself is never replaced.',
+    ru: 'Перенести размеры, цвета и расписание смен из эталона на текущее изображение. Само изображение не заменяется.',
+  },
+  helpExport: {
+    en: 'Download the printable files. Print the model top face up, 100% infill, no supports.',
+    ru: 'Скачайте файлы для печати. Печатайте модель верхней стороной вверх, заполнение 100%, поддержки не нужны.',
+  },
+  helpBtnStl: {
+    en: 'The 3D geometry only — opens in any slicer. Colors are encoded by layer height; pair it with Describe.txt.',
+    ru: 'Только 3D-геометрия — открывается в любом слайсере. Цвета закодированы высотой слоёв; используйте вместе с Describe.txt.',
+  },
+  helpBtn3mf: {
+    en: 'Project file for Bambu Studio (and HueForge-compatible slicers) with filament colors and swap points already set.',
+    ru: 'Файл проекта для Bambu Studio (и совместимых слайсеров) с цветами филамента и точками смен уже внутри.',
+  },
+  helpBtnDescribe: {
+    en: 'A text guide: color order from the base up and the exact layer to swap each filament.',
+    ru: 'Текстовая инструкция: порядок цветов от основания и точный слой для смены каждого филамента.',
+  },
+  helpPalette: {
+    en: 'Your colors in print order. Click a swatch to change it, ★ to pick a real filament from a Russian manufacturer’s catalog, ↺ to reset.',
+    ru: 'Ваши цвета в порядке печати. Щёлкните по образцу, чтобы изменить цвет; ★ — выбрать реальный филамент из каталога российских производителей; ↺ — вернуть.',
+  },
+  helpViewerSource: {
+    en: 'The original picture you loaded.',
+    ru: 'Исходная картинка, которую вы загрузили.',
+  },
+  helpViewerQuantized: {
+    en: 'The final printed picture: what the top of the model will look like.',
+    ru: 'Итоговая картина печати: так будет выглядеть верх модели.',
+  },
+  helpViewerLayers: {
+    en: 'The print in progress. Move the slider to flip through the layers — finished areas keep their color, the rest shows the filament currently being extruded.',
+    ru: 'Процесс печати. Двигайте ползунок, чтобы листать слои: готовые участки сохраняют свой цвет, остальное показывает текущий филамент.',
+  },
+  helpLayerSlider: {
+    en: 'Print layer number. Ticks mark the layers where the filament changes — click one to jump there.',
+    ru: 'Номер слоя печати. Метки — слои смены филамента; щёлкните, чтобы перейти к ним.',
+  },
+  helpViewer3d: {
+    en: 'The 3D model itself: each color is a raised sheet of its own height. Drag to rotate, scroll to zoom.',
+    ru: 'Сама 3D-модель: каждый цвет — приподнятый лист своей высоты. Тяните, чтобы вращать, колесо — масштаб.',
+  },
+  helpLangSelect: {
+    en: 'Switch the interface language.',
+    ru: 'Переключение языка интерфейса.',
+  },
+  helpThemeSelect: {
+    en: 'Interface color theme — the choice is remembered.',
+    ru: 'Цветовая тема интерфейса — выбор запоминается.',
+  },
+
   // ---- document / top bar ----
   docTitle: { en: 'HueForge Web — Filament Paintings', ru: 'HueForge Web — картины из филамента' },
   tagline: {
@@ -72,6 +198,16 @@ export const dict: Dict = {
   panelDepth: { en: '3 · Depth mode', ru: '3 · Режим глубины' },
   panelSize: { en: '4 · Size & layers', ru: '4 · Размер и слои' },
   panelPrintability: { en: '5 · Printability check', ru: '5 · Проверка печатаемости' },
+  hideReference: { en: 'Hide this section', ru: 'Скрыть этот раздел' },
+  hidePrintability: { en: 'Hide this section', ru: 'Скрыть этот раздел' },
+  hideImage: { en: 'Hide this section', ru: 'Скрыть этот раздел' },
+  hideColors: { en: 'Hide this section', ru: 'Скрыть этот раздел' },
+  hideSize: { en: 'Hide this section', ru: 'Скрыть этот раздел' },
+  hideExport: { en: 'Hide this section', ru: 'Скрыть этот раздел' },
+  hidePalette: { en: 'Hide this section', ru: 'Скрыть этот раздел' },
+  panelHidden: { en: 'Collapsed', ru: 'Сворачивается' },
+  panelHiddenRestore: { en: 'Click here to expand', ru: 'Нажмите, чтобы развернуть' },
+
   panelExport: { en: '6 · Export', ru: '6 · Экспорт' },
   panelPalette: { en: 'Palette & print order', ru: 'Палитра и порядок печати' },
 
@@ -133,6 +269,39 @@ export const dict: Dict = {
     en: 'Reset to the auto-detected color',
     ru: 'Вернуть автоматически подобранный цвет',
   },
+  filamLibraryTitle: { en: 'Filament library', ru: 'Библиотека филамента' },
+  filamLibraryHint: {
+    en: 'Pick a real filament from a Russian manufacturer for this band — brand, material, color.',
+    ru: 'Подберите реальный филамент российского производителя для этой полосы — бренд, материал, цвет.',
+  },
+  filamBrandLabel: { en: 'Brand', ru: 'Бренд' },
+  filamMaterialLabel: { en: 'Material', ru: 'Материал' },
+  filamColorLabel: { en: 'Color', ru: 'Цвет' },
+  filamPick: { en: 'Pick filament', ru: 'Выбрать филамент' },
+  filamClear: { en: 'Clear choice', ru: 'Сбросить выбор' },
+  filamClose: { en: 'Close', ru: 'Закрыть' },
+  filamCustom: { en: 'custom color', ru: 'свой цвет' },
+  filamSite: { en: 'Open manufacturer site', ru: 'Открыть сайт производителя' },
+  filamAssigned: { en: 'assigned', ru: 'назначен' },
+  filamSuggested: { en: 'suggested', ru: 'подходящий' },
+
+  // ---- custom filaments ("My filaments") ----
+  filamMyBrand: { en: 'My filaments', ru: 'Мои филаменты' },
+  filamAddTitle: { en: 'Add own filament', ru: 'Добавить свой филамент' },
+  filamAddName: { en: 'Name', ru: 'Название' },
+  filamAddNamePlaceholder: { en: 'e.g. Red from spool #2', ru: 'напр. Красный с катушки №2' },
+  filamAddColor: { en: 'Color', ru: 'Цвет' },
+  filamAddBtn: { en: 'Add', ru: 'Добавить' },
+  filamAdded: { en: 'Saved — pick it in My filaments', ru: 'Сохранён — выберите его в «Мои филаменты»' },
+  filamDelete: { en: 'Delete this filament', ru: 'Удалить этот филамент' },
+  filamDeleteConfirm: {
+    en: 'Delete this custom filament? Bands using it keep the color but lose the label.',
+    ru: 'Удалить этот филамент? Полосы, где он был выбран, сохранят цвет, но потеряют подпись.',
+  },
+  filamMyEmpty: {
+    en: 'No own filaments yet — add the spools you actually print with.',
+    ru: 'Пока нет своих филаментов — добавьте катушки, которыми печатаете.',
+  },
 
   // ---- export ----
   btnStl: { en: 'Download STL', ru: 'Скачать STL' },
@@ -150,6 +319,18 @@ export const dict: Dict = {
   viewerQuantized: { en: 'Color-reduced (print preview)', ru: 'Цветовое сокращение (предпросмотр печати)' },
   viewer3dTitle: { en: '3D preview', ru: '3D-предпросмотр' },
   viewer3dHint: { en: 'Drag to rotate · scroll to zoom', ru: 'Тяните, чтобы вращать · колесо — масштаб' },
+
+  // ---- layer view ----
+  viewerLayers: { en: 'Layer-by-layer view', ru: 'Просмотр по слоям' },
+  layerSliderLabel: { en: 'Print layer', ru: 'Слой печати' },
+  layerOfTotal: { en: 'Layer {n} of {total} (z = {z} mm)', ru: 'Слой {n} из {total} (z = {z} мм)' },
+  layerSwappingTo: { en: 'printing color #{n} · {name}', ru: 'печатается цвет #{n} · {name}' },
+  layerTopDone: { en: 'final layer — full picture', ru: 'финальный слой — полная картина' },
+  layerBase: { en: 'base slab', ru: 'подложка' },
+  layerTransNote: {
+    en: 'Colors blend like real translucent filament: thin top sheets let the layers below shine through, so the preview matches the finished print.',
+    ru: 'Цвета смешиваются, как в реальном полупрозрачном филаменте: тонкие верхние слои просвечивают, и низ проглядывает сквозь них — предпросмотр совпадает с готовой картиной.',
+  },
 
   // ---- status / dynamic messages ----
   processing: { en: 'Processing…', ru: 'Обработка…' },
@@ -177,6 +358,108 @@ export const dict: Dict = {
   'filam.pink': { en: 'Pink / Magenta', ru: 'Розовый / Пурпурный' },
   'filam.brown': { en: 'Brown', ru: 'Коричневый' },
   'filam.tan': { en: 'Tan / Skin', ru: 'Телесный / Бежевый' },
+
+  // ---- reference 3MF panel ----
+  panelReference: { en: 'Reference 3MF', ru: 'Эталонный 3MF' },
+  refDropTitle: { en: 'Drop a reference .3mf here', ru: 'Перетащите эталонный .3mf сюда' },
+  refDropHint: {
+    en: 'or click to browse — analyze first, apply only if it fits',
+    ru: 'или нажмите, чтобы выбрать — сначала анализ, применение отдельно',
+  },
+  refBadgeEmpty: {
+    en: 'Not loaded',
+    ru: 'Не загружен',
+  },
+  refBadgeReady: {
+    en: 'File loaded',
+    ru: 'Файл загружен',
+  },
+  refBadgeComplete: {
+    en: 'Analyzed ✓',
+    ru: 'Проанализирован ✓',
+  },
+  refBadgePartial: {
+    en: 'Analyzed (partial)',
+    ru: 'Проанализирован (частично)',
+  },
+  refBadgeError: {
+    en: 'Error',
+    ru: 'Ошибка',
+  },
+  refBadgeAnalyzing: {
+    en: 'Analyzing…',
+    ru: 'Анализ…',
+  },
+  refEmpty: {
+    en: 'Analyze a reference 3MF (HueForge, Bambu Studio, or this app’s export) to compare its size, colors, and swap schedule.',
+    ru: 'Проанализируйте эталонный 3MF (HueForge, Bambu Studio или экспорт этого приложения), чтобы сравнить размер, цвета и расписание смен.',
+  },
+  refAnalyzing: { en: 'Analyzing…', ru: 'Анализ…' },
+  refComplete: { en: 'Complete report', ru: 'Полный отчёт' },
+  refPartial: { en: 'Partial report', ru: 'Неполный отчёт' },
+  refModelTitle: { en: 'Model', ru: 'Модель' },
+  refModelLine: {
+    en: '{w}×{h} mm footprint · top at {z} mm · {tris} · {unit}',
+    ru: 'Основание {w}×{h} мм · верх на {z} мм · {tris} · {unit}',
+  },
+  refPaletteTitle: { en: 'Palette & print order', ru: 'Палитра и порядок печати' },
+  refSwapsTitle: { en: 'Swap schedule', ru: 'Расписание смен' },
+  refSwapLine: { en: 'z = {z} mm{layer}', ru: 'z = {z} мм{layer}' },
+  refSwapLayer: { en: ' · layer {layer}', ru: ' · слой {layer}' },
+  refNoSwaps: { en: 'No tool-change schedule found.', ru: 'Расписание смен не найдено.' },
+  refMissingTitle: { en: 'Not found in file', ru: 'Не найдено в файле' },
+  refWarningsTitle: { en: 'Notes', ru: 'Примечания' },
+  refApply: { en: 'Apply to editor', ru: 'Применить к редактору' },
+  refNeedsImage: {
+    en: 'Load an image first — a reference only adjusts settings around it.',
+    ru: 'Сначала загрузите изображение — эталон лишь подстраивает настройки под него.',
+  },
+  refBlocked: { en: 'Cannot apply: {reason}', ru: 'Нельзя применить: {reason}' },
+  refAppliedTitle: { en: 'Applied', ru: 'Применено' },
+  refKeptTitle: { en: 'Kept current', ru: 'Оставлено текущим' },
+  refFallbackTitle: { en: 'Derived from the image', ru: 'Взято из изображения' },
+  refAppliedDone: {
+    en: 'Reference applied — reprocessed with {colors}.',
+    ru: 'Эталон применён — цветов теперь: {colors}.',
+  },
+  refError: { en: 'Could not read the reference.', ru: 'Не удалось прочитать эталон.' },
+  refErrExtension: {
+    en: 'Choose a .3mf reference file.',
+    ru: 'Выберите файл-эталон в формате .3mf.',
+  },
+  refErrSize: {
+    en: 'The reference file is empty or exceeds the 100 MB limit.',
+    ru: 'Файл-эталон пуст или превышает лимит 100 МБ.',
+  },
+  refErrArchive: {
+    en: 'The reference is not a valid 3MF ZIP archive.',
+    ru: 'Эталон — не корректный ZIP-архив 3MF.',
+  },
+  refErrMissingModel: {
+    en: 'The 3MF model part is missing.',
+    ru: 'В 3MF отсутствует часть с моделью.',
+  },
+  refErrEntrySize: {
+    en: 'A 3MF metadata part exceeds the 25 MB limit.',
+    ru: 'Часть метаданных 3MF превышает лимит 25 МБ.',
+  },
+  refErrXml: {
+    en: 'The 3MF model XML is incomplete or malformed.',
+    ru: 'XML модели в 3MF неполный или повреждён.',
+  },
+  refErrUnit: {
+    en: 'The 3MF uses an unsupported unit of measurement.',
+    ru: 'В 3MF используются неподдерживаемые единицы измерения.',
+  },
+  refFieldColorCount: { en: 'Color count', ru: 'Кол-во цветов' },
+  refFieldWidthMm: { en: 'Width', ru: 'Ширина' },
+  refFieldHeightMm: { en: 'Height', ru: 'Высота' },
+  refFieldBaseMm: { en: 'Base', ru: 'Основание' },
+  refFieldMaxHeightMm: { en: 'Max height', ru: 'Макс. высота' },
+  refFieldLayerMm: { en: 'Layer height', ru: 'Высота слоя' },
+  refFieldDepthMode: { en: 'Depth mode', ru: 'Режим глубины' },
+  refFieldPalette: { en: 'Palette', ru: 'Палитра' },
+  refFieldSchedule: { en: 'Swap schedule', ru: 'Расписание смен' },
 
   // ---- loadImage errors ----
   errNotAnImage: {
@@ -252,8 +535,8 @@ export const dict: Dict = {
   },
   pbSupportTitleWarn: { en: 'Fragile isolated regions', ru: 'Хрупкие изолированные участки' },
   pbSupportDetailWarn: {
-    en: 'All walls are vertical (≤90°) and every layer rests on material below, so no supports or true overhangs exist. Fragile isolated regions are flattened automatically, but {regionsText} (under 3×3 cells, ~{fraction}% of the image) still remain — they are too close to a color boundary to smooth away. Try a higher color count or a smoother image.',
-    ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на материал снизу, поэтому поддержки не нужны. Хрупкие изолированные участки убираются автоматически, но {regionsText} (меньше 3×3 ячеек, ~{fraction}% изображения) всё ещё остаются — они слишком близки к границе цвета, чтобы их сгладить. Увеличьте число цветов или возьмите более гладкое изображение.',
+    en: 'All walls are vertical (≤90°) and every layer rests on material below, so no supports or true overhangs exist. Fragile isolated regions are merged into their surroundings automatically, but {regionsText} (under 3×3 cells, ~{fraction}% of the image) remain — each pass merges more, and a higher color count or a smoother image removes the rest.',
+    ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на материал снизу, поэтому поддержки не нужны. Хрупкие изолированные участки автоматически сливаются с окружением, но {regionsText} (меньше 3×3 ячеек, ~{fraction}% изображения) ещё остаются — при каждом проходе их сливается больше, а большее число цветов или более гладкое изображение уберёт остальные.',
   },
   pbSupportTitleOk: { en: 'Support & overhangs', ru: 'Поддержки и нависания' },
   pbSupportDetailOk: {
@@ -284,6 +567,7 @@ const WORDS: Record<string, PluralForms> = {
   warnings: { en: ['warning', 'warnings'], ru: ['предупреждение', 'предупреждения', 'предупреждений'] },
   swaps: { en: ['change', 'changes'], ru: ['смена', 'смены', 'смен'] },
   regions: { en: ['region', 'regions'], ru: ['участок', 'участка', 'участков'] },
+  tris: { en: ['triangle', 'triangles'], ru: ['треугольник', 'треугольника', 'треугольников'] },
 }
 
 function ruForm(n: number, forms: [string, string, string]): string {

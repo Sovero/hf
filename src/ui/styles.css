@@ -187,8 +187,6 @@ body {
 
 .slider-main {
   flex: 1;
-  /* Inset by the thumb radius so ticks align with thumb centers at the ends. */
-  padding: 0 8px;
 }
 
 .slider-main input[type="range"] {
@@ -202,6 +200,8 @@ body {
   position: relative;
   height: 20px;
   margin-top: 2px;
+  /* Ticks are positioned by JS with calc(): 8px (thumb half) + fraction of
+     (100% − 16px thumb), so they line up with the thumb center exactly. */
 }
 
 .slider-tick {
@@ -213,9 +213,9 @@ body {
   gap: 2px;
   transform: translateX(-50%);
   cursor: pointer;
-  /* Bigger invisible hit area without shifting the visuals. */
+  /* Padding grows the hit area symmetrically (no negative margins — those
+     shift the visual position 6px left of the computed `left`). */
   padding: 4px 6px;
-  margin: -4px -6px;
 }
 
 .slider-tick:hover .tick-line {
@@ -250,15 +250,16 @@ body {
 }
 
 .colors-value {
-  width: 3.4rem;
+  width: 2.9rem;
   text-align: center;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0.2rem 0.3rem;
+  padding: 0.15rem 0.25rem;
+  height: fit-content;
 }
 
 .colors-value:focus {
@@ -724,4 +725,505 @@ body {
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
+}
+
+/* ---- Reference 3MF panel ---- */
+
+.ref-drop-zone {
+  border-style: dashed;
+}
+
+/* ---- Collapsible side panels (all sidebar sections) ---- */
+.ref-collapsible {
+  transition: clip-path 0.18s ease;
+}
+.ref-collapsible[open] > .ref-hidden-body {
+  clip-path: inset(0 0 0 0);
+}
+.ref-collapsible:not([open]) > .ref-hidden-body {
+  clip-path: inset(101% 0 0 0);
+}
+
+.ref-collapsible summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  padding-right: 2.5rem;
+}
+.ref-collapsible summary::-webkit-details-marker { display: none; }
+.ref-collapsible summary h2 {
+  margin: 0;
+}
+.ref-collapsible summary::before {
+  content: '▸';
+  order: -1;
+  color: var(--muted);
+  font-size: 0.85em;
+  transition: transform 0.15s;
+}
+.ref-collapsible[open] summary::before {
+  transform: rotate(90deg);
+}
+.ref-collapsible[open] summary,
+.ref-collapsible summary:hover {
+  color: var(--text);
+}
+
+.ref-badge {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--panel-2);
+}
+.ref-badge.complete { color: var(--accent-2); border-color: var(--accent-2); }
+.ref-badge.partial { color: var(--accent); border-color: var(--accent); }
+.ref-badge.error { color: var(--danger); border-color: var(--danger); }
+.ref-badge.analyzing { color: var(--accent); border-color: var(--accent); }
+
+.ref-hide-btn {
+  flex: none;
+  margin-left: auto;
+  margin-right: 0;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ref-hide-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* Hidden panel: keep the summary row, dim it, show the restore hint.
+   The body must stay hidden even if some code sets `open = true`. */
+.ref-collapsible.panel-hidden > summary {
+  opacity: 0.75;
+}
+.ref-collapsible.panel-hidden > summary .ref-hide-btn {
+  display: none;
+}
+.ref-collapsible.panel-hidden > *:not(summary) {
+  display: none !important;
+}
+.ref-restore-hint {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ref-restore-hint:hover {
+  text-decoration: underline;
+}
+
+.ref-report {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.ref-status {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.ref-status.complete { color: var(--accent-2); }
+.ref-status.partial { color: var(--accent); }
+.ref-status:not(.complete):not(.partial) { color: var(--muted); }
+
+.ref-section h3 {
+  margin: 0.2rem 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.ref-line {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.ref-missing {
+  color: var(--danger);
+}
+
+.ref-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ref-palette-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.ref-swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex: none;
+}
+
+.ref-swatch-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.ref-apply-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+
+#ref-apply {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#ref-apply:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#ref-apply:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ref-error {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+/* ---- Filament library picker ---- */
+
+.palette-lib {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.palette-lib:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filam-pop {
+  position: fixed;
+  z-index: 60;
+  width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.filam-pop-title {
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
+.filam-pop-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.filam-lib-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.filam-lib-field > span {
+  flex: none;
+  width: 4.5rem;
+  color: var(--muted);
+}
+
+.filam-lib-field select {
+  flex: 1;
+  min-width: 0;
+}
+
+.filam-pop-color {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.4rem 0;
+  font-size: 0.85rem;
+}
+
+.filam-pop-swatch {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex: none;
+}
+
+.filam-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.filam-grid-btn {
+  position: relative;
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+
+.filam-grid-btn.active {
+  border-color: var(--accent);
+}
+
+.filam-grid-swatch {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+}
+
+.filam-clear {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.filam-clear:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+.filam-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+/* ---- Layer-by-layer view ------------------------------------------------ */
+
+.viewer-layers .canvas-wrap {
+  /* Leave room so the controls never push the canvas layout around. */
+  margin-bottom: 0.35rem;
+}
+
+.layer-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem 0.15rem 0.15rem;
+}
+
+.layer-readout {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+.layer-readout #layer-readout {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.layer-swatch {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex: none;
+}
+
+.layer-ticks {
+  margin-top: 0.1rem;
+}
+
+.layer-tick {
+  /* Reuse .slider-tick geometry; ticks are swap layers. */
+  cursor: pointer;
+}
+
+.layer-tick::after {
+  display: none; /* no numeric labels — the readout carries the info */
+}
+
+.viewer-layers input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+  /* UA default horizontal margin shifts the slider 2px right of the ticks row
+     (the colors slider resets it via .slider-main); align them. */
+  margin: 0;
+}
+
+/* ---- Onboarding help: section intros + control tooltips ----------------- */
+
+.welcome-help {
+  margin: 0 0 0.9rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--panel-2);
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.panel-help {
+  margin: -0.2rem 0 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* ---- Custom filaments ("My filaments") ---------------------------------- */
+
+.filam-add-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.5rem;
+  padding: 0.45rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.filam-add-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.filam-add-color {
+  width: 2.2rem;
+  height: 1.8rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.filam-add-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filam-add-btn:hover {
+  filter: brightness(1.1);
+}
+
+.filam-my-empty {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.filam-grid-btn.custom .filam-grid-swatch {
+  outline: 1px dashed var(--muted);
+  outline-offset: 1px;
+}
+
+.filam-grid-del {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: none;
+  width: 14px;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.filam-grid-btn.custom:hover .filam-grid-del {
+  display: flex;
 }

@@ -1,5 +1,5 @@
 import type { HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
-import { loadImageFromFile } from './loadImage'
+import { loadImageForPrint } from './loadImage'
 import type { Lang } from '../i18n'
 import { mapToLuminanceBands } from './quantize'
 import { buildHeightField, snappedBandTops } from './heightmap'
@@ -47,9 +47,12 @@ export interface PipelineOptions {
  * Full pipeline: image → quantize palette → luminance bands → relief heights
  * → mesh. Brightness decides each pixel's height, and its filament band is
  * the height band its column reaches; every printed layer is one color.
+ *
+ * The working resolution fits the print size (each cell ≥ one nozzle width),
+ * so the decode is re-run when the size settings change.
  */
 export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang = 'en'): Promise<PipelineResult> {
-  const image = await loadImageFromFile(file, lang)
+  const { image } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
 
   // The palette is derived from the image's luminance bands, so no separate
   // color quantization step is needed — band colors are the band contents.
@@ -116,6 +119,16 @@ export function export3mfFile(result: PipelineResult, name: string): Uint8Array 
   const hints: Record<string, string> = {
     ColorCount: String(result.quantized.palette.length),
     DepthMode: result.darkIsTall ? 'darkIsTall' : 'lightIsTall',
+    WidthMm: String(result.settings.widthMm),
+    HeightMm: String(result.settings.heightMm),
+    BaseMm: String(result.settings.baseMm),
+    MaxHeightMm: String(result.settings.maxHeightMm),
+    LayerMm: String(result.settings.layerMm),
+    BandTops: result.palette
+      .slice()
+      .sort((a, b) => a.topZMm - b.topZMm)
+      .map((p) => ((p.topZMm - result.settings.baseMm) / (result.settings.maxHeightMm - result.settings.baseMm)).toFixed(8))
+      .join(','),
     PaletteHex: result.quantized.palette.map((c) => `${c.r.toString(16).padStart(2, '0')}${c.g.toString(16).padStart(2, '0')}${c.b.toString(16).padStart(2, '0')}`).join(','),
     PrintOrder: result.palette.map((p) => p.printOrder).join(','),
   }
