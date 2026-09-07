@@ -9,7 +9,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "serve": "node server.mjs",
+    "pack-deploy": "node scripts/pack-deploy.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.3",

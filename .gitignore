@@ -12,5 +12,8 @@ dist/
 npm-debug.log*
 
 # OS junk
-Thumbs.db
+
 .DS_Store
+
+# Deploy packages (build artifacts)
+hueforge-web-deploy-*.zip
