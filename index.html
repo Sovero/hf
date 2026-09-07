@@ -239,16 +239,16 @@
           <div class="spinner"></div>
           <span>Processing…</span>
         </div>
-        <div class="viewer-card" data-help="helpViewerSource">
-          <h3 data-i18n="viewerSource">Source</h3>
+        <div class="viewer-card" id="viewer-source" data-help="helpViewerSource">
+          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewerSource">Source</span></h3>
           <div class="canvas-wrap"><canvas id="canvas-source"></canvas></div>
         </div>
-        <div class="viewer-card" data-help="helpViewerQuantized">
-          <h3 data-i18n="viewerQuantized">Color-reduced (print preview)</h3>
+        <div class="viewer-card" id="viewer-quantized" data-help="helpViewerQuantized">
+          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewerQuantized">Color-reduced (print preview)</span></h3>
           <div class="canvas-wrap"><canvas id="canvas-quantized"></canvas></div>
         </div>
-        <div class="viewer-card viewer-layers" data-help="helpViewerLayers">
-          <h3 data-i18n="viewerLayers">Layer-by-layer view</h3>
+        <div class="viewer-card viewer-layers" id="viewer-layers" data-help="helpViewerLayers">
+          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewerLayers">Layer-by-layer view</span></h3>
           <div class="canvas-wrap"><canvas id="canvas-layer"></canvas></div>
           <div class="layer-controls">
             <div class="layer-readout">
@@ -261,8 +261,8 @@
           </div>
           <p class="muted small" data-i18n="layerTransNote">Colors blend like real translucent filament: thin top sheets let the layers below shine through.</p>
         </div>
-        <div class="viewer-card viewer-3d" data-help="helpViewer3d">
-          <h3 data-i18n="viewer3dTitle">3D preview</h3>
+        <div class="viewer-card viewer-3d" id="viewer-3d" data-help="helpViewer3d">
+          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewer3dTitle">3D preview</span></h3>
           <div id="viewer3d" class="viewer3d-wrap"></div>
           <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom</p>
         </div>

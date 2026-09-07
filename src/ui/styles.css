@@ -489,6 +489,23 @@ body {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  /* Collapsible: the title row is the toggle for the whole card. */
+  cursor: pointer;
+  user-select: none;
+}
+.viewer-card.collapsed > :not(h3) {
+  display: none !important;
+}
+.viewer-chevron {
+  display: inline-block;
+  margin-right: 0.45rem;
+  color: var(--muted);
+  font-size: 0.85em;
+  transition: transform 0.15s ease;
+}
+.viewer-card:not(.collapsed) .viewer-chevron {
+  transform: rotate(90deg);
+  color: var(--accent);
 }
 
 .canvas-wrap {
