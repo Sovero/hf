@@ -805,52 +805,6 @@ body {
 .ref-badge.error { color: var(--danger); border-color: var(--danger); }
 .ref-badge.analyzing { color: var(--accent); border-color: var(--accent); }
 
-.ref-hide-btn {
-  flex: none;
-  margin-left: auto;
-  margin-right: 0;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.66rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--muted);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.ref-hide-btn:hover {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-/* Hidden panel: keep the summary row, dim it, show the restore hint.
-   The body must stay hidden even if some code sets `open = true`. */
-.ref-collapsible.panel-hidden > summary {
-  opacity: 0.75;
-}
-.ref-collapsible.panel-hidden > summary .ref-hide-btn {
-  display: none;
-}
-.ref-collapsible.panel-hidden > *:not(summary) {
-  display: none !important;
-}
-.ref-restore-hint {
-  flex: none;
-  margin-left: auto;
-  font-size: 0.66rem;
-  font-weight: 600;
-  color: var(--accent);
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.ref-restore-hint:hover {
-  text-decoration: underline;
-}
-
 .ref-report {
   display: flex;
   flex-direction: column;

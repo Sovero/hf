@@ -23,7 +23,6 @@ let currentFile: File | null = null
 let viewer3d: Viewer3D | null = null
 /** Panel ids with a hide button — every collapsible sidebar section. */
 type PanelId = 'img' | 'colors' | 'size' | 'pb' | 'ref' | 'export' | 'palette'
-let hiddenPanels: PanelId[] = []
 /** details element per panel id, resolved once at startup. */
 const panelEls: Partial<Record<PanelId, HTMLDetailsElement>> = {}
 
@@ -132,10 +131,7 @@ type Settings = {
   baseMm: number
   maxMm: number
   layerMm: number
-  /** Panel ids (e.g. 'ref', 'pb') the user explicitly hid; remembers across restarts. */
-  hiddenPanels: PanelId[]
 }
-
 /** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
 function clampNum(v: number, lo: number, hi: number, fb: number): number {
   return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb
@@ -152,7 +148,6 @@ function saveSettings() {
       baseMm,
       maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
-      hiddenPanels,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -175,44 +170,9 @@ function restoreSettings() {
     baseInput.value = String(baseMm)
     maxInput.value = String(clampNum(Number(s.maxMm), baseMm + 2, 40, 8))
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
-    hiddenPanels = Array.isArray(s.hiddenPanels)
-      ? s.hiddenPanels.filter((k) => ['img', 'colors', 'size', 'pb', 'ref', 'export', 'palette'].includes(k))
-      : []
   } catch {
     /* ignore corrupt settings */
   }
-}
-
-function ensureRestoreVisible() {
-  for (const key of ['img', 'colors', 'size', 'pb', 'ref', 'export', 'palette'] as const) {
-    const el = panelEl(key)
-    const hidden = hiddenPanels.includes(key)
-    // A hidden panel keeps its summary row visible with an "Unhide" hint;
-    // the body stays collapsed. Closed-but-not-hidden keeps everything.
-    el.classList.toggle('panel-hidden', hidden)
-    let hint = el.querySelector<HTMLSpanElement>(':scope > summary .ref-restore-hint')
-    if (!hint) {
-      hint = document.createElement('span')
-      hint.className = 'ref-restore-hint'
-      hint.dataset.i18n = 'panelHiddenRestore'
-      hint.setAttribute('role', 'button')
-      hint.tabIndex = 0
-      el.querySelector('summary')?.appendChild(hint)
-    }
-    hint.textContent = tr('panelHiddenRestore')
-    hint.hidden = !hidden
-    el.open = hidden ? false : el.open
-  }
-}
-
-function setPanelHidden(panel: PanelId, hidden: boolean) {
-  if (hidden) {
-    if (!hiddenPanels.includes(panel)) hiddenPanels = [...hiddenPanels, panel]
-  } else {
-    hiddenPanels = hiddenPanels.filter((k) => k !== panel)
-  }
-  ensureRestoreVisible()
-  saveSettings()
 }
 
 /** Viewer cards: apply collapsed classes + localized toggle titles. */
@@ -266,7 +226,6 @@ function readOptions() {
     baseMm,
     maxHeightMm,
     layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
-    hiddenPanels: hiddenPanels,
   }
 }
 
@@ -499,7 +458,6 @@ function renderPrintability() {
       ? tr('allPassed')
       : `${word(lang, report.errors, 'errors')} · ${word(lang, report.warnings, 'warnings')}`
   setPbBadge(report)
-  ensureRestoreVisible()
 }
 
 /** Collapsed-summary badge: worst finding at a glance without expanding. */
@@ -1335,9 +1293,7 @@ async function analyzeReference(file: File) {
   refStatus.className = 'ref-status'
   refStatus.textContent = tr('refAnalyzing')
   refReport.hidden = false
-  // Force the panel visible even if the user hid it earlier — an explicit
-  // file drop/pick is a clear intent to work with the reference report.
-  if (hiddenPanels.includes('ref')) setPanelHidden('ref', false)
+  // An explicit file drop/pick is a clear intent to work with the report.
   panelEl('ref').open = true
   setRefBadge('analyzing')
   try {
@@ -1356,7 +1312,6 @@ async function analyzeReference(file: File) {
       refError.hidden = false
     }
   }
-  ensureRestoreVisible()
 }
 
 function applyReference() {
@@ -1402,32 +1357,6 @@ function setupReference() {
     if (f) void analyzeReference(f)
   })
   refApplyBtn.addEventListener('click', applyReference)
-
-  // Hide/restore buttons for the collapsible panels — one delegated handler.
-  // "Hide this section" collapses the panel and remembers the choice across
-  // restarts; the summary then shows an "Unhide" hint that brings it back.
-  document.querySelector('.sidebar')?.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement
-    const hideBtn = target.closest<HTMLButtonElement>('[data-action="hide-panel"]')
-    if (hideBtn && ['img', 'colors', 'size', 'pb', 'ref', 'export', 'palette'].includes(hideBtn.dataset.panel!)) {
-      setPanelHidden(hideBtn.dataset.panel as PanelId, true)
-      return
-    }
-    const restoreHint = target.closest<HTMLElement>('.ref-restore-hint')
-    if (restoreHint) {
-      const details = restoreHint.closest('details')
-      const key = (Object.entries(panelEls).find(([, el]) => el === details)?.[0] ?? null) as PanelId | null
-      if (key) setPanelHidden(key, false)
-      return
-    }
-    // Clicking anywhere on a hidden panel's title row also restores it.
-    const summaryHit = target.closest('details.panel-hidden > summary')
-    if (summaryHit) {
-      const key = (Object.entries(panelEls).find(([, el]) => el === summaryHit.parentElement)?.[0] ?? null) as PanelId | null
-      if (key) setPanelHidden(key, false)
-    }
-  })
-  ensureRestoreVisible()
 }
 
 function setupExports() {
