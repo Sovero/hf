@@ -309,8 +309,6 @@ export const dict: Dict = {
   viewerSource: { en: 'Source', ru: 'Исходное' },
   viewerQuantized: { en: 'Color-reduced (print preview)', ru: 'Цветовое сокращение (предпросмотр печати)' },
   viewer3dTitle: { en: '3D preview', ru: '3D-предпросмотр' },
-  viewerCollapse: { en: 'Collapse', ru: 'Свернуть' },
-  viewerExpand: { en: 'Expand', ru: 'Развернуть' },
   viewer3dHint: { en: 'Drag to rotate · scroll to zoom', ru: 'Тяните, чтобы вращать · колесо — масштаб' },
 
   // ---- layer view ----

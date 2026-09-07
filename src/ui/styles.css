@@ -489,23 +489,6 @@ body {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  /* Collapsible: the title row is the toggle for the whole card. */
-  cursor: pointer;
-  user-select: none;
-}
-.viewer-card.collapsed > :not(h3) {
-  display: none !important;
-}
-.viewer-chevron {
-  display: inline-block;
-  margin-right: 0.45rem;
-  color: var(--muted);
-  font-size: 0.85em;
-  transition: transform 0.15s ease;
-}
-.viewer-card:not(.collapsed) .viewer-chevron {
-  transform: rotate(90deg);
-  color: var(--accent);
 }
 
 .canvas-wrap {
@@ -750,42 +733,15 @@ body {
   border-style: dashed;
 }
 
-/* ---- Collapsible side panels (all sidebar sections) ---- */
-.ref-collapsible {
-  transition: clip-path 0.18s ease;
-}
-.ref-collapsible[open] > .ref-hidden-body {
-  clip-path: inset(0 0 0 0);
-}
-.ref-collapsible:not([open]) > .ref-hidden-body {
-  clip-path: inset(101% 0 0 0);
-}
-
-.ref-collapsible summary {
+/* ---- Sidebar section headers (always visible, no collapsing) ---- */
+.panel-head {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
+  margin: 0 0 0.5rem;
 }
-.ref-collapsible summary::-webkit-details-marker { display: none; }
-.ref-collapsible summary h2 {
+.panel-head h2 {
   margin: 0;
-}
-.ref-collapsible summary::before {
-  content: '▸';
-  order: -1;
-  color: var(--muted);
-  font-size: 0.85em;
-  transition: transform 0.15s;
-}
-.ref-collapsible[open] summary::before {
-  transform: rotate(90deg);
-}
-.ref-collapsible[open] summary,
-.ref-collapsible summary:hover {
-  color: var(--text);
 }
 
 .ref-badge {

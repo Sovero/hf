@@ -87,10 +87,10 @@
       <aside class="sidebar">
         <p class="welcome-help" data-i18n="helpWelcome">Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.</p>
         <section class="panel">
-          <details class="ref-collapsible" id="img-details">
-            <summary data-help="helpImage">
+          <div class="panel-section" id="img-details">
+            <div class="panel-head" data-help="helpImage">
               <h2 data-i18n="panelImage">1 · Image</h2>
-            </summary>
+            </div>
             <p class="panel-help" data-i18n="helpImage">Start here. Drop in a photo or drawing — the app will reduce it to flat color bands for printing.</p>
           <div id="drop-zone" class="drop-zone" data-help="helpDropZone">
             <p><strong data-i18n="dropTitle">Drop an image here</strong></p>
@@ -98,14 +98,14 @@
             <input id="file-input" type="file" accept="image/*" hidden />
           </div>
           <p id="image-info" class="muted small"></p>
-          </details>
+          </div>
         </section>
 
         <section class="panel">
-          <details class="ref-collapsible" id="colors-details">
-            <summary data-help="helpColors">
+          <div class="panel-section" id="colors-details">
+            <div class="panel-head" data-help="helpColors">
               <h2 data-i18n="panelColors">2 · Colors</h2>
-            </summary>
+            </div>
             <p class="panel-help" data-i18n="helpColors">How many filament colors to print with. More colors = smoother shading, but more manual filament swaps.</p>
           <div id="color-options" class="color-options">
             <div class="slider-row">
@@ -123,14 +123,14 @@
             <label><input type="radio" name="mode" value="light" checked data-help="helpDepthLight" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
             <label><input type="radio" name="mode" value="dark" data-help="helpDepthDark" /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
           </div>
-          </details>
+          </div>
         </section>
 
         <section class="panel">
-          <details class="ref-collapsible" id="size-details">
-            <summary data-help="helpSize">
+          <div class="panel-section" id="size-details">
+            <div class="panel-head" data-help="helpSize">
               <h2 data-i18n="panelSize">4 · Size &amp; layers</h2>
-            </summary>
+            </div>
             <p class="panel-help" data-i18n="helpSize">Physical print dimensions and layer settings. The resolution of the working image adapts to the print size automatically.</p>
           <div class="param-grid">
             <label><span data-i18n="paramWidth">Width</span> <input id="width-mm" type="number" value="150" min="20" max="500" step="1" data-help="helpWidth" /> <span data-i18n="unitMm">mm</span></label>
@@ -140,27 +140,27 @@
             <label><span data-i18n="paramLayer">Layer height</span> <input id="layer-mm" type="number" value="0.2" min="0.04" max="0.6" step="0.02" data-help="helpLayerMm" /> <span data-i18n="unitMm">mm</span></label>
           </div>
           <p class="muted small" data-i18n="sizeHint">Colors are stacked as equal bands from base to max height.</p>
-          </details>
+          </div>
         </section>
 
         <section class="panel">
-          <details class="ref-collapsible" id="pb-details">
-            <summary data-help="helpPrintability">
+          <div class="panel-section" id="pb-details">
+            <div class="panel-head" data-help="helpPrintability">
               <h2 data-i18n="panelPrintability">5 · Printability check</h2>
               <span id="pb-badge" class="ref-badge idle" hidden></span>
-            </summary>
+            </div>
             <p class="panel-help" data-i18n="helpPrintability">Automatic check of your settings: band thickness, detail size vs nozzle, fragile specks, and the number of swaps. Fix anything marked with ⚠ or ✕.</p>
           <div id="printability-list"></div>
           <p id="printability-summary" class="muted small" data-i18n="pbDefault">Load an image to run the check.</p>
-          </details>
+          </div>
         </section>
 
         <section class="panel">
-          <details class="ref-collapsible" id="ref-details">
-            <summary data-help="helpReference">
+          <div class="panel-section" id="ref-details">
+            <div class="panel-head" data-help="helpReference">
               <h2 data-i18n="panelReference">Reference 3MF</h2>
               <span id="ref-badge" class="ref-badge idle" data-i18n="refBadgeEmpty">Not loaded</span>
-            </summary>
+            </div>
             <p class="panel-help" data-i18n="helpReference">Have a finished HueForge or Bambu project? Drop its 3MF here to see its size, colors and swap schedule — and copy them into your work with one click.</p>
           <div id="ref-drop" class="drop-zone ref-drop-zone" data-help="helpRefDrop">
             <p><strong data-i18n="refDropTitle">Drop a reference .3mf here</strong></p>
@@ -196,14 +196,14 @@
           </div>
           <p id="ref-empty" class="muted small" data-i18n="refEmpty"></p>
           <p id="ref-error" class="ref-error" hidden></p>
-          </details>
+          </div>
         </section>
 
         <section class="panel">
-          <details class="ref-collapsible" id="export-details">
-            <summary data-help="helpExport">
+          <div class="panel-section" id="export-details">
+            <div class="panel-head" data-help="helpExport">
               <h2 data-i18n="panelExport">6 · Export</h2>
-            </summary>
+            </div>
             <p class="panel-help" data-i18n="helpExport">Download the printable files. Print the model top face up, 100% infill, no supports.</p>
           <div class="export-buttons">
             <button id="btn-stl" disabled data-i18n="btnStl" data-help="helpBtnStl">Download STL</button>
@@ -211,18 +211,18 @@
             <button id="btn-describe" disabled data-i18n="btnDescribe" data-help="helpBtnDescribe">Download Describe.txt</button>
           </div>
           <p id="export-status" class="muted small"></p>
-          </details>
+          </div>
         </section>
 
         <section class="panel">
-          <details class="ref-collapsible" id="palette-details">
-            <summary data-help="helpPalette">
+          <div class="panel-section" id="palette-details">
+            <div class="panel-head" data-help="helpPalette">
               <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
-            </summary>
+            </div>
             <p class="panel-help" data-i18n="helpPalette">Your colors in print order. Click a swatch to change it, ★ to pick a real filament from a Russian manufacturer’s catalog, ↺ to reset.</p>
           <div id="palette-list" class="palette-list"></div>
           <p id="palette-summary" class="muted small"></p>
-          </details>
+          </div>
         </section>
       </aside>
 
@@ -232,15 +232,12 @@
           <span>Processing…</span>
         </div>
         <div class="viewer-card" id="viewer-source" data-help="helpViewerSource">
-          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewerSource">Source</span></h3>
           <div class="canvas-wrap"><canvas id="canvas-source"></canvas></div>
         </div>
         <div class="viewer-card" id="viewer-quantized" data-help="helpViewerQuantized">
-          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewerQuantized">Color-reduced (print preview)</span></h3>
           <div class="canvas-wrap"><canvas id="canvas-quantized"></canvas></div>
         </div>
         <div class="viewer-card viewer-layers" id="viewer-layers" data-help="helpViewerLayers">
-          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewerLayers">Layer-by-layer view</span></h3>
           <div class="canvas-wrap"><canvas id="canvas-layer"></canvas></div>
           <div class="layer-controls">
             <div class="layer-readout">
@@ -254,7 +251,6 @@
           <p class="muted small" data-i18n="layerTransNote">Colors blend like real translucent filament: thin top sheets let the layers below shine through.</p>
         </div>
         <div class="viewer-card viewer-3d" id="viewer-3d" data-help="helpViewer3d">
-          <h3><span class="viewer-chevron" aria-hidden="true">▸</span><span data-i18n="viewer3dTitle">3D preview</span></h3>
           <div id="viewer3d" class="viewer3d-wrap"></div>
           <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom</p>
         </div>

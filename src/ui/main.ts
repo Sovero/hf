@@ -21,23 +21,6 @@ const $ = <T extends HTMLElement>(sel: string): T => {
 let current: PipelineResult | null = null
 let currentFile: File | null = null
 let viewer3d: Viewer3D | null = null
-/** Panel ids with a hide button — every collapsible sidebar section. */
-type PanelId = 'img' | 'colors' | 'size' | 'pb' | 'ref' | 'export' | 'palette'
-/** details element per panel id, resolved once at startup. */
-const panelEls: Partial<Record<PanelId, HTMLDetailsElement>> = {}
-
-const VIEWER_IDS = ['source', 'quantized', 'layers', '3d'] as const
-type ViewerId = (typeof VIEWER_IDS)[number]
-/**
- * Viewer cards start collapsed every session (nothing to show before an
- * image loads — empty canvases are just noise). Not persisted: with no
- * stored image, restoring expanded cards would only recreate the clutter.
- */
-let collapsedViewers: ViewerId[] = [...VIEWER_IDS]
-function panelEl(id: PanelId): HTMLDetailsElement {
-  if (!panelEls[id]) panelEls[id] = document.getElementById(`${id}-details`) as HTMLDetailsElement
-  return panelEls[id]!
-}
 /** Guards against overlapping runs writing stale results (live reprocessing). */
 let runToken = 0
 let lang: Lang = loadLang()
@@ -175,40 +158,6 @@ function restoreSettings() {
   }
 }
 
-/** Viewer cards: apply collapsed classes + localized toggle titles. */
-function applyViewerState() {
-  for (const id of VIEWER_IDS) {
-    const card = document.getElementById(`viewer-${id}`)
-    if (!card) continue
-    const collapsed = collapsedViewers.includes(id)
-    card.classList.toggle('collapsed', collapsed)
-    const title = card.querySelector('h3')
-    if (title) title.title = tr(collapsed ? 'viewerExpand' : 'viewerCollapse')
-  }
-}
-
-function setupViewers() {
-  for (const id of VIEWER_IDS) {
-    const card = document.getElementById(`viewer-${id}`)
-    card?.querySelector('h3')?.addEventListener('click', () => {
-      collapsedViewers = collapsedViewers.includes(id)
-        ? collapsedViewers.filter((k) => k !== id)
-        : [...collapsedViewers, id]
-      applyViewerState()
-      saveSettings()
-    })
-  }
-  applyViewerState()
-}
-
-/** A freshly processed image has results to show — open every viewer. */
-function expandViewers() {
-  if (collapsedViewers.length === 0) return
-  collapsedViewers = []
-  applyViewerState()
-  saveSettings()
-}
-
 function readOptions() {
   // Clamp every numeric input to sane bounds: Number() can yield NaN/±Infinity
   // (e.g. "1e999", "abc"), which must never reach the geometry or exports.
@@ -235,9 +184,6 @@ function showStatus(msg: string, isError = false) {
 }
 
 async function readFile(file: File) {
-  // Live reprocessing reuses the same File object; only a genuinely new
-  // image (drop/paste/file picker) may force-expand the viewer cards.
-  const isNewImage = currentFile !== file
   currentFile = file
   const token = ++runToken
   showStatus(tr('processing'))
@@ -247,7 +193,6 @@ async function readFile(file: File) {
     if (token !== runToken) return // a newer run superseded this one; it owns the UI
     current = result
     autoPalette = result.quantized.palette.map((c) => ({ ...c }))
-    if (isNewImage) expandViewers() // results exist now — show them
     updateUI()
     if (referencePlan) updateApplyButton() // image availability changes Apply
     setProcessing(false)
@@ -297,7 +242,6 @@ function setLang(next: Lang, persist = true) {
   if (persist) saveLang(lang)
   langSelect.value = lang
   applyStaticText()
-  applyViewerState() // viewer toggle titles follow the language
   if (current) {
     updateUI()
     showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
@@ -1293,8 +1237,6 @@ async function analyzeReference(file: File) {
   refStatus.className = 'ref-status'
   refStatus.textContent = tr('refAnalyzing')
   refReport.hidden = false
-  // An explicit file drop/pick is a clear intent to work with the report.
-  panelEl('ref').open = true
   setRefBadge('analyzing')
   try {
     referenceAnalysis = await parseReference3mf(file)
@@ -1395,5 +1337,4 @@ setupDropZone()
 bindInputs()
 setupExports()
 setupReference()
-setupViewers()
 renderTicks()
