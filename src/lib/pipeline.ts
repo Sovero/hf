@@ -102,7 +102,10 @@ export function exportStl(result: PipelineResult): ArrayBuffer {
  * Descriptive export filename, e.g. hueforge-16colors-150x150mm.stl.
  * Dimensions come from the mesh bounds so they always match the geometry.
  */
-export function exportFilename(result: PipelineResult, extension: 'stl' | '3mf' | 'txt'): string {
+export function exportFilename(
+  result: PipelineResult,
+  extension: 'stl' | '3mf' | 'txt' | 'zip',
+): string {
   const n = result.quantized.palette.length
   let w = 0
   let h = 0

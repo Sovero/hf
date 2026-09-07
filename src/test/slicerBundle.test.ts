@@ -1,0 +1,181 @@
+import { afterAll, describe, expect, it } from 'vitest'
+import { execSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { strFromU8, unzipSync } from 'fflate'
+import { mapToLuminanceBands } from '../lib/quantize'
+import { finishPipeline, type PipelineResult } from '../lib/pipeline'
+import { describeExport } from '../lib/describe'
+import {
+  buildM600Script,
+  buildPrusaConfig,
+  buildSlicerBundle,
+  swapSchedule,
+} from '../lib/slicerBundle'
+import type { PrintSettings } from '../lib/types'
+
+function gradientImage(size = 16): { width: number; height: number; rgba: Uint8ClampedArray } {
+  const rgba = new Uint8ClampedArray(size * size * 4)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const v = Math.round(((x + y) / (2 * (size - 1))) * 255)
+      const i = (y * size + x) * 4
+      rgba[i] = v
+      rgba[i + 1] = v
+      rgba[i + 2] = v
+      rgba[i + 3] = 255
+    }
+  }
+  return { width: size, height: size, rgba }
+}
+
+function run(settings: Partial<PrintSettings> & { numColors: 2 | 4 | 8 | 12 | 16 | 24 }): PipelineResult {
+  const image = gradientImage()
+  const q = mapToLuminanceBands(image.rgba, settings.numColors, image.width, image.height, settings.darkIsTall ?? true)
+  return finishPipeline(image, q, {
+    numColors: settings.numColors,
+    darkIsTall: settings.darkIsTall ?? true,
+    widthMm: settings.widthMm ?? 40,
+    heightMm: settings.heightMm ?? 40,
+    baseMm: settings.baseMm ?? 0.8,
+    maxHeightMm: settings.maxHeightMm ?? 8,
+    layerMm: settings.layerMm ?? 0.2,
+  })
+}
+
+describe('swapSchedule', () => {
+  it('matches the Describe.txt swap schedule layer for layer', () => {
+    const result = run({ numColors: 4 })
+    const text = describeExport(result, 'x.txt')
+    const raw = [...text.matchAll(/Layer (\d+) \(z = /g)].map((m) => Number(m[1]))
+    // Collapse consecutive duplicates (sub-layer bands keep one swap).
+    const collapsed: number[] = []
+    for (const l of raw) if (collapsed[collapsed.length - 1] !== l) collapsed.push(l)
+    expect(collapsed.length).toBeGreaterThan(0)
+    expect(swapSchedule(result).swaps.map((s) => s.layer)).toEqual(collapsed)
+  })
+
+  it('collapses two boundaries landing on the same layer into one swap', () => {
+    const fake = {
+      settings: { widthMm: 10, heightMm: 10, baseMm: 1, maxHeightMm: 5, layerMm: 0.5, darkIsTall: true },
+      palette: [
+        { color: { r: 0, g: 0, b: 0 }, topZMm: 1.0, printOrder: 4 },
+        { color: { r: 60, g: 60, b: 60 }, topZMm: 1.04, printOrder: 3 },
+        { color: { r: 120, g: 120, b: 120 }, topZMm: 3.0, printOrder: 2 },
+        { color: { r: 255, g: 255, b: 255 }, topZMm: 5.0, printOrder: 1 },
+      ],
+    } as PipelineResult
+    const { swaps, totalLayers } = swapSchedule(fake)
+    expect(totalLayers).toBe(10)
+    // 1.0 → layer 2; 1.04 → also layer 2 (sub-layer band skipped);
+    // 3.0 → layer 6; the top band never schedules a swap.
+    expect(swaps).toHaveLength(2)
+    expect(swaps[0]).toMatchObject({ layer: 2, hex: '#787878' })
+    expect(swaps[1]).toMatchObject({ layer: 6, hex: '#ffffff' })
+  })
+})
+
+describe('buildPrusaConfig', () => {
+  it('writes a partial config with prewired M600 conditionals', () => {
+    const result = run({ numColors: 4, layerMm: 0.2 })
+    const cfg = buildPrusaConfig(result)
+    expect(cfg).toContain('layer_height = 0.2')
+    expect(cfg).toContain('fill_density = 100%')
+    expect(cfg).toContain('fill_pattern = monotonic')
+    expect(cfg).toContain('support_material = 0')
+    expect(cfg).toContain('support_material_auto = 0')
+
+    const gline = cfg.split('\n').find((l) => l.startsWith('layer_gcode ='))!
+    const { swaps } = swapSchedule(result)
+    expect(swaps.length).toBeGreaterThan(0)
+    for (const s of swaps) expect(gline).toContain(`{if layer_num == ${s.layer}}`)
+    // INI multiline encoding: literal \n escapes, one physical line.
+    expect(gline).toContain('\\nM600')
+  })
+})
+
+describe('generated M600 post-processing script', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hf-slicer-'))
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('inserts the swap command after the right LAYER_CHANGE markers', () => {
+    const result = run({ numColors: 4, layerMm: 0.2 })
+    const { swaps } = swapSchedule(result)
+    expect(swaps.length).toBeGreaterThan(0)
+
+    const script = join(dir, 'hueforge_m600.mjs')
+    writeFileSync(script, buildM600Script(swaps))
+
+    // Fake PrusaSlicer G-code: one ;LAYER_CHANGE block per layer (40 layers
+    // covers every scheduled swap at 0.2 mm up to 8 mm).
+    const L = 0.2
+    const layers = Array.from({ length: 40 }, (_, i) =>
+      [';LAYER_CHANGE', `;Z:${((i + 1) * L).toFixed(2)}`, `G1 Z${((i + 1) * L).toFixed(2)} F9000`, 'G1 X10 Y10 E1'].join('\n'),
+    )
+    const gcode = join(dir, 'model.gcode')
+    writeFileSync(gcode, ['; generated by test', ...layers].join('\n'))
+
+    execSync(`node "${script}" "${gcode}"`, { stdio: 'ignore' })
+
+    const lines = readFileSync(gcode, 'utf8').split('\n')
+    const changes: number[] = []
+    lines.forEach((l, i) => {
+      if (l === ';LAYER_CHANGE') changes.push(i)
+    })
+    expect(changes).toHaveLength(40)
+
+    for (const s of swaps) {
+      const marker = changes[s.layer - 1]
+      const m600 = lines.findIndex((l, i) => i > marker && l === 'M600')
+      expect(m600, `no M600 after the layer-${s.layer} marker`).toBeGreaterThan(marker)
+      const nextMarker = changes[s.layer] ?? lines.length
+      expect(m600).toBeLessThan(nextMarker)
+      expect(lines[m600 - 1]).toBe(`; HueForge: switch to ${s.hex} (${s.name})`)
+    }
+    // No stray M600 lines anywhere else.
+    expect(lines.filter((l) => l === 'M600')).toHaveLength(swaps.length)
+  })
+
+  it('supports --out instead of in-place editing', () => {
+    const { swaps } = swapSchedule(run({ numColors: 2, layerMm: 0.2 }))
+    expect(swaps).toHaveLength(1)
+
+    const script = join(dir, 'hueforge_m600.mjs')
+    writeFileSync(script, buildM600Script(swaps))
+
+    const layers = Array.from({ length: 30 }, (_, i) =>
+      [';LAYER_CHANGE', `;Z:${((i + 1) * 0.2).toFixed(2)}`, 'G1 X10 Y10 E1'].join('\n'),
+    )
+    const gcode = join(dir, 'model2.gcode')
+    const source = ['; generated by test', ...layers].join('\n')
+    writeFileSync(gcode, source)
+
+    const outFile = join(dir, 'model2.out.gcode')
+    execSync(`node "${script}" "${gcode}" --out "${outFile}"`, { stdio: 'ignore' })
+
+    expect(readFileSync(gcode, 'utf8')).toBe(source) // original untouched
+    const outLines = readFileSync(outFile, 'utf8').split('\n')
+    expect(outLines.filter((l) => l === 'M600')).toHaveLength(1)
+  })
+})
+
+describe('buildSlicerBundle', () => {
+  it('zips config, script, bat wrapper and bilingual README', () => {
+    const result = run({ numColors: 4, layerMm: 0.2 })
+    const modelName = 'hueforge-4colors-40x40mm.3mf'
+    const zip = unzipSync(buildSlicerBundle(result, modelName))
+    expect(Object.keys(zip).sort()).toEqual(['README.txt', 'config.ini', 'hueforge_m600.mjs', 'prusa_m600.bat'])
+
+    expect(strFromU8(zip['config.ini']!)).toContain('layer_height = 0.2')
+    expect(strFromU8(zip['prusa_m600.bat']!)).toContain('hueforge_m600.mjs')
+
+    const readme = strFromU8(zip['README.txt']!)
+    expect(readme).toContain('METHOD A')
+    expect(readme).toContain('СПОСОБ A')
+    expect(readme).toContain(modelName)
+
+    const script = strFromU8(zip['hueforge_m600.mjs']!)
+    for (const s of swapSchedule(result).swaps) expect(script).toContain(`layer: ${s.layer},`)
+  })
+})

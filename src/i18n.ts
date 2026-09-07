@@ -138,6 +138,10 @@ export const dict: Dict = {
     en: 'A text guide: color order from the base up and the exact layer to swap each filament.',
     ru: 'Текстовая инструкция: порядок цветов от основания и точный слой для смены каждого филамента.',
   },
+  helpBtnSlicer: {
+    en: 'ZIP for PrusaSlicer: config.ini (layer height, 100% infill, no supports) with M600 color changes prewired into the layer-change G-code, plus an optional post-processing script and a bilingual README.',
+    ru: 'ZIP для PrusaSlicer: config.ini (высота слоя, заполнение 100%, без поддержек) со сменами цвета M600, уже встроенными в G-код смены слоёв, плюс опциональный скрипт постобработки и инструкция на двух языках.',
+  },
   helpPalette: {
     en: 'Your colors in print order. Click a swatch to change it, ★ to pick a real filament from a Russian manufacturer’s catalog, ↺ to reset.',
     ru: 'Ваши цвета в порядке печати. Щёлкните по образцу, чтобы изменить цвет; ★ — выбрать реальный филамент из каталога российских производителей; ↺ — вернуть.',
@@ -298,8 +302,13 @@ export const dict: Dict = {
   btnStl: { en: 'Download STL', ru: 'Скачать STL' },
   btn3mf: { en: 'Download 3MF', ru: 'Скачать 3MF' },
   btnDescribe: { en: 'Download Describe.txt', ru: 'Скачать Describe.txt' },
+  btnSlicer: { en: 'Slicer bundle', ru: 'Набор для слайсера' },
   exportStlDone: { en: 'STL exported — {filename}', ru: 'STL экспортирован — {filename}' },
   describeDone: { en: 'Describe.txt exported — {filename}', ru: 'Describe.txt экспортирован — {filename}' },
+  slicerDone: {
+    en: 'Slicer bundle exported — {filename} (PrusaSlicer: File → Import → Import Config…).',
+    ru: 'Набор для слайсера экспортирован — {filename} (PrusaSlicer: Файл → Импорт → Импорт конфигурации…).',
+  },
   export3mfDone: {
     en: '3MF exported — {filename} (Bambu Studio project with color swaps).',
     ru: '3MF экспортирован — {filename} (проект Bambu Studio со сменами цвета).',

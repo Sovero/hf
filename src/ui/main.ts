@@ -2,6 +2,7 @@ import './styles.css'
 import { runPipeline, finishPipeline, exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
 import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, customFilaments, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId } from '../lib/filamentLibrary'
 import { describeExport } from '../lib/describe'
+import { buildSlicerBundle } from '../lib/slicerBundle'
 import { layerView } from '../lib/layerView'
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
@@ -38,6 +39,7 @@ const exportStatus = $<HTMLParagraphElement>('#export-status')
 const btnStl = $<HTMLButtonElement>('#btn-stl')
 const btn3mf = $<HTMLButtonElement>('#btn-3mf')
 const btnDescribe = $<HTMLButtonElement>('#btn-describe')
+const btnSlicer = $<HTMLButtonElement>('#btn-slicer')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
 const canvasLayer = $<HTMLCanvasElement>('#canvas-layer')
@@ -92,6 +94,7 @@ function setProcessing(on: boolean) {
   btnStl.disabled = on
   btn3mf.disabled = on
   btnDescribe.disabled = on
+  btnSlicer.disabled = on
 }
 
 /** Set the color count, refresh the UI, and reprocess if an image is loaded. */
@@ -204,6 +207,7 @@ async function readFile(file: File) {
     btnStl.disabled = true
     btn3mf.disabled = true
     btnDescribe.disabled = true
+    btnSlicer.disabled = true
     printabilityList.innerHTML = ''
     printabilitySummary.textContent = tr('pbDefault')
     pbBadge.hidden = true
@@ -374,6 +378,7 @@ function updateUI() {
   btnStl.disabled = false
   btn3mf.disabled = false
   btnDescribe.disabled = false
+  btnSlicer.disabled = false
   imageInfo.textContent = tr('processedAt', { w: current.image.width, h: current.image.height })
 }
 
@@ -1319,6 +1324,12 @@ function setupExports() {
     const filename = exportFilename(current, 'txt')
     triggerDownload(describeExport(current, filename), filename, 'text/plain;charset=utf-8')
     showStatus(tr('describeDone', { filename }))
+  })
+  btnSlicer.addEventListener('click', () => {
+    if (!current) return
+    const filename = exportFilename(current, 'zip').replace(/\.zip$/, '-prusaslicer.zip')
+    triggerDownload(buildSlicerBundle(current, filename.replace(/-prusaslicer\.zip$/, '.3mf')) as unknown as BlobPart, filename, 'application/zip')
+    showStatus(tr('slicerDone', { filename }))
   })
 }
 
