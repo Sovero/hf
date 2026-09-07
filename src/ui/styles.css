@@ -189,6 +189,16 @@ body {
   flex: 1;
 }
 
+.dither-value {
+  min-width: 2.6rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.dither-row {
+  margin-top: 0.45rem;
+}
+
 .slider-main input[type="range"] {
   width: 100%;
   accent-color: var(--accent);

@@ -236,6 +236,83 @@ function bandLabels(x: Float32Array, n: number, darkIsTall: boolean, pixelCount:
   return indexMap
 }
 
+/**
+ * Floyd–Steinberg error diffusion over the relief signal: band boundaries
+ * become smooth dithered gradients instead of hard steps — the HueForge
+ * look. Quantization levels are the clean bands' mean relief values, so a
+ * pixel's error is how far it sits from the band it lands in; `strength`
+ * scales the propagated error (0 = off, 1 = classic FS). Serpentine scan
+ * suppresses directional artifacts.
+ *
+ * Only labels change. Palette colors (physical filaments) and band tops
+ * (heights / swap schedule) stay from the clean pass — dithering mixes the
+ * existing bands spatially, it does not invent new ones.
+ */
+function ditherLabels(
+  relief: Float32Array,
+  cleanLabels: Uint8Array,
+  width: number,
+  height: number,
+  n: number,
+  darkIsTall: boolean,
+  strength: number,
+): Uint8Array {
+  // Work in relief-band space (0 = lowest relief): slice labels run opposite
+  // to relief values when darkIsTall, so flip at the edges and diffusing
+  // stays direction-agnostic.
+  const toReliefBand = (s: number) => (darkIsTall ? n - 1 - s : s)
+  const toSlice = (b: number) => (darkIsTall ? n - 1 - b : b)
+
+  // Clean-pass value range and mean (reconstruction level) per band. Bands
+  // are contiguous slices of the sorted relief, so their ranges are ordered.
+  const min = new Float64Array(n).fill(Infinity)
+  const max = new Float64Array(n).fill(-Infinity)
+  const sum = new Float64Array(n)
+  const count = new Uint32Array(n)
+  for (let i = 0; i < relief.length; i++) {
+    const b = toReliefBand(cleanLabels[i])
+    const v = relief[i]
+    if (v < min[b]) min[b] = v
+    if (v > max[b]) max[b] = v
+    sum[b] += v
+    count[b]++
+  }
+  const level = new Float64Array(n)
+  for (let b = 0; b < n; b++) level[b] = count[b] ? sum[b] / count[b] : 0
+
+  const pick = (v: number): number => {
+    let b = 0
+    while (b < n - 1 && v > max[b]) b++
+    return b
+  }
+
+  const out = new Uint8Array(relief.length)
+  const values = Float32Array.from(relief) // accumulated error lives here
+  for (let y = 0; y < height; y++) {
+    const ltr = y % 2 === 0
+    for (let xi = 0; xi < width; xi++) {
+      const x = ltr ? xi : width - 1 - xi
+      const i = y * width + x
+      const v = Math.min(1, Math.max(0, values[i]))
+      const b = pick(v)
+      out[i] = toSlice(b)
+      const e = (v - level[b]) * strength
+      if (e === 0) continue
+      const dx = ltr ? 1 : -1
+      const xr = x + dx
+      const yn = y + 1
+      if (xr >= 0 && xr < width) values[i - x + xr] += (e * 7) / 16
+      if (yn < height) {
+        const xl = x - dx
+        if (xl >= 0 && xl < width) values[yn * width + xl] += (e * 3) / 16
+        values[yn * width + x] += (e * 5) / 16
+        if (xr >= 0 && xr < width) values[yn * width + xr] += (e * 1) / 16
+      }
+    }
+  }
+  return out
+}
+
 /** Equal-population band boundaries (fractions of the relief height, 0..1). */
 function bandTopsFrom(x: Float32Array, n: number, pixelCount: number): number[] {
   const HIST = 256
@@ -340,6 +417,8 @@ export function mapToLuminanceBands(
   width: number,
   height: number,
   darkIsTall: boolean,
+  /** Floyd–Steinberg strength 0..1 (0 = off, the default). */
+  dither = 0,
 ): QuantizedImage {
   const pixelCount = width * height
   const n = Math.max(1, numColors)
@@ -417,5 +496,12 @@ export function mapToLuminanceBands(
     palette[k] ??= { r: 0, g: 0, b: 0 }
   }
 
-  return { palette, indexMap, luminance: relief, bandTops, width, height }
+  // Dithering is the last step: it only re-labels pixels near the band
+  // boundaries, keeping the filament colors and band tops from above.
+  const clampedDither = Math.min(1, Math.max(0, dither))
+  const finalIndexMap = clampedDither > 0
+    ? ditherLabels(relief, indexMap, width, height, n, darkIsTall, clampedDither)
+    : indexMap
+
+  return { palette, indexMap: finalIndexMap, luminance: relief, bandTops, width, height }
 }

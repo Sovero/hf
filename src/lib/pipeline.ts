@@ -41,6 +41,8 @@ export interface PipelineOptions {
   maxHeightMm: number
   /** Print layer height in mm; defaults to 0.2 when omitted. */
   layerMm?: number
+  /** Floyd–Steinberg dithering strength 0..1 (0 = off, the default). */
+  dither?: number
 }
 
 /**
@@ -56,7 +58,14 @@ export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang 
 
   // The palette is derived from the image's luminance bands, so no separate
   // color quantization step is needed — band colors are the band contents.
-  const quantized = mapToLuminanceBands(image.rgba, opts.numColors, image.width, image.height, opts.darkIsTall)
+  const quantized = mapToLuminanceBands(
+    image.rgba,
+    opts.numColors,
+    image.width,
+    image.height,
+    opts.darkIsTall,
+    opts.dither,
+  )
 
   return finishPipeline(image, quantized, opts)
 }

@@ -63,6 +63,8 @@ const layerBand = $<HTMLSpanElement>('#layer-band')
 const colorsSlider = $<HTMLInputElement>('#colors-slider')
 const colorsValue = $<HTMLInputElement>('#colors-value')
 const sliderTicks = $<HTMLDivElement>('#slider-ticks')
+const ditherSlider = $<HTMLInputElement>('#dither-slider')
+const ditherValue = $<HTMLSpanElement>('#dither-value')
 
 const SLIDER_MIN = 2
 const SLIDER_MAX = 24
@@ -130,6 +132,7 @@ type Settings = {
   baseMm: number
   maxMm: number
   layerMm: number
+  dither: number
 }
 /** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
 function clampNum(v: number, lo: number, hi: number, fb: number): number {
@@ -147,6 +150,7 @@ function saveSettings() {
       baseMm,
       maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
+      dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -169,6 +173,8 @@ function restoreSettings() {
     baseInput.value = String(baseMm)
     maxInput.value = String(clampNum(Number(s.maxMm), baseMm + 2, 40, 8))
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
+    ditherSlider.value = String(clampNum(Number(s.dither), 0, 100, 0))
+    ditherValue.textContent = `${ditherSlider.value}%`
   } catch {
     /* ignore corrupt settings */
   }
@@ -181,11 +187,13 @@ function readOptions() {
     Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback
   const numColors = clampNum(Math.round(Number(colorsSlider.value)), 2, 24, 4)
   const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
+  const dither = clampNum(Number(ditherSlider.value), 0, 100, 0) / 100
   const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
   const maxHeightMm = clampNum(Number(maxInput.value), baseMm + 2, 40, 8)
   return {
     numColors: numColors as 2 | 4 | 8 | 12 | 16 | 24,
     darkIsTall,
+    dither,
     widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
     heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
     baseMm,
@@ -1243,6 +1251,16 @@ function bindInputs() {
     if (e.key === 'End') { e.preventDefault(); applyCount(SLIDER_MAX); return }
     if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); applyCount(Number(colorsSlider.value) + 1); return }
     if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); applyCount(Number(colorsSlider.value) - 1); return }
+  })
+
+  // Dithering: debounced live reprocess on drag, flushed on release.
+  ditherSlider.addEventListener('input', () => {
+    ditherValue.textContent = `${ditherSlider.value}%`
+    scheduleReprocess()
+  })
+  ditherSlider.addEventListener('change', () => {
+    flushReprocess()
+    saveSettings()
   })
 }
 

@@ -247,6 +247,14 @@ export const dict: Dict = {
     en: 'Drag the slider, or type a count (2–24) in the box',
     ru: 'Потяните ползунок или введите число (2–24) в поле',
   },
+  ditherHint: {
+    en: 'Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.',
+    ru: 'Дизеринг размывает границы полос в плавные градиенты (Флойда–Стейнберга). 0 = выкл.',
+  },
+  helpDither: {
+    en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it.',
+    ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт.',
+  },
   sliderAria: { en: 'Number of colors', ru: 'Количество цветов' },
   sliderValueAria: {
     en: 'Number of colors (type to set)',
