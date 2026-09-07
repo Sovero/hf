@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer, type Server } from 'node:http'
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { discoverSlicers, pickSlicer, sanitizeFileName, handleSlicer } from '../../slicer-launch.mjs'
@@ -17,6 +17,8 @@ beforeAll(async () => {
   fixtureDir = mkdtempSync(join(tmpdir(), 'hf-slicer-test-'))
   writeFileSync(join(fixtureDir, 'marker.mjs'), MARKER_SRC)
   writeFileSync(join(fixtureDir, 'fake-slicer.exe'), 'not really an exe')
+  // Discovery requires the execute bit — a no-op on Windows, required on POSIX.
+  chmodSync(join(fixtureDir, 'fake-slicer.exe'), 0o755)
   savedEnv = process.env.HF_SLICER_PATH
 
   server = createServer((req, res) => {
