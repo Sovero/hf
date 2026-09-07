@@ -91,6 +91,30 @@ describe('describeExport (Describe.txt companion)', () => {
     expect(describeExport(fine, 'f.txt')).toContain('Layer height: 0.10 mm')
   })
 
+  it('collapses sub-layer band boundaries into one swap per layer', () => {
+    const fake = {
+      settings: { widthMm: 10, heightMm: 10, baseMm: 1, maxHeightMm: 5, layerMm: 0.5, darkIsTall: true },
+      palette: [
+        { color: { r: 0, g: 0, b: 0 }, topZMm: 1.0, printOrder: 4 },
+        { color: { r: 60, g: 60, b: 60 }, topZMm: 1.04, printOrder: 3 },
+        { color: { r: 120, g: 120, b: 120 }, topZMm: 3.0, printOrder: 2 },
+        { color: { r: 255, g: 255, b: 255 }, topZMm: 5.0, printOrder: 1 },
+      ],
+    } as PipelineResult
+    const text = describeExport(fake, 'm.txt')
+    const swaps = swapsOf(text)
+
+    // Boundaries at z = 1.0 and z = 1.04 both round to layer 2 — one swap,
+    // to the highest color starting at that layer (the 0.04 mm band never
+    // owns a printable layer and is marked in the filament listing).
+    expect(swaps).toHaveLength(2)
+    expect(swaps[0]).toEqual({ layer: 2, z: 1.04 })
+    expect(swaps[1]).toEqual({ layer: 6, z: 3 })
+    expect(text).toContain('switch to #787878')
+    expect(text).not.toContain('switch to #3c3c3c')
+    expect(text).toContain('never printed (thinner than one layer)')
+  })
+
   it('never suggests a swap past the total layer count', () => {
     // Extreme: max height just over one band at a coarse layer height.
     const result = run({ numColors: 8, layerMm: 0.6, maxHeightMm: 2.4 })

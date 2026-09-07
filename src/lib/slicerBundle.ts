@@ -17,6 +17,8 @@ export interface SlicerSwap {
   hex: string
   /** Human-readable filament name (en). */
   name: string
+  /** Index into the height-sorted palette bands of the color switched to. */
+  toBand: number
 }
 
 export interface SlicerSchedule {
@@ -50,8 +52,9 @@ export function swapSchedule(result: PipelineResult): SlicerSchedule {
       prev.zMm = z
       prev.hex = hex
       prev.name = name
+      prev.toBand = i + 1
     } else {
-      swaps.push({ layer, zMm: z, hex, name })
+      swaps.push({ layer, zMm: z, hex, name, toBand: i + 1 })
     }
   }
   return { swaps, totalLayers, layerMm }

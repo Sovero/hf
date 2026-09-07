@@ -71,8 +71,8 @@ describe('swapSchedule', () => {
     // 1.0 → layer 2; 1.04 → also layer 2 (sub-layer band skipped);
     // 3.0 → layer 6; the top band never schedules a swap.
     expect(swaps).toHaveLength(2)
-    expect(swaps[0]).toMatchObject({ layer: 2, hex: '#787878' })
-    expect(swaps[1]).toMatchObject({ layer: 6, hex: '#ffffff' })
+    expect(swaps[0]).toMatchObject({ layer: 2, hex: '#787878', toBand: 2 })
+    expect(swaps[1]).toMatchObject({ layer: 6, hex: '#ffffff', toBand: 3 })
   })
 })
 

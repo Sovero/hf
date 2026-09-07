@@ -1,5 +1,6 @@
 import type { PipelineResult } from './pipeline'
 import { nearestFilament, rgbToHex } from './palette'
+import { swapSchedule } from './slicerBundle'
 
 const fmt = (v: number) => v.toFixed(2)
 /** 1-indexed layer containing height z at the chosen layer height. */
@@ -11,7 +12,9 @@ const layerAt = (z: number, layerMm: number) => Math.max(1, Math.round(z / layer
  * base up and the exact layer at which to swap each filament. Bands are
  * listed bottom → top regardless of the depth mode, and each swap lands on
  * the whole layer nearest the band boundary, so a printed layer never mixes
- * two colors.
+ * two colors. Bands thinner than one layer collapse into the neighboring
+ * swap (one command per layer) — the same shared schedule the slicer
+ * bundle uses, so the two exports can never disagree.
  */
 export function describeExport(result: PipelineResult, name: string): string {
   const { palette, settings } = result
@@ -25,6 +28,11 @@ export function describeExport(result: PipelineResult, name: string): string {
   // Display ranges never leave the model's footprint (grid snapping can push
   // a band top past the max height when bands are thinner than half a layer).
   const clampZ = (z: number) => Math.min(Math.max(z, baseMm), maxHeightMm)
+
+  // Single source of truth, shared with the slicer-bundle export: one swap
+  // per layer, sub-layer bands collapsed into the neighbor swap.
+  const { swaps } = swapSchedule(result)
+  const scheduledBands = new Set(swaps.map((s) => s.toBand))
 
   const lines: string[] = []
   lines.push('==============================================')
@@ -41,22 +49,20 @@ export function describeExport(result: PipelineResult, name: string): string {
   bands.forEach((entry, i) => {
     const bottomZ = clampZ(i === 0 ? baseMm : bands[i - 1].topZMm)
     const topZ = clampZ(i === n - 1 ? maxHeightMm : entry.topZMm)
+    // A band collapsed into a neighboring swap (thinner than one layer)
+    // never extrudes — the schedule jumps straight over it to the next color.
+    const printed = i === 0 || scheduledBands.has(i)
     lines.push(
       `  ${entry.printOrder}. ${rgbToHex(entry.color)} · ${nearestFilament(entry.color, 'en')}` +
         ` · height ${fmt(bottomZ)}–${fmt(topZ)} mm` +
-        ` · layers ${layerAt(bottomZ, layerMm)}–${Math.min(layerAt(topZ, layerMm), totalLayers)}`,
+        ` · layers ${layerAt(bottomZ, layerMm)}–${Math.min(layerAt(topZ, layerMm), totalLayers)}` +
+        (printed ? '' : ' · never printed (thinner than one layer)'),
     )
   })
   lines.push('')
   lines.push('Color swap schedule — change filament at the start of these layers:')
-  for (let i = 0; i < bands.length - 1; i++) {
-    const z = bands[i].topZMm
-    if (z >= maxHeightMm - 1e-9) continue // nothing prints above the model top
-    const layer = Math.min(layerAt(z, layerMm), totalLayers)
-    const next = bands[i + 1]
-    lines.push(
-      `  Layer ${layer} (z = ${fmt(z)} mm): switch to ${rgbToHex(next.color)} · ${nearestFilament(next.color, 'en')}`,
-    )
+  for (const s of swaps) {
+    lines.push(`  Layer ${s.layer} (z = ${fmt(s.zMm)} mm): switch to ${s.hex} · ${s.name}`)
   }
   lines.push('')
   return lines.join('\n')
