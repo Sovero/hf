@@ -43,6 +43,12 @@ jobs:
       - name: Production build
         run: npm run build
 
+      # Self-contained deploy package: dist + zero-dependency server + launcher.
+      # Name matches the hueforge-web-*.zip glob below, so it ships as a
+      # second release asset alongside the source archive.
+      - name: Build deploy package
+        run: npm run pack-deploy
+
       # git archive emits exactly the committed tree at this tag — no
       # node_modules, dist, or local cruft. This is what install.bat pulls.
       - name: Build source archive
