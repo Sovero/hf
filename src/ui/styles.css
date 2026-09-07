@@ -764,12 +764,10 @@ body {
 .ref-collapsible summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
   cursor: pointer;
   list-style: none;
   user-select: none;
-  padding-right: 2.5rem;
 }
 .ref-collapsible summary::-webkit-details-marker { display: none; }
 .ref-collapsible summary h2 {
@@ -792,6 +790,7 @@ body {
 
 .ref-badge {
   flex: none;
+  margin-left: auto; /* stay pinned to the row's right edge */
   font-size: 0.68rem;
   font-weight: 600;
   padding: 0.1rem 0.5rem;
