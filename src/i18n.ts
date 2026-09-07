@@ -142,6 +142,10 @@ export const dict: Dict = {
     en: 'ZIP for PrusaSlicer: config.ini (layer height, 100% infill, no supports) with M600 color changes prewired into the layer-change G-code, plus an optional post-processing script and a bilingual README.',
     ru: 'ZIP для PrusaSlicer: config.ini (высота слоя, заполнение 100%, без поддержек) со сменами цвета M600, уже встроенными в G-код смены слоёв, плюс опциональный скрипт постобработки и инструкция на двух языках.',
   },
+  helpOpenSlicer: {
+    en: 'Sends the exported 3MF (with color swaps) straight to a slicer installed on this PC. Available only when the local server is started with the opt-in flag (deploy-slicer.bat or --allow-slicer).',
+    ru: 'Отправляет собранный 3MF (со сменами цвета) сразу в слайсер, установленный на этом ПК. Доступно, только если локальный сервер запущен с флагом (deploy-slicer.bat или --allow-slicer).',
+  },
   helpPalette: {
     en: 'Your colors in print order. Click a swatch to change it, ★ to pick a real filament from a Russian manufacturer’s catalog, ↺ to reset.',
     ru: 'Ваши цвета в порядке печати. Щёлкните по образцу, чтобы изменить цвет; ★ — выбрать реальный филамент из каталога российских производителей; ↺ — вернуть.',
@@ -328,11 +332,20 @@ export const dict: Dict = {
   btn3mf: { en: 'Download 3MF', ru: 'Скачать 3MF' },
   btnDescribe: { en: 'Download Describe.txt', ru: 'Скачать Describe.txt' },
   btnSlicer: { en: 'Slicer bundle', ru: 'Набор для слайсера' },
+  btnOpenSlicer: { en: 'Open in slicer', ru: 'Открыть в слайсере' },
   exportStlDone: { en: 'STL exported — {filename}', ru: 'STL экспортирован — {filename}' },
   describeDone: { en: 'Describe.txt exported — {filename}', ru: 'Describe.txt экспортирован — {filename}' },
   slicerDone: {
     en: 'Slicer bundle exported — {filename} (PrusaSlicer: File → Import → Import Config…).',
     ru: 'Набор для слайсера экспортирован — {filename} (PrusaSlicer: Файл → Импорт → Импорт конфигурации…).',
+  },
+  openSlicerDone: {
+    en: 'Model sent to {slicer} — check its window.',
+    ru: 'Модель отправлена в {slicer} — смотрите его окно.',
+  },
+  openSlicerError: {
+    en: 'Could not open in slicer: {detail}',
+    ru: 'Не удалось открыть в слайсере: {detail}',
   },
   export3mfDone: {
     en: '3MF exported — {filename} (Bambu Studio project with color swaps).',

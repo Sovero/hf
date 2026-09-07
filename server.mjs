@@ -6,16 +6,21 @@
  * node_modules — which makes it the deployment target for non-technical PCs:
  * unzip the deploy package and run deploy.bat.
  *
- * Usage: node server.mjs [port]   (default 8080, bound to 127.0.0.1)
+ * Usage: node server.mjs [port] [--allow-slicer]
+ *   --allow-slicer (or HF_ALLOW_SLICER=1) enables the opt-in "Open in slicer"
+ *   hand-off: the app can then send the exported 3MF to a slicer installed on
+ *   this PC. See slicer-launch.mjs for the security model and discovery.
  */
 import { createServer } from 'node:http'
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { discoverSlicers, handleSlicer } from './slicer-launch.mjs'
 
 const DIST = resolve(fileURLToPath(new URL('./dist', import.meta.url)))
 const HOST = '127.0.0.1'
 const PORT = Number(process.argv[2] ?? process.env.PORT ?? 8080)
+const SLICER_ENABLED = process.argv.includes('--allow-slicer') || process.env.HF_ALLOW_SLICER === '1'
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -53,8 +58,17 @@ if (!existsSync(DIST)) {
   process.exit(1)
 }
 
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${HOST}`)
+  // Opt-in slicer hand-off API (off unless --allow-slicer / HF_ALLOW_SLICER=1).
+  if (url.pathname.startsWith('/api/slicer')) {
+    try {
+      if (await handleSlicer(req, res, { enabled: SLICER_ENABLED })) return
+    } catch {
+      res.writeHead(500, { 'Content-Type': 'application/json' }).end('{"error":"internal"}')
+      return
+    }
+  }
   // Decode + normalize; reject anything escaping the dist root.
   let pathname = decodeURIComponent(url.pathname)
   let filePath = resolve(join(DIST, normalize(pathname).replace(/^([/\\])+/, '')))
@@ -81,5 +95,11 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`HueForge Web (production) at http://${HOST}:${PORT}`)
+  if (SLICER_ENABLED) {
+    const found = discoverSlicers()
+    console.log(
+      `"Open in slicer" enabled — ${found.length ? found.map((s) => `${s.name} (${s.path})`).join(', ') : 'no slicer found; set HF_SLICER_PATH'}`,
+    )
+  }
   console.log('Close this window or press Ctrl+C to stop the server.')
 })

@@ -6,6 +6,7 @@ import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
 import { DEFAULT_TAU_MM, transmittedBandColors } from '../lib/transmission'
 import type { QuantizedImage } from '../lib/types'
+import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
@@ -48,6 +49,9 @@ const btnStl = $<HTMLButtonElement>('#btn-stl')
 const btn3mf = $<HTMLButtonElement>('#btn-3mf')
 const btnDescribe = $<HTMLButtonElement>('#btn-describe')
 const btnSlicer = $<HTMLButtonElement>('#btn-slicer')
+const openSlicerRow = $<HTMLDivElement>('#open-slicer-row')
+const slicerSelect = $<HTMLSelectElement>('#slicer-select')
+const btnOpenSlicer = $<HTMLButtonElement>('#btn-open-slicer')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
 const canvasLayer = $<HTMLCanvasElement>('#canvas-layer')
@@ -103,6 +107,7 @@ function setProcessing(on: boolean) {
   btn3mf.disabled = on
   btnDescribe.disabled = on
   btnSlicer.disabled = on
+  btnOpenSlicer.disabled = on
 }
 
 /** Set the color count, refresh the UI, and reprocess if an image is loaded. */
@@ -217,6 +222,7 @@ async function readFile(file: File) {
     btn3mf.disabled = true
     btnDescribe.disabled = true
     btnSlicer.disabled = true
+    btnOpenSlicer.disabled = true
     printabilityList.innerHTML = ''
     printabilitySummary.textContent = tr('pbDefault')
     pbBadge.hidden = true
@@ -388,6 +394,7 @@ function updateUI() {
   btn3mf.disabled = false
   btnDescribe.disabled = false
   btnSlicer.disabled = false
+  btnOpenSlicer.disabled = false
   imageInfo.textContent = tr('processedAt', { w: current.image.width, h: current.image.height })
 }
 
@@ -1503,9 +1510,67 @@ function setupExports() {
   })
 }
 
+// ---- Open in slicer (opt-in hand-off via the local server) ----------------
+
+let slicerChoices: SlicerInfo[] = []
+
+/**
+ * Ask the local server whether the hand-off is enabled and which slicers it
+ * found. Anything but an affirmative answer (disabled, static host, dev
+ * server without the flag) keeps the button hidden — absence is the opt-out.
+ */
+async function setupOpenInSlicer() {
+  try {
+    const res = await fetch('/api/slicer/status')
+    if (!res.ok) return
+    const data = (await res.json()) as { enabled?: boolean; slicers?: SlicerInfo[] }
+    if (!data.enabled || !data.slicers?.length) return
+    slicerChoices = data.slicers
+    slicerSelect.replaceChildren()
+    for (const s of slicerChoices) {
+      const opt = document.createElement('option')
+      opt.value = s.id
+      opt.textContent = s.name
+      slicerSelect.appendChild(opt)
+    }
+    const saved = localStorage.getItem('hf-slicer-id')
+    if (saved && slicerChoices.some((s) => s.id === saved)) slicerSelect.value = saved
+    openSlicerRow.hidden = false
+  } catch {
+    /* no local API — the row stays hidden */
+  }
+}
+
+slicerSelect.addEventListener('change', () => {
+  localStorage.setItem('hf-slicer-id', slicerSelect.value)
+})
+
+btnOpenSlicer.addEventListener('click', async () => {
+  if (!current) return
+  btnOpenSlicer.disabled = true
+  try {
+    const base = exportFilename(current, '3mf').slice(0, -4)
+    const bytes = export3mfFile(current, base)
+    const query = new URLSearchParams({ slicer: slicerSelect.value, filename: `${base}.3mf` })
+    const res = await fetch(`/api/slicer/open?${query}`, {
+      method: 'POST',
+      headers: { 'X-HueForge': '1', 'Content-Type': 'application/octet-stream' },
+      body: bytes as unknown as BodyInit,
+    })
+    const data = (await res.json().catch(() => ({}))) as { slicer?: string; error?: string }
+    if (!res.ok) throw new Error(data.error ?? String(res.status))
+    showStatus(tr('openSlicerDone', { slicer: data.slicer ?? slicerSelect.selectedOptions[0]?.textContent ?? 'slicer' }))
+  } catch (err) {
+    showStatus(tr('openSlicerError', { detail: err instanceof Error ? err.message : String(err) }), true)
+  } finally {
+    btnOpenSlicer.disabled = !current
+  }
+})
+
 versionBadge.textContent = `v${__APP_VERSION__}`
 
 restoreSettings()
+void setupOpenInSlicer()
 
 // Language: apply immediately (before first paint), bind the switcher.
 langSelect.value = lang

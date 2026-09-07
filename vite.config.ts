@@ -29,12 +29,41 @@ function securityHeaders(): Plugin {
   }
 }
 
+/**
+ * Opt-in "Open in slicer" hand-off for the dev/preview servers. Off unless
+ * HF_ALLOW_SLICER=1 — the production deploy server has the same endpoint
+ * behind its own --allow-slicer flag (shared logic in slicer-launch.mjs).
+ */
+function slicerApi(): Plugin {
+  const enabled = process.env.HF_ALLOW_SLICER === '1'
+  const mount = (server: {
+    middlewares: { use: (fn: (req: unknown, res: unknown, next: () => void) => void) => void }
+  }) => {
+    server.middlewares.use((req, res, next) => {
+      const url = (req as { url?: string }).url ?? ''
+      if (!url.startsWith('/api/slicer')) {
+        next()
+        return
+      }
+      void import('./slicer-launch.mjs')
+        .then(({ handleSlicer }) =>
+          handleSlicer(req as import('node:http').IncomingMessage, res as import('node:http').ServerResponse, { enabled }),
+        )
+        .then((handled) => {
+          if (!handled) next()
+        })
+        .catch(() => next())
+    })
+  }
+  return { name: 'open-in-slicer', configureServer: mount, configurePreviewServer: mount }
+}
+
 export default defineConfig({
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
-  plugins: [securityHeaders()],
+  plugins: [securityHeaders(), slicerApi()],
   server: {
     host: '127.0.0.1',
   },
