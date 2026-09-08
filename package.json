@@ -1,7 +1,7 @@
 {
   "name": "hueforge-web",
   "private": true,
-  "version": "0.7.1",
+  "version": "0.7.2",
   "type": "module",
   "description": "Turn any image into a multi-layer 3D-printable filament painting (STL/3MF)",
   "scripts": {
