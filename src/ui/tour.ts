@@ -14,6 +14,11 @@ export interface TourStep {
   target?: string
   titleKey: string
   textKey: string
+  /**
+   * Hands-on step: Next stays disabled until the user actually uses the
+   * control (e.g. drags the colors slider). Only meaningful with a target.
+   */
+  interactive?: boolean
 }
 
 export interface TourCallbacks {
@@ -33,7 +38,7 @@ export const TOUR_STEPS: TourStep[] = [
   { titleKey: 'tourIntroTitle', textKey: 'tourIntro' },
   { target: '#img-details', titleKey: 'panelImage', textKey: 'helpImage' },
   { target: '#colors-details', titleKey: 'panelColors', textKey: 'helpColors' },
-  { target: '#colors-slider', titleKey: 'sliderAria', textKey: 'helpColorsSlider' },
+  { target: '#colors-slider', titleKey: 'sliderAria', textKey: 'helpColorsSlider', interactive: true },
   { target: '#dither-slider', titleKey: 'tourDitherTitle', textKey: 'helpDither' },
   { target: '#depth-details', titleKey: 'panelDepth', textKey: 'helpDepth' },
   { target: '#size-details', titleKey: 'panelSize', textKey: 'helpSize' },
@@ -59,6 +64,10 @@ const CARD_MARGIN = 14
 export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
   let index = 0
   let stopped = false
+  /** Step indexes the user already interacted with (survives re-renders). */
+  const interacted = new Set<number>()
+  /** Attached input listeners per step, so re-renders don't stack them. */
+  const interactListeners = new Map<number, () => void>()
 
   const overlay = document.createElement('div')
   overlay.className = 'tour-overlay'
@@ -78,6 +87,11 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
   const stop = () => {
     if (stopped) return
     stopped = true
+    for (const [i, fn] of interactListeners) {
+      const step = steps[i]
+      if (step.target) document.querySelector(step.target)?.removeEventListener('input', fn)
+    }
+    interactListeners.clear()
     overlay.remove()
     document.body.style.overflow = ''
     window.removeEventListener('keydown', onKey)
@@ -105,10 +119,16 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
     if (e.key === 'Escape') {
       stop()
       cb.onSkip?.()
-    } else if (e.key === 'ArrowRight') {
-      next()
-    } else if (e.key === 'ArrowLeft') {
-      prev()
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      // On an interactive step, arrows belong to the focused control
+      // (e.g. the colors slider), not to tour navigation.
+      const step = steps[index]
+      if (step.interactive && step.target) {
+        const control = document.querySelector<HTMLElement>(step.target)
+        if (control && document.activeElement === control) return
+      }
+      if (e.key === 'ArrowRight') next()
+      else prev()
     }
   }
 
@@ -165,12 +185,35 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
       cb.onSkip?.()
     })
     const prevBtn = button(cb.tr('tourPrev'), 'tour-btn', prev, i === 0)
+    const stepDone = interacted.has(i)
     const nextBtn = button(
       i === steps.length - 1 ? cb.tr('tourFinish') : cb.tr('tourNext'),
       'tour-btn primary',
       next,
     )
+    if (step.interactive) nextBtn.disabled = !stepDone
     actions.append(progress, skipBtn, prevBtn, nextBtn)
+
+    // Hands-on hint: tells the user to try the control, flips to a green ✓
+    // once they did. The input listener unlocks Next exactly once.
+    let hint: HTMLElement | null = null
+    if (step.interactive && step.target) {
+      const control = document.querySelector<HTMLElement>(step.target)
+      if (control) {
+        const prev = interactListeners.get(i)
+        if (prev) control.removeEventListener('input', prev)
+        const onChange = () => {
+          if (stopped || interacted.has(i)) return
+          interacted.add(i)
+          render(i)
+        }
+        interactListeners.set(i, onChange)
+        control.addEventListener('input', onChange)
+        hint = document.createElement('p')
+        hint.className = stepDone ? 'tour-interact ok' : 'tour-interact'
+        hint.textContent = stepDone ? cb.tr('tourInteracted') : cb.tr('tourInteractHint')
+      }
+    }
 
     // Clickable progress dots: one per step; the active one is a pill,
     // finished steps are dimmed accent dots. Clicking jumps to that step.
@@ -190,7 +233,7 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
       dots.appendChild(dot)
     }
 
-    card.replaceChildren(title, text, dots, actions)
+    card.replaceChildren(title, text, dots, ...(hint ? [hint] : []), actions)
 
     // Center horizontally; below the spotlight when there is room, else above.
     card.style.left = '50%'

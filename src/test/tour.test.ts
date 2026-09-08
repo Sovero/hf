@@ -28,6 +28,20 @@ describe('guided tour', () => {
     }
   })
 
+  it('interactive steps have a target and hint keys exist in the dict', () => {
+    const interactive = TOUR_STEPS.filter((s) => s.interactive)
+    expect(interactive.length).toBeGreaterThan(0)
+    for (const step of interactive) {
+      expect(step.target, 'interactive step without a target').toBeTruthy()
+    }
+    for (const key of ['tourInteractHint', 'tourInteracted']) {
+      const entry = dict[key]
+      expect(entry, `missing dict key: ${key}`).toBeTruthy()
+      expect(entry.en.length, `${key}.en is empty`).toBeGreaterThan(0)
+      expect(entry.ru.length, `${key}.ru is empty`).toBeGreaterThan(0)
+    }
+  })
+
   it('mixes centered intro/outro cards with spotlight steps', () => {
     expect(TOUR_STEPS.length).toBeGreaterThan(1)
     expect(TOUR_STEPS.some((s) => s.target)).toBe(true)

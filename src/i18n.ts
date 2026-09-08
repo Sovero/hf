@@ -636,6 +636,14 @@ export const dict: Dict = {
   tourNext: { en: 'Next', ru: 'Далее' },
   tourFinish: { en: 'Finish', ru: 'Завершить' },
   tourStep: { en: 'Step {n} of {total}', ru: 'Шаг {n} из {total}' },
+  tourInteractHint: {
+    en: 'Try it: drag the slider — Next unlocks after you move it.',
+    ru: 'Попробуйте: подвиньте ползунок — «Далее» откроется после этого.',
+  },
+  tourInteracted: {
+    en: '✓ Nice, that works! Continue when ready.',
+    ru: '✓ Отлично, работает! Продолжайте, когда готовы.',
+  },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
   tourWidthTitle: { en: 'Width', ru: 'Ширина' },
   tourHeightTitle: { en: 'Height', ru: 'Высота' },

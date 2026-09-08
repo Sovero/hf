@@ -1370,6 +1370,17 @@ body {
   gap: 0.45rem;
 }
 
+.tour-interact {
+  margin: -0.4rem 0 0.8rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--accent);
+}
+
+.tour-interact.ok {
+  color: var(--accent-2);
+}
+
 .tour-progress {
   flex: 1;
   font-size: 0.7rem;
