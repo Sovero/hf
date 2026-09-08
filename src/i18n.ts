@@ -670,6 +670,15 @@ export const dict: Dict = {
     en: 'Not a HueForge project file ({detail})',
     ru: 'Это не файл проекта HueForge ({detail})',
   },
+
+  // ---- ΔE error map ----
+  deltaETitle: { en: 'ΔE error map', ru: 'ΔE-карта ошибок' },
+  deltaELegend: { en: '0 — 2 — 10 — 25+ ΔE', ru: '0 — 2 — 10 — 25+ ΔE' },
+  helpViewerDeltaE: {
+    en: 'Where the print will deviate from your picture. Green areas match (ΔE < 2, imperceptible), yellow is noticeable, red is a strong mismatch — the map compares every pixel with the predicted transmitted blend of the finished print.',
+    ru: 'Где печать отклонится от вашей картинки. Зелёные участки совпадают (ΔE < 2, незаметно), жёлтые — заметно, красные — сильное расхождение: карта сравнивает каждый пиксель с предсказанным видом готовой печати с учётом просвечивания.',
+  },
+  deltaEStats: { en: 'Mean ΔE {mean} · max {max}', ru: 'Средний ΔE {mean} · макс {max}' },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
   tourWidthTitle: { en: 'Width', ru: 'Ширина' },
   tourHeightTitle: { en: 'Height', ru: 'Высота' },

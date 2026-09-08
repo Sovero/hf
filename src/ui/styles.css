@@ -589,6 +589,23 @@ body {
   margin-bottom: 0.5rem;
 }
 
+.deltae-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.deltae-bar {
+  width: 56px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #2ecc71, #f1c40f, #e74c3c);
+  display: inline-block;
+}
+
 .viewer-head h3 {
   margin: 0;
 }

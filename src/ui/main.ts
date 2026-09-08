@@ -9,6 +9,7 @@ import { DEFAULT_TAU_MM, backlitBandColors, transmittedBandColors } from '../lib
 import type { QuantizedImage } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
+import { deltaE2000Rgb } from '../lib/deltae'
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
 import { parseReference3mf, Reference3mfParseError } from '../lib/reference3mf'
@@ -60,6 +61,8 @@ const btnProjectOpen = $<HTMLButtonElement>('#btn-project-open')
 const projectInput = $<HTMLInputElement>('#project-input')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
+const canvasDeltaE = $<HTMLCanvasElement>('#canvas-deltae')
+const deltaeStats = $<HTMLParagraphElement>('#deltae-stats')
 const lightFrontBtn = $<HTMLButtonElement>('#light-front')
 const lightBackBtn = $<HTMLButtonElement>('#light-back')
 const lightNote = $<HTMLParagraphElement>('#light-note')
@@ -596,6 +599,75 @@ function drawQuantized() {
   canvasQuantized.width = width
   canvasQuantized.height = height
   canvasQuantized.getContext('2d')!.putImageData(new ImageData(rgba, width, height), 0, 0)
+  drawDeltaE()
+}
+
+// ---- ΔE error map: target image vs predicted print appearance -------------
+
+/** Heat color for a ΔE value: green (invisible) → yellow → red (large). */
+function deltaeHeat(t: number, out: [number, number, number]) {
+  const G: [number, number, number] = [0x2e, 0xcc, 0x71]
+  const Y: [number, number, number] = [0xf1, 0xc4, 0x0f]
+  const R: [number, number, number] = [0xe7, 0x4c, 0x3c]
+  const lerp = (a: [number, number, number], b: [number, number, number], k: number) => {
+    out[0] = a[0] + (b[0] - a[0]) * k
+    out[1] = a[1] + (b[1] - a[1]) * k
+    out[2] = a[2] + (b[2] - a[2]) * k
+  }
+  if (t <= 0.5) lerp(G, Y, t * 2)
+  else lerp(Y, R, (t - 0.5) * 2)
+}
+
+/**
+ * Per-pixel ΔE2000 between the target image and the predicted front-lit
+ * print (the same transmitted blends the quantized preview shows). Pixels
+ * are sampled at half resolution for speed and upscaled smoothly; the
+ * heatmap overlays a dimmed source so mismatches are visible in context.
+ * The prediction is front-lit by design — the map is the same in both light
+ * modes.
+ */
+function drawDeltaE() {
+  const { width, height, indexMap, palette } = current!.quantized
+  const n = palette.length
+  const blends = transmittedBandColors(current!)
+  const src = current!.image.rgba
+  const darkIsTall = current!.settings.darkIsTall
+
+  const w2 = Math.max(1, Math.ceil(width / 2))
+  const h2 = Math.max(1, Math.ceil(height / 2))
+  const small = document.createElement('canvas')
+  small.width = w2
+  small.height = h2
+  const sctx = small.getContext('2d')!
+  const img = sctx.createImageData(w2, h2)
+  const heat: [number, number, number] = [0, 0, 0]
+  let sum = 0
+  let max = 0
+  const count = w2 * h2
+  for (let y = 0; y < h2; y++) {
+    for (let x = 0; x < w2; x++) {
+      const si = (y * 2 * width + x * 2) * 4
+      const slice = darkIsTall ? n - 1 - indexMap[y * 2 * width + x * 2] : indexMap[y * 2 * width + x * 2]
+      const c = blends[slice] ?? palette[indexMap[y * 2 * width + x * 2]]
+      const dE = deltaE2000Rgb(src[si], src[si + 1], src[si + 2], c.r, c.g, c.b)
+      sum += dE
+      if (dE > max) max = dE
+      deltaeHeat(Math.min(1, dE / 25), heat)
+      const o = (y * w2 + x) * 4
+      img.data[o] = heat[0] * 0.72 + src[si] * 0.28 * 0.45
+      img.data[o + 1] = heat[1] * 0.72 + src[si + 1] * 0.28 * 0.45
+      img.data[o + 2] = heat[2] * 0.72 + src[si + 2] * 0.28 * 0.45
+      img.data[o + 3] = 255
+    }
+  }
+  sctx.putImageData(img, 0, 0)
+  canvasDeltaE.width = width
+  canvasDeltaE.height = height
+  canvasDeltaE.getContext('2d')!.drawImage(small, 0, 0, width, height)
+  deltaeStats.textContent = tr('deltaEStats', {
+    mean: (sum / count).toFixed(1),
+    max: max.toFixed(1),
+  })
 }
 
 // ---- Layer-by-layer view -------------------------------------------------

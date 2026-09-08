@@ -284,6 +284,14 @@
           <div class="canvas-wrap canvas-wrap-backlit"><canvas id="canvas-quantized"></canvas></div>
           <p class="muted small light-note" id="light-note" data-i18n="lightNoteFront" hidden>Front-lit: opaque base behind, thin top sheets let lower colors shine through.</p>
         </div>
+        <div class="viewer-card" id="viewer-deltae" data-help="helpViewerDeltaE">
+          <div class="viewer-head">
+            <h3 data-i18n="deltaETitle">ΔE error map</h3>
+            <span class="deltae-legend"><span class="deltae-bar"></span><span data-i18n="deltaELegend">0 — 2 — 10 — 25+ ΔE</span></span>
+          </div>
+          <div class="canvas-wrap"><canvas id="canvas-deltae"></canvas></div>
+          <p class="muted small" id="deltae-stats"></p>
+        </div>
         <div class="viewer-card viewer-layers" id="viewer-layers" data-help="helpViewerLayers">
           <div class="canvas-wrap"><canvas id="canvas-layer"></canvas></div>
           <div class="layer-controls">
