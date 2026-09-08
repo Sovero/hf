@@ -66,6 +66,7 @@
       <span class="tagline" data-i18n="tagline">Image → multi-layer 3D-printable filament painting</span>
       <span id="app-version" class="app-version"></span>
       <div class="topbar-right">
+        <button type="button" id="btn-tour" class="topbar-btn" data-help="helpTour" data-i18n="tourBtn">Tour</button>
         <label class="picker"><span data-i18n="languageLabel">Language</span>
           <select id="lang-select" data-help="helpLangSelect">
             <option value="en">English</option>
@@ -85,13 +86,20 @@
 
     <main class="layout">
       <aside class="sidebar">
-        <p class="welcome-help" data-i18n="helpWelcome">Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.</p>
+        <div class="welcome-panel" id="welcome-panel">
+          <h2>🎨 <span data-i18n="welcomeTitle">Welcome to HueForge Web</span></h2>
+          <p data-i18n="helpWelcome">Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.</p>
+          <div class="welcome-actions">
+            <button type="button" id="btn-welcome-tour" class="btn" data-i18n="welcomeTourBtn">Start the tour</button>
+            <button type="button" id="btn-welcome-hide" class="btn ghost" data-i18n="welcomeDismiss">Hide</button>
+          </div>
+        </div>
         <section class="panel">
           <div class="panel-section" id="img-details">
             <div class="panel-head" data-help="helpImage">
               <h2 data-i18n="panelImage">1 · Image</h2>
+              <button type="button" class="hint-btn" data-help="helpImage" aria-label="Help">?</button>
             </div>
-            <p class="panel-help" data-i18n="helpImage">Start here. Drop in a photo or drawing — the app will reduce it to flat color bands for printing.</p>
           <div id="drop-zone" class="drop-zone" data-help="helpDropZone">
             <p><strong data-i18n="dropTitle">Drop an image here</strong></p>
             <p class="muted" data-i18n="dropHint">or click to browse — PNG / JPG / WebP</p>
@@ -105,8 +113,8 @@
           <div class="panel-section" id="colors-details">
             <div class="panel-head" data-help="helpColors">
               <h2 data-i18n="panelColors">2 · Colors</h2>
+              <button type="button" class="hint-btn" data-help="helpColors" aria-label="Help">?</button>
             </div>
-            <p class="panel-help" data-i18n="helpColors">How many filament colors to print with. More colors = smoother shading, but more manual filament swaps.</p>
           <div id="color-options" class="color-options">
             <div class="slider-row">
               <div class="slider-main">
@@ -124,8 +132,10 @@
             </div>
             <p class="muted small slider-hint" data-i18n="ditherHint">Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.</p>
           </div>
-          <h2 data-i18n="panelDepth">3 · Depth mode</h2>
-          <p class="panel-help" data-i18n="helpDepth">Which parts of the picture stand tallest: light areas or dark ones. This sets the print order of the colors.</p>
+          <div class="panel-head" id="depth-details" data-help="helpDepth">
+            <h2 data-i18n="panelDepth">3 · Depth mode</h2>
+            <button type="button" class="hint-btn" data-help="helpDepth" aria-label="Help">?</button>
+          </div>
           <div class="mode-options">
             <label><input type="radio" name="mode" value="light" checked data-help="helpDepthLight" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
             <label><input type="radio" name="mode" value="dark" data-help="helpDepthDark" /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
@@ -137,8 +147,8 @@
           <div class="panel-section" id="size-details">
             <div class="panel-head" data-help="helpSize">
               <h2 data-i18n="panelSize">4 · Size &amp; layers</h2>
+              <button type="button" class="hint-btn" data-help="helpSize" aria-label="Help">?</button>
             </div>
-            <p class="panel-help" data-i18n="helpSize">Physical print dimensions and layer settings. The resolution of the working image adapts to the print size automatically.</p>
           <div class="param-grid">
             <label><span data-i18n="paramWidth">Width</span> <input id="width-mm" type="number" value="150" min="20" max="500" step="1" data-help="helpWidth" /> <span data-i18n="unitMm">mm</span></label>
             <label><span data-i18n="paramHeight">Height</span> <input id="height-mm" type="number" value="150" min="20" max="500" step="1" data-help="helpHeight" /> <span data-i18n="unitMm">mm</span></label>
@@ -155,8 +165,8 @@
             <div class="panel-head" data-help="helpPrintability">
               <h2 data-i18n="panelPrintability">5 · Printability check</h2>
               <span id="pb-badge" class="ref-badge idle" hidden></span>
+              <button type="button" class="hint-btn" data-help="helpPrintability" aria-label="Help">?</button>
             </div>
-            <p class="panel-help" data-i18n="helpPrintability">Automatic check of your settings: band thickness, detail size vs nozzle, fragile specks, and the number of swaps. Fix anything marked with ⚠ or ✕.</p>
           <div id="printability-list"></div>
           <p id="printability-summary" class="muted small" data-i18n="pbDefault">Load an image to run the check.</p>
           </div>
@@ -167,8 +177,8 @@
             <div class="panel-head" data-help="helpReference">
               <h2 data-i18n="panelReference">Reference 3MF</h2>
               <span id="ref-badge" class="ref-badge idle" data-i18n="refBadgeEmpty">Not loaded</span>
+              <button type="button" class="hint-btn" data-help="helpReference" aria-label="Help">?</button>
             </div>
-            <p class="panel-help" data-i18n="helpReference">Have a finished HueForge or Bambu project? Drop its 3MF here to see its size, colors and swap schedule — and copy them into your work with one click.</p>
           <div id="ref-drop" class="drop-zone ref-drop-zone" data-help="helpRefDrop">
             <p><strong data-i18n="refDropTitle">Drop a reference .3mf here</strong></p>
             <p class="muted" data-i18n="refDropHint">or click to browse — analyze first, apply only if it fits</p>
@@ -210,8 +220,8 @@
           <div class="panel-section" id="export-details">
             <div class="panel-head" data-help="helpExport">
               <h2 data-i18n="panelExport">6 · Export</h2>
+              <button type="button" class="hint-btn" data-help="helpExport" aria-label="Help">?</button>
             </div>
-            <p class="panel-help" data-i18n="helpExport">Download the printable files. Print the model top face up, 100% infill, no supports.</p>
           <div class="export-buttons">
             <button id="btn-stl" disabled data-i18n="btnStl" data-help="helpBtnStl">Download STL</button>
             <button id="btn-3mf" disabled data-i18n="btn3mf" data-help="helpBtn3mf">Download 3MF</button>
@@ -230,12 +240,12 @@
           <div class="panel-section" id="palette-details">
             <div class="panel-head" data-help="helpPalette">
               <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
+              <button type="button" class="hint-btn" data-help="helpPalette" aria-label="Help">?</button>
             </div>
-            <p class="panel-help" data-i18n="helpPalette">Your colors in print order. Click a swatch to change it, ★ to pick a real filament from a Russian manufacturer’s catalog, ↺ to reset.</p>
           <div id="palette-list" class="palette-list"></div>
           <p id="palette-summary" class="muted small"></p>
           <div id="calib" class="calib" hidden>
-            <p class="panel-help" data-i18n="calibIntro">Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.</p>
+            <p class="muted small" data-i18n="calibIntro">Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.</p>
             <div class="calib-row">
               <select id="calib-color" class="calib-select"></select>
               <button id="calib-download" type="button" data-i18n="calibDownload">Swatch STL</button>

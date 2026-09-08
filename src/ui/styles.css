@@ -117,6 +117,21 @@ body {
   cursor: pointer;
 }
 
+.topbar-btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.topbar-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .layout {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -867,6 +882,26 @@ body {
   margin: 0;
 }
 
+.hint-btn {
+  flex: none;
+  margin-left: auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0;
+  cursor: help;
+}
+
+.hint-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .ref-badge {
   flex: none;
   margin-left: auto; /* stay pinned to the row's right edge */
@@ -1177,16 +1212,142 @@ body {
 
 /* ---- Onboarding help: section intros + control tooltips ----------------- */
 
-.welcome-help {
-  margin: 0 0 0.9rem;
-  padding: 0.4rem 0.65rem;
+.welcome-panel {
+  margin: 0 0 0.2rem;
+  padding: 0.75rem 0.85rem;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: 8px;
-  background: var(--panel-2);
-  font-size: 0.74rem;
-  line-height: 1.4;
+  background: var(--panel);
+}
+
+.welcome-panel h2 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.welcome-panel p {
+  margin: 0 0 0.7rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
   color: var(--muted);
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn {
+  padding: 0.45rem 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #06121d;
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.1);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.btn.ghost:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* ---- guided tour (spotlight overlay) ---- */
+
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.tour-spotlight {
+  position: fixed;
+  border-radius: 8px;
+  box-shadow: 0 0 0 100vmax rgba(6, 10, 16, 0.62);
+  transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+
+.tour-card {
+  position: fixed;
+  width: min(340px, calc(100vw - 2rem));
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem 0.85rem;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.tour-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+.tour-card p {
+  margin: 0 0 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tour-progress {
+  flex: 1;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.tour-btn {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.tour-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tour-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tour-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06121d;
+  font-weight: 600;
+}
+
+.tour-btn.ghost {
+  border-color: transparent;
+  color: var(--muted);
+  text-decoration: underline;
 }
 
 .panel-help {

@@ -1,0 +1,177 @@
+/**
+ * Guided tour: a spotlight overlay that walks the user through the app's
+ * sections one at a time. The target element is highlighted (everything else
+ * is dimmed) and a card shows the section title, its explanation and
+ * Skip / Back / Next buttons. Steps without a `target` render as centered
+ * intro/outro cards.
+ *
+ * The engine is DOM-only at runtime; the step table (TOUR_STEPS) is pure data
+ * so tests can validate it in a Node environment.
+ */
+
+export interface TourStep {
+  /** CSS selector of the element to spotlight. Omit for a centered card. */
+  target?: string
+  titleKey: string
+  textKey: string
+}
+
+export interface TourCallbacks {
+  /** Localized string resolver, e.g. main.ts's `tr`. */
+  tr: (key: string, params?: Record<string, string | number>) => string
+  onFinish?: () => void
+  onSkip?: () => void
+}
+
+/** App sections in walk-through order (text keys reuse the section helps). */
+export const TOUR_STEPS: TourStep[] = [
+  { titleKey: 'tourIntroTitle', textKey: 'tourIntro' },
+  { target: '#img-details', titleKey: 'panelImage', textKey: 'helpImage' },
+  { target: '#colors-details', titleKey: 'panelColors', textKey: 'helpColors' },
+  { target: '#depth-details', titleKey: 'panelDepth', textKey: 'helpDepth' },
+  { target: '#size-details', titleKey: 'panelSize', textKey: 'helpSize' },
+  { target: '#palette-details', titleKey: 'panelPalette', textKey: 'helpPalette' },
+  { target: '#pb-details', titleKey: 'panelPrintability', textKey: 'helpPrintability' },
+  { target: '#export-details', titleKey: 'panelExport', textKey: 'helpExport' },
+  { titleKey: 'tourDoneTitle', textKey: 'tourDone' },
+]
+
+const SPOT_PAD = 6
+const CARD_MARGIN = 14
+
+/**
+ * Starts the tour and returns a stop function (idempotent — calling it twice
+ * is a no-op). The tour ends on the last step's Next/Finish, on Skip, or via
+ * Escape; `onFinish`/`onSkip` fire once in those cases.
+ */
+export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
+  let index = 0
+  let stopped = false
+
+  const overlay = document.createElement('div')
+  overlay.className = 'tour-overlay'
+  const spotlight = document.createElement('div')
+  spotlight.className = 'tour-spotlight'
+  const card = document.createElement('div')
+  card.className = 'tour-card'
+  card.setAttribute('role', 'dialog')
+  card.setAttribute('aria-modal', 'true')
+  card.tabIndex = -1
+  overlay.append(spotlight, card)
+  document.body.appendChild(overlay)
+  document.body.style.overflow = 'hidden'
+
+  const stop = () => {
+    if (stopped) return
+    stopped = true
+    overlay.remove()
+    document.body.style.overflow = ''
+    window.removeEventListener('keydown', onKey)
+    window.removeEventListener('resize', onResize)
+  }
+
+  const next = () => {
+    if (index < steps.length - 1) {
+      index++
+      render(index)
+    } else {
+      stop()
+      cb.onFinish?.()
+    }
+  }
+
+  const prev = () => {
+    if (index > 0) {
+      index--
+      render(index)
+    }
+  }
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      stop()
+      cb.onSkip?.()
+    } else if (e.key === 'ArrowRight') {
+      next()
+    } else if (e.key === 'ArrowLeft') {
+      prev()
+    }
+  }
+
+  const onResize = () => {
+    if (!stopped) render(index)
+  }
+
+  const button = (label: string, className: string, onClick: () => void, disabled = false) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = className
+    b.textContent = label
+    b.disabled = disabled
+    b.addEventListener('click', onClick)
+    return b
+  }
+
+  function render(i: number) {
+    const step = steps[i]
+    const target = step.target ? document.querySelector<HTMLElement>(step.target) : null
+    // A missing target (defensive) skips forward rather than wedging the tour.
+    if (step.target && !target) {
+      next()
+      return
+    }
+
+    spotlight.hidden = !target
+    if (target) {
+      target.scrollIntoView({ block: 'center', inline: 'nearest' })
+      const r = target.getBoundingClientRect()
+      spotlight.style.left = `${r.left - SPOT_PAD}px`
+      spotlight.style.top = `${r.top - SPOT_PAD}px`
+      spotlight.style.width = `${r.width + SPOT_PAD * 2}px`
+      spotlight.style.height = `${r.height + SPOT_PAD * 2}px`
+    }
+
+    const title = document.createElement('h3')
+    title.textContent = cb.tr(step.titleKey)
+    const text = document.createElement('p')
+    text.textContent = cb.tr(step.textKey)
+
+    const actions = document.createElement('div')
+    actions.className = 'tour-actions'
+    const progress = document.createElement('span')
+    progress.className = 'tour-progress'
+    progress.textContent = cb.tr('tourStep', { n: i + 1, total: steps.length })
+    const skipBtn = button(cb.tr('tourSkip'), 'tour-btn ghost', () => {
+      stop()
+      cb.onSkip?.()
+    })
+    const prevBtn = button(cb.tr('tourPrev'), 'tour-btn', prev, i === 0)
+    const nextBtn = button(
+      i === steps.length - 1 ? cb.tr('tourFinish') : cb.tr('tourNext'),
+      'tour-btn primary',
+      next,
+    )
+    actions.append(progress, skipBtn, prevBtn, nextBtn)
+
+    card.replaceChildren(title, text, actions)
+
+    // Center horizontally; below the spotlight when there is room, else above.
+    card.style.left = '50%'
+    card.style.transform = 'translateX(-50%)'
+    if (target) {
+      const r = spotlight.getBoundingClientRect()
+      const cardH = card.offsetHeight
+      const below = r.bottom + CARD_MARGIN
+      const above = r.top - CARD_MARGIN - cardH
+      card.style.top = below + cardH <= window.innerHeight ? `${below}px` : `${Math.max(CARD_MARGIN, above)}px`
+    } else {
+      card.style.top = '30%'
+    }
+    card.focus()
+  }
+
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('resize', onResize)
+  render(0)
+  return stop
+}

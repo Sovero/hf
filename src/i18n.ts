@@ -611,6 +611,31 @@ export const dict: Dict = {
     en: 'All walls are vertical (≤90°) and every layer is supported from below — no supports needed, no overhang risk. Fragile isolated regions were flattened automatically.',
     ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на нижний — поддержки не нужны, нависаний нет. Хрупкие изолированные участки сглажены автоматически.',
   },
+
+  // ---- welcome panel + guided tour ----
+  welcomeTitle: { en: 'Welcome to HueForge Web', ru: 'Добро пожаловать в HueForge Web' },
+  welcomeTourBtn: { en: 'Start the tour', ru: 'Начать тур' },
+  welcomeDismiss: { en: 'Hide', ru: 'Скрыть' },
+  tourBtn: { en: 'Tour', ru: 'Тур' },
+  helpTour: {
+    en: 'Restart the guided tour that walks you through every section.',
+    ru: 'Перезапустить ознакомительный тур по всем разделам.',
+  },
+  tourIntroTitle: { en: 'A quick tour', ru: 'Короткий тур' },
+  tourIntro: {
+    en: 'This app turns any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Follow the numbered sections top to bottom — the previews update live.',
+    ru: 'Приложение превращает любую картинку в многоцветную 3D-печатную картину: загрузите изображение, выберите количество цветов филамента и скачайте модель с инструкцией по смене цвета. Проходите пронумерованные разделы сверху вниз — предпросмотры обновляются сразу.',
+  },
+  tourDoneTitle: { en: "You're all set", ru: 'Всё готово' },
+  tourDone: {
+    en: 'Load an image, tune the colors and size, then download the STL, 3MF or Describe.txt and slice with 100% infill and no supports. You can restart this tour anytime from the Tour button in the top bar.',
+    ru: 'Загрузите изображение, настройте цвета и размер, затем скачайте STL, 3MF или Describe.txt и нарежьте в слайсере с заполнением 100% без поддержек. Тур можно запустить снова кнопкой «Тур» в верхней панели.',
+  },
+  tourSkip: { en: 'Skip', ru: 'Пропустить' },
+  tourPrev: { en: 'Back', ru: 'Назад' },
+  tourNext: { en: 'Next', ru: 'Далее' },
+  tourFinish: { en: 'Finish', ru: 'Завершить' },
+  tourStep: { en: 'Step {n} of {total}', ru: 'Шаг {n} из {total}' },
 }
 
 export function t(lang: Lang, key: string, params?: Record<string, string | number>): string {

@@ -25,14 +25,14 @@ describe('onboarding help coverage', () => {
     }
   })
 
-  it('every section panel has at least one help intro', () => {
+  it('every section panel has a hint button with a help key', () => {
     const html = readFileSync(join(here, '..', '..', 'index.html'), 'utf8')
     const panels = html.match(/<section class="panel">/g)?.length ?? 0
-    const intros = html.match(/class="panel-help" data-i18n="help/g)?.length ?? 0
+    const hints = html.match(/class="hint-btn"/g)?.length ?? 0
     expect(panels).toBeGreaterThan(0)
     // The Colors panel hosts two sub-sections (2 · Colors and 3 · Depth mode),
-    // each with its own intro — so intros ≥ panels, not strictly equal.
-    expect(intros).toBeGreaterThanOrEqual(panels)
+    // each with its own hint — so hints ≥ panels, not strictly equal.
+    expect(hints).toBeGreaterThanOrEqual(panels)
   })
 
   it('help texts resolve to non-empty strings in both languages', () => {

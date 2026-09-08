@@ -15,6 +15,7 @@ import { planReferenceApply, reprocessWithReference, type ReferenceApplyPlan } f
 import type { Reference3mfAnalysis } from '../lib/reference3mf'
 import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
+import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
 const $ = <T extends HTMLElement>(sel: string): T => {
@@ -89,6 +90,10 @@ const langBannerBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('
 const bannerThemeBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.banner-theme-btn'))
 const processingOverlay = $<HTMLDivElement>('#processing-overlay')
 const versionBadge = $<HTMLSpanElement>('#app-version')
+const welcomePanel = $<HTMLDivElement>('#welcome-panel')
+const btnWelcomeTour = $<HTMLButtonElement>('#btn-welcome-tour')
+const btnWelcomeHide = $<HTMLButtonElement>('#btn-welcome-hide')
+const btnTour = $<HTMLButtonElement>('#btn-tour')
 
 // Reference 3MF panel elements
 const refDrop = $<HTMLDivElement>('#ref-drop')
@@ -411,6 +416,13 @@ function setupLangPrompt() {
     chosenTheme = document.documentElement.dataset.theme ?? 'dark'
     applyTheme(chosenTheme)
     langBanner.hidden = true
+    // First-run: once the banner is confirmed, walk the new user through the
+    // sections. Returning users can restart the tour from the top bar.
+    try {
+      if (!localStorage.getItem(TOUR_SEEN_KEY)) startAppTour()
+    } catch {
+      /* private mode */
+    }
   })
   langBannerSkip.addEventListener('click', () => {
     dismissLangPrompt()
@@ -421,6 +433,54 @@ function setupLangPrompt() {
   setPressed(bannerThemeBtns, chosenTheme)
   langBanner.hidden = false
   ;(langBanner.querySelector<HTMLButtonElement>(`.lang-banner-btn[data-lang="${lang}"]`) ?? langBannerBtns[0])?.focus()
+}
+
+// ---- welcome panel + guided tour -----------------------------------------
+
+const WELCOME_DISMISS_KEY = 'hf-welcome-dismissed'
+const TOUR_SEEN_KEY = 'hf-tour-seen'
+let tourStop: (() => void) | null = null
+
+/** Starts the spotlight tour; a no-op while it is already running. */
+function startAppTour() {
+  if (tourStop) return
+  tourStop = startTour(TOUR_STEPS, {
+    tr,
+    onFinish: () => {
+      tourStop = null
+      try {
+        localStorage.setItem(TOUR_SEEN_KEY, '1')
+      } catch {
+        /* private mode */
+      }
+    },
+    onSkip: () => {
+      tourStop = null
+      try {
+        localStorage.setItem(TOUR_SEEN_KEY, '1')
+      } catch {
+        /* private mode */
+      }
+    },
+  })
+}
+
+function setupWelcome() {
+  try {
+    if (localStorage.getItem(WELCOME_DISMISS_KEY)) welcomePanel.hidden = true
+  } catch {
+    /* private mode — keep the panel visible */
+  }
+  btnWelcomeTour.addEventListener('click', startAppTour)
+  btnTour.addEventListener('click', startAppTour)
+  btnWelcomeHide.addEventListener('click', () => {
+    welcomePanel.hidden = true
+    try {
+      localStorage.setItem(WELCOME_DISMISS_KEY, '1')
+    } catch {
+      /* private mode */
+    }
+  })
 }
 
 function updateUI() {
@@ -1630,6 +1690,7 @@ langSelect.value = lang
 langSelect.addEventListener('change', () => setLang(langSelect.value as Lang))
 applyStaticText()
 setupLangPrompt()
+setupWelcome()
 
 setupTheme()
 setupDropZone()
