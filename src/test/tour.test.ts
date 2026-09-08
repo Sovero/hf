@@ -34,7 +34,7 @@ describe('guided tour', () => {
     for (const step of interactive) {
       expect(step.target, 'interactive step without a target').toBeTruthy()
     }
-    for (const key of ['tourInteractHint', 'tourInteracted']) {
+    for (const key of ['tourInteractHint', 'tourInteracted', 'tourChanged']) {
       const entry = dict[key]
       expect(entry, `missing dict key: ${key}`).toBeTruthy()
       expect(entry.en.length, `${key}.en is empty`).toBeGreaterThan(0)

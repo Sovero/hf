@@ -461,6 +461,7 @@ function startAppTour() {
   if (tourStop) return
   tourStop = startTour(TOUR_STEPS, {
     tr,
+    plural: (n, wordKey) => word(lang, n, wordKey),
     onFinish: () => {
       tourStop = null
       markOnboardingDone()

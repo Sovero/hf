@@ -644,6 +644,10 @@ export const dict: Dict = {
     en: '✓ Nice, that works! Continue when ready.',
     ru: '✓ Отлично, работает! Продолжайте, когда готовы.',
   },
+  tourChanged: {
+    en: 'You changed {params}',
+    ru: 'Вы изменили {params}',
+  },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
   tourWidthTitle: { en: 'Width', ru: 'Ширина' },
   tourHeightTitle: { en: 'Height', ru: 'Высота' },
@@ -675,7 +679,10 @@ const WORDS: Record<string, PluralForms> = {
   swaps: { en: ['change', 'changes'], ru: ['смена', 'смены', 'смен'] },
   regions: { en: ['region', 'regions'], ru: ['участок', 'участка', 'участков'] },
   tris: { en: ['triangle', 'triangles'], ru: ['треугольник', 'треугольника', 'треугольников'] },
+  params: { en: ['parameter', 'parameters'], ru: ['параметр', 'параметра', 'параметров'] },
 }
+
+export type WordKey = keyof typeof WORDS
 
 function ruForm(n: number, forms: [string, string, string]): string {
   // Fractional counts (1.6, 2.3, 0.5) always take the "few" form: 1.6 слоя.
@@ -689,7 +696,7 @@ function ruForm(n: number, forms: [string, string, string]): string {
 }
 
 /** "1 color / 2 colors / 5 цветов" — the word only, caller joins the number. */
-export function word(lang: Lang, n: number, wordKey: keyof typeof WORDS): string {
+export function word(lang: Lang, n: number, wordKey: WordKey): string {
   const forms = WORDS[wordKey][lang]
   if (lang === 'en') return `${n} ${forms[0] === forms[1] || n === 1 ? forms[0] : forms[1]}`
   return `${n} ${ruForm(n, forms as [string, string, string])}`

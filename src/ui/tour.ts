@@ -9,6 +9,8 @@
  * so tests can validate it in a Node environment.
  */
 
+import type { WordKey } from '../i18n'
+
 export interface TourStep {
   /** CSS selector of the element to spotlight. Omit for a centered card. */
   target?: string
@@ -24,6 +26,8 @@ export interface TourStep {
 export interface TourCallbacks {
   /** Localized string resolver, e.g. main.ts's `tr`. */
   tr: (key: string, params?: Record<string, string | number>) => string
+  /** Pluralized count, e.g. "2 параметра" — for the live status line. */
+  plural: (n: number, wordKey: WordKey) => string
   onFinish?: () => void
   onSkip?: () => void
 }
@@ -68,6 +72,21 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
   const interacted = new Set<number>()
   /** Attached input listeners per step, so re-renders don't stack them. */
   const interactListeners = new Map<number, () => void>()
+  /** Initial control value per interactive step, captured on first render. */
+  const initialValues = new Map<number, string>()
+
+  /** How many interactive steps currently hold a value different from the
+   *  one they had when their step was first shown. */
+  const changedCount = () => {
+    let n = 0
+    for (const i of interacted) {
+      const step = steps[i]
+      if (!step.interactive || !step.target) continue
+      const control = document.querySelector<HTMLInputElement>(step.target)
+      if (control && control.value !== initialValues.get(i)) n++
+    }
+    return n
+  }
 
   const overlay = document.createElement('div')
   overlay.className = 'tour-overlay'
@@ -194,24 +213,52 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
     if (step.interactive) nextBtn.disabled = !stepDone
     actions.append(progress, skipBtn, prevBtn, nextBtn)
 
-    // Hands-on hint: tells the user to try the control, flips to a green ✓
-    // once they did. The input listener unlocks Next exactly once.
+    // Hands-on hint + live status: invites the user to try the control,
+    // flips to a green ✓ on first use, and shows a live before/after
+    // comparison plus a running count of changed parameters.
     let hint: HTMLElement | null = null
+    let live: HTMLElement | null = null
     if (step.interactive && step.target) {
-      const control = document.querySelector<HTMLElement>(step.target)
+      const control = document.querySelector<HTMLInputElement>(step.target)
       if (control) {
+        if (!initialValues.has(i)) initialValues.set(i, control.value)
+        const initVal = initialValues.get(i) ?? ''
         const prev = interactListeners.get(i)
         if (prev) control.removeEventListener('input', prev)
-        const onChange = () => {
-          if (stopped || interacted.has(i)) return
-          interacted.add(i)
-          render(i)
-        }
-        interactListeners.set(i, onChange)
-        control.addEventListener('input', onChange)
+
         hint = document.createElement('p')
         hint.className = stepDone ? 'tour-interact ok' : 'tour-interact'
         hint.textContent = stepDone ? cb.tr('tourInteracted') : cb.tr('tourInteractHint')
+
+        const compare = document.createElement('span')
+        compare.className = 'tour-compare'
+        const status = document.createElement('span')
+        status.className = 'tour-status'
+        live = document.createElement('div')
+        live.className = 'tour-live'
+        live.append(compare, status)
+
+        const refreshLive = () => {
+          compare.textContent = `${initVal} → ${control.value}`
+          compare.hidden = control.value === initVal
+          const n = changedCount()
+          status.textContent = n > 0 ? cb.tr('tourChanged', { params: cb.plural(n, 'params') }) : ''
+          status.hidden = n === 0
+        }
+
+        const onChange = () => {
+          if (stopped) return
+          if (!interacted.has(i)) {
+            interacted.add(i)
+            hint!.className = 'tour-interact ok'
+            hint!.textContent = cb.tr('tourInteracted')
+            nextBtn.disabled = false
+          }
+          refreshLive()
+        }
+        interactListeners.set(i, onChange)
+        control.addEventListener('input', onChange)
+        refreshLive()
       }
     }
 
@@ -233,7 +280,7 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
       dots.appendChild(dot)
     }
 
-    card.replaceChildren(title, text, dots, ...(hint ? [hint] : []), actions)
+    card.replaceChildren(title, text, dots, ...(hint ? [hint] : []), ...(live ? [live] : []), actions)
 
     // Center horizontally; below the spotlight when there is room, else above.
     card.style.left = '50%'
