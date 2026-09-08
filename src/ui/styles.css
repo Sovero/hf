@@ -312,6 +312,12 @@ body {
   gap: 0.5rem;
 }
 
+/* Two stacked export rows (downloads + open-in-slicer) need the same
+   spacing the grid gap gives inside each row. */
+.export-buttons + .export-buttons {
+  margin-top: 0.5rem;
+}
+
 .export-buttons button {
   padding: 0.55rem 0.5rem;
   border: none;
