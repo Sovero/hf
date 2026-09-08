@@ -468,6 +468,51 @@ body {
   align-self: start;
 }
 
+/* Calibration buttons match the app's dark theme instead of the
+   browser-default white surfaces. */
+#calib-download {
+  flex: none;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#calib-download:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#calib-photo {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+#calib-photo::file-selector-button {
+  padding: 0.4rem 0.8rem;
+  margin-right: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#calib-photo::file-selector-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .palette-reset {
   background: none;
   border: 1px solid var(--border);
