@@ -329,6 +329,30 @@ export const dict: Dict = {
     en: 'Back to the auto-derived palette: brightness bands colored by their own content.',
     ru: 'Вернуть автоматически подбираемую палитру: яркостные полосы, окрашенные своим содержимым.',
   },
+  undo: {
+    en: 'Undo',
+    ru: 'Отменить',
+  },
+  redo: {
+    en: 'Redo',
+    ru: 'Вернуть',
+  },
+  undoHint: {
+    en: 'Undo the last palette / band-height / settings change (Ctrl+Z)',
+    ru: 'Отменить последнее изменение палитры, высот полос или настроек (Ctrl+Z)',
+  },
+  redoHint: {
+    en: 'Redo the undone change (Ctrl+Y)',
+    ru: 'Вернуть отменённое изменение (Ctrl+Y)',
+  },
+  undoEmpty: {
+    en: 'Nothing to undo',
+    ru: 'Нечего отменять',
+  },
+  redoEmpty: {
+    en: 'Nothing to redo',
+    ru: 'Нечего возвращать',
+  },
   catalogNeedAll: {
     en: 'Assign a filament to every color first — press ★ in each palette row.',
     ru: 'Сначала назначьте филамент каждому цвету — нажмите ★ в каждой строке палитры.',

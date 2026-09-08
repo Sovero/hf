@@ -127,6 +127,23 @@ body {
   cursor: pointer;
 }
 
+/* Compact square undo/redo buttons in the top bar. */
+.topbar-btn.icon-btn {
+  padding: 0.3rem 0.45rem;
+  line-height: 1;
+  font-size: 0.9rem;
+}
+
+.topbar-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.topbar-btn:disabled:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
 .topbar-btn:hover {
   border-color: var(--accent);
   color: var(--accent);

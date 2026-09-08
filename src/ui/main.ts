@@ -4,7 +4,7 @@ import { loadImageForPrint } from '../lib/loadImage'
 import { quantizeInWorker, rebuildInWorker, setResultListener } from './workerClient'
 import type { WorkerResult } from '../lib/workerProtocol'
 import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, restoreCustomFilament, customFilaments, isCustomId, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId, type CustomFilament } from '../lib/filamentLibrary'
-import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION, type ProjectFile } from '../lib/project'
+import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION, type ProjectFile, type ProjectSettings, type ProjectPaletteSlot } from '../lib/project'
 import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
@@ -299,6 +299,7 @@ async function readFile(file: File) {
     if (referencePlan) updateApplyButton() // image availability changes Apply
     setProcessing(false)
     showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+    noteSettled()
   } catch (err) {
     if (token !== runToken) return
     setProcessing(false)
@@ -916,6 +917,282 @@ function updateCatalogBtn() {
   catalogBtn.title = tr(catalogActive ? 'catalogResetHelp' : 'catalogPickHelp')
 }
 
+// ---- Undo/redo history (Ctrl+Z / Ctrl+Y) --------------------------------
+//
+// A snapshot captures the editor state that settles after each coherent
+// change: settings (color count, dither, sizes, depth mode, backlight, band
+// heights), palette slot colors, per-slot τ, filament assignments and the
+// catalog mode. The snapshot of the CURRENT settled state is `baseline`;
+// `undoStack` holds earlier baselines, `redoStack` redo targets. Undo/redo
+// restore an earlier baseline by re-running the pipeline for the same image
+// (honoring the saved settings and catalog assignments), then overlaying the
+// saved palette — the same path project loads use.
+
+const HISTORY_LIMIT = 50
+/** Every palette-affecting value of the editor at one point in time. */
+interface EditorSnapshot {
+  settings: ProjectSettings
+  catalogActive: boolean
+  palette: ProjectPaletteSlot[]
+}
+let undoStack: EditorSnapshot[] = []
+let redoStack: EditorSnapshot[] = []
+let historyBaseline: EditorSnapshot | null = null
+let historyBaselineFile: File | null = null
+/** True while an undo/redo restore runs — its intermediate states are not
+ *  recorded, and its own readFile must not reset the baseline. */
+let restoringHistory = false
+let settleTimer: number | undefined
+
+const undoBtn = $<HTMLButtonElement>('#btn-undo')
+const redoBtn = $<HTMLButtonElement>('#btn-redo')
+
+/**
+ * One palette slot exactly as projects serialize it (library filament id,
+ * or the full embedded record for user-added ones), so history snapshots and
+ * .hueforge.json files stay interchangeable.
+ */
+function captureSlotEntry(i: number): ProjectPaletteSlot {
+  const color = current!.quantized.palette[i]
+  const hex = rgbToHex(color)
+  const tauMm = tauOfSlot(i)
+  const assignedId = filamentAssignments[i]
+  if (assignedId && isCustomId(assignedId)) {
+    const choice = findFilament(assignedId)
+    if (choice) {
+      return {
+        hex,
+        tauMm,
+        filament: {
+          id: choice.color.id,
+          nameRu: choice.color.nameRu,
+          nameEn: choice.color.nameEn,
+          hex: choice.color.hex,
+          materialId: choice.materialId,
+        },
+      }
+    }
+  }
+  return assignedId ? { hex, tauMm, filamentId: assignedId } : { hex, tauMm }
+}
+
+/** Everything undo/redo needs to recreate the current editor state. */
+function captureSnapshot(): EditorSnapshot | null {
+  if (!current) return null
+  const n = current.quantized.palette.length
+  const opts = readOptions()
+  const settings: ProjectSettings = {
+    colors: n,
+    widthMm: opts.widthMm,
+    heightMm: opts.heightMm,
+    baseMm: opts.baseMm,
+    maxMm: opts.maxHeightMm,
+    layerMm: opts.layerMm,
+    dither: Math.round(opts.dither * 100),
+    darkIsTall: opts.darkIsTall,
+    backlight: lightBackBtn.classList.contains('is-active'),
+    ...(bandHeights && bandHeights.length ? { bandHeightsMm: [...bandHeights] } : {}),
+  }
+  return {
+    settings,
+    catalogActive,
+    palette: current.quantized.palette.map((_, i) => captureSlotEntry(i)),
+  }
+}
+
+function snapshotsEqual(a: EditorSnapshot, b: EditorSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function refreshHistory() {
+  const can = !!current && !!currentFile && !restoringHistory
+  const u = can && undoStack.length > 0
+  const r = can && redoStack.length > 0
+  undoBtn.disabled = !u
+  redoBtn.disabled = !r
+  undoBtn.title = u ? tr('undoHint') : tr('undoEmpty')
+  redoBtn.title = r ? tr('redoHint') : tr('redoEmpty')
+  undoBtn.ariaLabel = tr('undo')
+  redoBtn.ariaLabel = tr('redo')
+}
+
+/**
+ * Called at every point a coherent state settles (image load, re-quantize,
+ * rebuild, project load). A new image starts a fresh history; otherwise the
+ * state is committed as the new baseline after a short settle delay, so a
+ * drag or typing burst produces one undo step.
+ */
+function noteSettled() {
+  if (restoringHistory || !current || !currentFile) return
+  const snap = captureSnapshot()
+  if (!snap) return
+  if (historyBaselineFile !== currentFile) {
+    historyBaselineFile = currentFile
+    undoStack = []
+    redoStack = []
+    historyBaseline = snap
+    refreshHistory()
+    return
+  }
+  scheduleSettle()
+}
+
+function scheduleSettle() {
+  if (restoringHistory) return
+  if (settleTimer !== undefined) clearTimeout(settleTimer)
+  settleTimer = window.setTimeout(() => {
+    settleTimer = undefined
+    commitSettled()
+  }, 700)
+}
+
+/** Commit the current state as the latest baseline (pushes the old one). */
+function commitSettled() {
+  if (restoringHistory || !current) return
+  const snap = captureSnapshot()
+  if (!snap) return
+  if (historyBaseline && snapshotsEqual(historyBaseline, snap)) return
+  if (historyBaseline) {
+    undoStack.push(historyBaseline)
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift()
+  }
+  historyBaseline = snap
+  redoStack = []
+  refreshHistory()
+}
+
+/** Land any pending settle so undo/redo act on the real current state. */
+function flushSettle() {
+  if (settleTimer !== undefined) {
+    clearTimeout(settleTimer)
+    settleTimer = undefined
+    commitSettled()
+  }
+}
+
+/**
+ * Overlay hex colors and τ values on the freshly re-quantized palette. The
+ * mesh picks them up through the rebuild that follows (and its result
+ * listener updates previews live).
+ */
+function overlaySlotPalette(slots: ProjectPaletteSlot[]) {
+  if (!current) return
+  const n = Math.min(slots.length, current.quantized.palette.length)
+  for (let i = 0; i < n; i++) {
+    current.quantized.palette[i] = hexToRgb(slots[i].hex)
+    current.quantized.tauMm![i] = Math.min(6, Math.max(0.2, slots[i].tauMm))
+  }
+}
+
+/**
+ * Restore one snapshot: filament assignments first (so the catalog path can
+ * re-derive spools), then settings → full reprocess of the same image →
+ * palette overlay → one rebuild to color the mesh. Returns success.
+ */
+async function restoreHistoryState(target: EditorSnapshot): Promise<boolean> {
+  if (!currentFile || restoringHistory) return false
+  restoringHistory = true
+  try {
+    filamentAssignments = new Array(target.settings.colors).fill(null)
+    for (let i = 0; i < target.palette.length; i++) {
+      const slot = target.palette[i]
+      if (slot.filament) {
+        restoreCustomFilament({
+          id: slot.filament.id,
+          nameRu: slot.filament.nameRu,
+          nameEn: slot.filament.nameEn,
+          hex: slot.filament.hex,
+          rgb: hexToRgb(slot.filament.hex),
+          materialId: slot.filament.materialId as MaterialId,
+        } satisfies CustomFilament)
+        filamentAssignments[i] = slot.filament.id
+      } else if (slot.filamentId && findFilament(slot.filamentId)) {
+        filamentAssignments[i] = slot.filamentId
+      }
+    }
+    catalogActive = target.catalogActive
+    updateCatalogBtn()
+    applyProjectSettings(target.settings)
+    await readFile(currentFile)
+    if (!current) return false
+    overlaySlotPalette(target.palette)
+    const token = runToken
+    const version = ++stateVersion
+    await rebuildInWorker({
+      opts: readOptions(),
+      palette: current.quantized.palette.map((c) => ({ ...c })),
+      token,
+      version,
+    })
+    if (token !== runToken) return false
+    historyBaseline = target
+    updateUI()
+    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+    return true
+  } catch (err) {
+    showStatus(err instanceof Error ? err.message : String(err), true)
+    return false
+  } finally {
+    restoringHistory = false
+    refreshHistory()
+  }
+}
+
+async function doUndo() {
+  if (restoringHistory || !current || !currentFile) return
+  flushSettle() // a pending commit may just have created the entry
+  if (undoStack.length === 0) return
+  const target = undoStack[undoStack.length - 1]!
+  const now = captureSnapshot()
+  if (!(await restoreHistoryState(target))) return
+  undoStack.pop()
+  if (now) {
+    redoStack.push(now)
+    if (redoStack.length > HISTORY_LIMIT) redoStack.shift()
+  }
+  refreshHistory()
+}
+
+async function doRedo() {
+  if (restoringHistory || !current || !currentFile) return
+  flushSettle()
+  if (redoStack.length === 0) return
+  const target = redoStack[redoStack.length - 1]!
+  const now = captureSnapshot()
+  if (!(await restoreHistoryState(target))) return
+  redoStack.pop()
+  if (now) {
+    undoStack.push(now)
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift()
+  }
+  refreshHistory()
+}
+
+undoBtn.addEventListener('click', () => void doUndo())
+redoBtn.addEventListener('click', () => void doRedo())
+
+// Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y; native text undo is left alone inside
+// editable fields (the app's own text inputs keep browser undo).
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return
+  const el = e.target as HTMLElement | null
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+    const type = (el as HTMLInputElement).type
+    if (type === 'text' || type === 'number' || type === 'search' || type === 'email' || type === 'tel' || type === 'url') return
+  }
+  const key = e.key.toLowerCase()
+  if (key === 'z') {
+    e.preventDefault()
+    if (e.shiftKey) void doRedo()
+    else void doUndo()
+  } else if (key === 'y') {
+    e.preventDefault()
+    void doRedo()
+  }
+})
+
+refreshHistory()
+
 /** Re-quantize the image against the chosen spool colors (nearest-color). */
 async function quantizeCatalog(spools: RGB[]) {
   if (!current || !currentFile) return
@@ -939,6 +1216,7 @@ async function quantizeCatalog(spools: RGB[]) {
     updateUI()
     setProcessing(false)
     showStatus(tr('catalogDone', { colors: word(lang, spools.length, 'colors') }))
+    noteSettled()
   } catch (err) {
     if (token !== runToken) return
     setProcessing(false)
@@ -983,6 +1261,7 @@ function applyWorkerResult(r: WorkerResult, token: number, version: number) {
   drawLayerView()
   update3d()
   renderPrintability()
+  scheduleSettle()
 }
 
 setResultListener((r, token, version) => applyWorkerResult(r, token, version))
@@ -1339,6 +1618,7 @@ function renderPalette() {
       drawQuantized()
       drawLayerView()
       labelSub.textContent = subText()
+      scheduleSettle()
     })
 
     // Per-band sheet thickness (HueForge-style): this slider sets the band's
@@ -1542,6 +1822,7 @@ calibCanvas.addEventListener('click', (e) => {
   drawLayerView()
   renderPalette()
   calibStatus.textContent = tr('calibFitDone', { tau: tau.toFixed(2) })
+  scheduleSettle()
 })
 
 function triggerDownload(data: BlobPart, filename: string, type: string) {
@@ -1927,6 +2208,7 @@ async function applyReference() {
     updateUI()
     setProcessing(false)
     showStatus(tr('refAppliedDone', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+    noteSettled()
   } catch (err) {
     if (token !== runToken) return
     setProcessing(false)
@@ -2004,22 +2286,7 @@ function saveProject() {
     if (typeof reader.result !== 'string') return
     const n = current!.quantized.palette.length
     const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
-    const palette = current!.quantized.palette.map((c, i) => {
-      const hex = rgbToHex(c)
-      const tauMm = tauOfSlot(i)
-      const assignedId = filamentAssignments[i]
-      if (assignedId && isCustomId(assignedId)) {
-        const choice = findFilament(assignedId)
-        if (choice) {
-          return {
-            hex,
-            tauMm,
-            filament: { id: choice.color.id, nameRu: choice.color.nameRu, nameEn: choice.color.nameEn, hex: choice.color.hex, materialId: choice.materialId },
-          }
-        }
-      }
-      return assignedId ? { hex, tauMm, filamentId: assignedId } : { hex, tauMm }
-    })
+    const palette = current!.quantized.palette.map((_, i) => captureSlotEntry(i))
     const opts = readOptions()
     const project = buildProjectFile({
       imageName: currentFile!.name,
@@ -2155,6 +2422,7 @@ async function openProjectFile(file: File) {
     updateUI()
     setProcessing(false)
     showStatus(tr('projectLoaded', { name: project.image.name }))
+    noteSettled()
   } catch (err) {
     if (token !== runToken) return
     setProcessing(false)
