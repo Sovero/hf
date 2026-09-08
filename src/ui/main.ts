@@ -36,6 +36,7 @@ const fileInput = $<HTMLInputElement>('#file-input')
 const imageInfo = $<HTMLParagraphElement>('#image-info')
 const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
+const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
 const calibDownload = $<HTMLButtonElement>('#calib-download')
 const calibPhoto = $<HTMLInputElement>('#calib-photo')
@@ -262,6 +263,7 @@ async function readFile(file: File) {
     btnDescribe.disabled = true
     btnSlicer.disabled = true
     btnOpenSlicer.disabled = true
+    calibBlock.hidden = true
     printabilityList.innerHTML = ''
     printabilitySummary.textContent = tr('pbDefault')
     pbBadge.hidden = true
@@ -428,6 +430,7 @@ function updateUI() {
   renderPalette()
   renderPrintability()
   update3d()
+  calibBlock.hidden = false
   drawLayerView()
   btnStl.disabled = false
   btn3mf.disabled = false

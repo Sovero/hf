@@ -416,6 +416,11 @@ body {
   gap: 0.4rem;
 }
 
+/* The hidden attribute must win over the flex display above. */
+.calib[hidden] {
+  display: none;
+}
+
 .calib-row {
   display: flex;
   gap: 0.4rem;
