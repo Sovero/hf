@@ -1329,6 +1329,41 @@ body {
   color: var(--muted);
 }
 
+.tour-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 0 0 0.8rem;
+}
+
+.tour-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tour-dot:hover {
+  border-color: var(--accent);
+}
+
+.tour-dot.done {
+  background: var(--accent);
+  border-color: var(--accent);
+  opacity: 0.45;
+}
+
+.tour-dot.active {
+  width: 22px;
+  border-radius: 5px;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .tour-actions {
   display: flex;
   align-items: center;

@@ -172,7 +172,25 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
     )
     actions.append(progress, skipBtn, prevBtn, nextBtn)
 
-    card.replaceChildren(title, text, actions)
+    // Clickable progress dots: one per step; the active one is a pill,
+    // finished steps are dimmed accent dots. Clicking jumps to that step.
+    const dots = document.createElement('div')
+    dots.className = 'tour-dots'
+    for (let d = 0; d < steps.length; d++) {
+      const dot = document.createElement('button')
+      dot.type = 'button'
+      dot.className = d === i ? 'tour-dot active' : d < i ? 'tour-dot done' : 'tour-dot'
+      dot.setAttribute('aria-label', cb.tr('tourStep', { n: d + 1, total: steps.length }))
+      dot.addEventListener('click', () => {
+        if (d !== index) {
+          index = d
+          render(index)
+        }
+      })
+      dots.appendChild(dot)
+    }
+
+    card.replaceChildren(title, text, dots, actions)
 
     // Center horizontally; below the spotlight when there is room, else above.
     card.style.left = '50%'
