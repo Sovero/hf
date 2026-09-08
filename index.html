@@ -175,6 +175,23 @@
         </section>
 
         <section class="panel">
+          <div class="panel-section" id="perf-details">
+            <div class="panel-head" data-help="helpPerf">
+              <h2 data-i18n="panelPerf">Performance</h2>
+              <button type="button" id="perf-reset" class="hint-btn" data-help="helpPerf" aria-label="Reset" title="Reset">↺</button>
+              <button type="button" class="hint-btn" data-help="helpPerf" aria-label="Help">?</button>
+            </div>
+            <div id="perf-list" class="perf-list muted small">
+              <div class="perf-row"><span data-i18n="perfQuantize">Quantize</span><span id="perf-quantize">—</span></div>
+              <div class="perf-row"><span data-i18n="perfRebuild">Mesh rebuild</span><span id="perf-rebuild">—</span></div>
+              <div class="perf-row"><span data-i18n="perfDiscarded">Discarded worker responses</span><span id="perf-discarded">—</span></div>
+              <div class="perf-row"><span data-i18n="perfBuffers">Buffers</span><span id="perf-buffers">—</span></div>
+              <div class="perf-row"><span data-i18n="perfMesh">Mesh</span><span id="perf-mesh">—</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
           <div class="panel-section" id="ref-details">
             <div class="panel-head" data-help="helpReference">
               <h2 data-i18n="panelReference">Reference 3MF</h2>

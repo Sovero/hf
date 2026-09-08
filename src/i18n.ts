@@ -353,6 +353,38 @@ export const dict: Dict = {
     en: 'Nothing to redo',
     ru: 'Нечего возвращать',
   },
+  panelPerf: {
+    en: 'Performance',
+    ru: 'Производительность',
+  },
+  helpPerf: {
+    en: 'How fast the pipeline runs: quantization and mesh rebuild times (including the worker round-trip), how many stale worker responses were discarded because a newer run superseded them, and how big the pipeline buffers are. The reset button clears the statistics.',
+    ru: 'Насколько быстро работает конвейер: время квантования и сборки меша (включая обмен с воркером), сколько устаревших ответов воркера отброшено, потому что их обогнал более новый запуск, и размеры буферов конвейера. Кнопка сброса очищает статистику.',
+  },
+  perfQuantize: {
+    en: 'Quantization',
+    ru: 'Квантование',
+  },
+  perfRebuild: {
+    en: 'Mesh rebuild',
+    ru: 'Сборка меша',
+  },
+  perfDiscarded: {
+    en: 'Discarded worker responses',
+    ru: 'Отброшено ответов воркера',
+  },
+  perfBuffers: {
+    en: 'Buffers (RGBA · index · field)',
+    ru: 'Буферы (RGBA · индекс · поле)',
+  },
+  perfMesh: {
+    en: 'Mesh',
+    ru: 'Меш',
+  },
+  perfResetTitle: {
+    en: 'Reset statistics',
+    ru: 'Сбросить статистику',
+  },
   catalogNeedAll: {
     en: 'Assign a filament to every color first — press ★ in each palette row.',
     ru: 'Сначала назначьте филамент каждому цвету — нажмите ★ в каждой строке палитры.',

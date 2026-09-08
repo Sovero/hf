@@ -14,6 +14,7 @@ import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { deltaE2000Rgb } from '../lib/deltae'
 import { analyzePrintability } from '../lib/printability'
+import { createPerfStats } from '../lib/perfStats'
 import { rgbToHex, hexToRgb, nearestFilament, luminance } from '../lib/palette'
 import { parseReference3mf, Reference3mfParseError } from '../lib/reference3mf'
 import { planReferenceApply, type ReferenceApplyPlan } from '../lib/referenceApply'
@@ -286,8 +287,24 @@ async function readFile(file: File) {
       }
     }
     const { image } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
+    const t0 = performance.now()
     const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, overrides)
-    if (token !== runToken) return // a newer run superseded this one; it owns the UI
+    perf.recordQuantize(performance.now() - t0)
+    perf.recordBuffers({
+      rgbaBytes: image.rgba.length,
+      indexBytes: result.quantized.indexMap.length,
+      fieldBytes: result.field.values.length * 4,
+      width: image.width,
+      height: image.height,
+    })
+    perf.recordMesh(result.mesh.triangleCount)
+    renderPerf()
+    if (token !== runToken) {
+      // A newer run superseded this one; the delivered result was discarded.
+      perf.recordDiscarded('quantize')
+      renderPerf()
+      return
+    }
     current = { ...result, image }
     // Custom band heights are indexed by palette slot: a color-count change
     // invalidates them, and a fresh run re-stamps the effective heights.
@@ -1193,6 +1210,72 @@ document.addEventListener('keydown', (e) => {
 
 refreshHistory()
 
+// ---- Performance monitoring panel ----------------------------------------
+// Tracks pipeline timings (quantize / mesh rebuild, including the worker
+// round-trip), discarded stale worker responses, and buffer sizes. The
+// collector is a pure module; this section only records and renders.
+
+const perf = createPerfStats()
+const perfQuantizeEl = $<HTMLSpanElement>('#perf-quantize')
+const perfRebuildEl = $<HTMLSpanElement>('#perf-rebuild')
+const perfDiscardedEl = $<HTMLSpanElement>('#perf-discarded')
+const perfBuffersEl = $<HTMLSpanElement>('#perf-buffers')
+const perfMeshEl = $<HTMLSpanElement>('#perf-mesh')
+const perfResetBtn = $<HTMLButtonElement>('#perf-reset')
+
+function fmtMs(ms: number): string {
+  const unit = lang === 'ru' ? 'мс' : 'ms'
+  return ms < 10 ? `${ms.toFixed(1)} ${unit}` : `${Math.round(ms)} ${unit}`
+}
+
+function fmtBytes(n: number): string {
+  if (n >= 1024 * 1024) {
+    const u = lang === 'ru' ? 'МБ' : 'MB'
+    return `${(n / (1024 * 1024)).toFixed(1)} ${u}`
+  }
+  if (n >= 1024) {
+    const u = lang === 'ru' ? 'КБ' : 'KB'
+    return `${Math.round(n / 1024)} ${u}`
+  }
+  return `${n} ${lang === 'ru' ? 'Б' : 'B'}`
+}
+
+function renderPerf() {
+  const s = perf.snapshot()
+  const q = s.quantize
+  const r = s.rebuild
+  perfQuantizeEl.textContent =
+    q.count === 0
+      ? '—'
+      : `${fmtMs(q.lastMs)} · ср. ${fmtMs(q.avgMs)} (${q.count})`
+  perfRebuildEl.textContent =
+    r.count === 0
+      ? '—'
+      : `${fmtMs(r.lastMs)} · ср. ${fmtMs(r.avgMs)} (${r.count})`
+  perfDiscardedEl.textContent =
+    s.discarded.total === 0
+      ? '—'
+      : lang === 'ru'
+        ? `${s.discarded.total} (квант. ${s.discarded.quantize} · меш ${s.discarded.rebuild})`
+        : `${s.discarded.total} (quant. ${s.discarded.quantize} · mesh ${s.discarded.rebuild})`
+  const b = s.buffers
+  perfBuffersEl.textContent =
+    b.rgbaBytes === 0
+      ? '—'
+      : `${b.width}×${b.height} · ${fmtBytes(b.rgbaBytes)} · ${fmtBytes(b.indexBytes)} · ${fmtBytes(b.fieldBytes)}`
+  perfMeshEl.textContent =
+    b.triangles === 0 ? '—' : `${b.triangles.toLocaleString(lang)} тр. · ${fmtBytes(b.meshBytes)}`
+}
+
+perfResetBtn.title = tr('perfResetTitle')
+perfResetBtn.ariaLabel = tr('perfResetTitle')
+perfResetBtn.addEventListener('click', () => {
+  perf.reset()
+  renderPerf()
+})
+
+renderPerf()
+
 /** Re-quantize the image against the chosen spool colors (nearest-color). */
 async function quantizeCatalog(spools: RGB[]) {
   if (!current || !currentFile) return
@@ -1202,11 +1285,26 @@ async function quantizeCatalog(spools: RGB[]) {
   try {
     const opts = readOptions()
     const { image } = await loadImageForPrint(currentFile, opts.widthMm, opts.heightMm, lang)
+    const t0 = performance.now()
     const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, {
       palette: spools,
       nearest: true,
     })
-    if (token !== runToken) return
+    perf.recordQuantize(performance.now() - t0)
+    perf.recordBuffers({
+      rgbaBytes: image.rgba.length,
+      indexBytes: result.quantized.indexMap.length,
+      fieldBytes: result.field.values.length * 4,
+      width: image.width,
+      height: image.height,
+    })
+    perf.recordMesh(result.mesh.triangleCount)
+    renderPerf()
+    if (token !== runToken) {
+      perf.recordDiscarded('quantize')
+      renderPerf()
+      return
+    }
     current = { ...result, image }
     // Custom band heights follow the color count; a fresh run re-stamps them.
     if (bandHeights && bandHeights.length !== result.quantized.palette.length) bandHeights = null
@@ -1249,7 +1347,12 @@ catalogBtn.addEventListener('click', () => {
  * are ignored — the coalescing pump always sends the latest state next.
  */
 function applyWorkerResult(r: WorkerResult, token: number, version: number) {
-  if (!current || token !== runToken || version !== stateVersion) return
+  if (!current || token !== runToken || version !== stateVersion) {
+    // A newer reprocess or editor mutation superseded this rebuild.
+    perf.recordDiscarded('rebuild')
+    renderPerf()
+    return
+  }
   current.settings = r.settings
   current.darkIsTall = r.darkIsTall
   current.palette = r.palette
@@ -1271,13 +1374,17 @@ function rebuildNow(final = true) {
   if (!current) return
   const token = runToken
   const version = ++stateVersion
+  const t0 = performance.now()
   void rebuildInWorker({
     opts: readOptions(),
     palette: current.quantized.palette.map((c) => ({ ...c })),
     token,
     version,
   })
-    .then(() => {
+    .then((r) => {
+      perf.recordRebuild(performance.now() - t0)
+      perf.recordMesh(r.mesh.triangleCount)
+      renderPerf()
       if (token === runToken && version === stateVersion && final) updateUI()
     })
     .catch((err: unknown) => {
@@ -2187,6 +2294,10 @@ async function applyReference() {
   setProcessing(true)
   try {
     const keepTau = current.quantized.tauMm
+    const rgbaBytes = current.image.rgba.length
+    const imgW = current.image.width
+    const imgH = current.image.height
+    const t0 = performance.now()
     const result = await quantizeInWorker(
       current.image.rgba.slice(),
       current.image.width,
@@ -2197,7 +2308,21 @@ async function applyReference() {
         bandTops: plan.bandTopsOverride ?? undefined,
       },
     )
-    if (token !== runToken) return
+    perf.recordQuantize(performance.now() - t0)
+    perf.recordBuffers({
+      rgbaBytes,
+      indexBytes: result.quantized.indexMap.length,
+      fieldBytes: result.field.values.length * 4,
+      width: imgW,
+      height: imgH,
+    })
+    perf.recordMesh(result.mesh.triangleCount)
+    renderPerf()
+    if (token !== runToken) {
+      perf.recordDiscarded('quantize')
+      renderPerf()
+      return
+    }
     current = { ...result, image: current.image }
     initTau(current.quantized)
     // Keep fitted τ when the reference apply keeps the same color count.
@@ -2383,8 +2508,23 @@ async function openProjectFile(file: File) {
   try {
     const opts = readOptions()
     const { image } = await loadImageForPrint(imageFile, opts.widthMm, opts.heightMm, lang)
+    const t0 = performance.now()
     const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts)
-    if (token !== runToken) return // a newer run superseded this one
+    perf.recordQuantize(performance.now() - t0)
+    perf.recordBuffers({
+      rgbaBytes: image.rgba.length,
+      indexBytes: result.quantized.indexMap.length,
+      fieldBytes: result.field.values.length * 4,
+      width: image.width,
+      height: image.height,
+    })
+    perf.recordMesh(result.mesh.triangleCount)
+    renderPerf()
+    if (token !== runToken) {
+      perf.recordDiscarded('quantize')
+      renderPerf()
+      return
+    }
     current = { ...result, image }
     initTau(current.quantized)
     autoPalette = result.quantized.palette.map((c) => ({ ...c }))
