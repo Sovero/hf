@@ -227,6 +227,26 @@ export function addCustomFilament(input: { name: string; hex: string; materialId
   return record
 }
 
+/**
+ * Register a user filament record (e.g. embedded in a loaded project) unless
+ * it already exists; returns true when it was added. The id is preserved so
+ * existing project assignments keep working.
+ */
+export function restoreCustomFilament(record: CustomFilament): boolean {
+  if (customCache.some((f) => f.id === record.id)) return false
+  const clean: CustomFilament = {
+    id: record.id,
+    nameRu: record.nameRu || 'Мой филамент',
+    nameEn: record.nameEn || record.nameRu || 'My filament',
+    hex: record.hex.toLowerCase(),
+    rgb: hexToRgb(record.hex),
+    materialId: record.materialId,
+  }
+  customCache = [...customCache, clean]
+  saveCustomFilaments(customCache)
+  return true
+}
+
 /** Remove a user filament by id; returns true when something was removed. */
 export function removeCustomFilament(id: string): boolean {
   const before = customCache.length

@@ -1,6 +1,7 @@
 import './styles.css'
 import { runPipeline, finishPipeline, exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
-import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, customFilaments, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId } from '../lib/filamentLibrary'
+import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, restoreCustomFilament, customFilaments, isCustomId, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId, type CustomFilament } from '../lib/filamentLibrary'
+import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION, type ProjectFile } from '../lib/project'
 import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
@@ -54,6 +55,9 @@ const btnSlicer = $<HTMLButtonElement>('#btn-slicer')
 const openSlicerRow = $<HTMLDivElement>('#open-slicer-row')
 const slicerSelect = $<HTMLSelectElement>('#slicer-select')
 const btnOpenSlicer = $<HTMLButtonElement>('#btn-open-slicer')
+const btnProjectSave = $<HTMLButtonElement>('#btn-project-save')
+const btnProjectOpen = $<HTMLButtonElement>('#btn-project-open')
+const projectInput = $<HTMLInputElement>('#project-input')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
 const lightFrontBtn = $<HTMLButtonElement>('#light-front')
@@ -120,6 +124,7 @@ function setProcessing(on: boolean) {
   btnDescribe.disabled = on
   btnSlicer.disabled = on
   btnOpenSlicer.disabled = on
+  btnProjectSave.disabled = on
 }
 
 /** Set the color count, refresh the UI, and reprocess if an image is loaded. */
@@ -268,6 +273,7 @@ async function readFile(file: File) {
     btnDescribe.disabled = true
     btnSlicer.disabled = true
     btnOpenSlicer.disabled = true
+    btnProjectSave.disabled = true
     calibBlock.hidden = true
     printabilityList.innerHTML = ''
     printabilitySummary.textContent = tr('pbDefault')
@@ -503,6 +509,7 @@ function updateUI() {
   btnDescribe.disabled = false
   btnSlicer.disabled = false
   btnOpenSlicer.disabled = false
+  btnProjectSave.disabled = false
   imageInfo.textContent = tr('processedAt', { w: current.image.width, h: current.image.height })
 }
 
@@ -1627,6 +1634,178 @@ function setupExports() {
     triggerDownload(buildSlicerBundle(current, filename.replace(/-prusaslicer\.zip$/, '.3mf')) as unknown as BlobPart, filename, 'application/zip')
     showStatus(tr('slicerDone', { filename }))
   })
+
+  // ---- Project save/load (.hueforge.json) --------------------------------
+
+  btnProjectSave.addEventListener('click', saveProject)
+  btnProjectOpen.addEventListener('click', () => projectInput.click())
+  projectInput.addEventListener('change', () => {
+    const f = projectInput.files?.[0]
+    if (f) void openProjectFile(f)
+    projectInput.value = '' // allow re-opening the same file later
+  })
+}
+
+/**
+ * Serialize the current work into a portable .hueforge.json and download it:
+ * the original image (data URL), all settings, and the palette — per-slot
+ * hex, fitted τ, and the chosen filament (custom filaments embedded in full).
+ */
+function saveProject() {
+  if (!current || !currentFile) return
+  const reader = new FileReader()
+  reader.onerror = () => showStatus(tr('projectSaveError'), true)
+  reader.onload = () => {
+    if (typeof reader.result !== 'string') return
+    const n = current!.quantized.palette.length
+    const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
+    const palette = current!.quantized.palette.map((c, i) => {
+      const hex = rgbToHex(c)
+      const tauMm = tauOfSlot(i)
+      const assignedId = filamentAssignments[i]
+      if (assignedId && isCustomId(assignedId)) {
+        const choice = findFilament(assignedId)
+        if (choice) {
+          return {
+            hex,
+            tauMm,
+            filament: { id: choice.color.id, nameRu: choice.color.nameRu, nameEn: choice.color.nameEn, hex: choice.color.hex, materialId: choice.materialId },
+          }
+        }
+      }
+      return assignedId ? { hex, tauMm, filamentId: assignedId } : { hex, tauMm }
+    })
+    const opts = readOptions()
+    const project = buildProjectFile({
+      imageName: currentFile!.name,
+      dataUrl: reader.result,
+      settings: {
+        colors: n,
+        widthMm: opts.widthMm,
+        heightMm: opts.heightMm,
+        baseMm: opts.baseMm,
+        maxMm: opts.maxHeightMm,
+        layerMm: opts.layerMm,
+        dither: opts.dither * 100,
+        darkIsTall,
+        backlight: lightBackBtn.classList.contains('is-active'),
+      },
+      palette,
+    })
+    const filename = `${exportFilename(current!, '3mf').slice(0, -4)}${PROJECT_EXTENSION}`
+    triggerDownload(JSON.stringify(project, null, 2), filename, 'application/json')
+    showStatus(tr('projectSaved', { name: filename }))
+  }
+  reader.readAsDataURL(currentFile)
+}
+
+/** Apply a loaded project's settings to the controls (clamped), no reprocess. */
+function applyProjectSettings(s: ProjectFile['settings']) {
+  const clamp = (v: number, lo: number, hi: number, fb: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb)
+  const baseMm = clamp(s.baseMm, 0, 5, 0.8)
+  colorsSlider.value = String(Math.round(clamp(s.colors, SLIDER_MIN, SLIDER_MAX, 4)))
+  colorsValue.value = colorsSlider.value
+  ditherSlider.value = String(clamp(s.dither, 0, 100, 0))
+  ditherValue.textContent = `${ditherSlider.value}%`
+  widthInput.value = String(clamp(s.widthMm, 20, 500, 150))
+  heightInput.value = String(clamp(s.heightMm, 20, 500, 150))
+  baseInput.value = String(baseMm)
+  maxInput.value = String(clamp(s.maxMm, baseMm + 2, 40, 8))
+  layerInput.value = String(clamp(s.layerMm, 0.04, 0.6, 0.2))
+  const mode = document.querySelector<HTMLInputElement>(`input[name="mode"][value="${s.darkIsTall ? 'dark' : 'light'}"]`)
+  if (mode) mode.checked = true
+  setLightMode(s.backlight ? 'back' : 'front')
+  renderTicks()
+  saveSettings()
+}
+
+/**
+ * Rebuild a File from an exported data URL. Decodes base64 directly instead
+ * of fetching: the app's CSP keeps `data:` out of connect-src.
+ */
+function dataUrlToFile(dataUrl: string, name: string): File {
+  const comma = dataUrl.indexOf(',')
+  if (comma < 0) throw new Error('bad data URL')
+  const mime = /^data:([^;]+)/.exec(dataUrl.slice(0, comma))?.[1] ?? 'image/png'
+  const bin = atob(dataUrl.slice(comma + 1))
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new File([bytes], name || 'image.png', { type: mime })
+}
+
+/**
+ * Load a .hueforge.json: apply settings → restore the image through the
+ * normal pipeline → overlay the saved palette (colors, τ, filaments) in one
+ * finishPipeline pass.
+ */
+async function openProjectFile(file: File) {
+  let project: ProjectFile
+  try {
+    project = parseProjectFile(await file.text())
+  } catch (err) {
+    const detail = err instanceof ProjectFileError ? err.message : String(err)
+    showStatus(tr('projectInvalid', { detail }), true)
+    return
+  }
+  applyProjectSettings(project.settings)
+  let imageFile: File
+  try {
+    imageFile = dataUrlToFile(project.image.dataUrl, project.image.name)
+  } catch {
+    showStatus(tr('projectInvalid', { detail: 'image data URL' }), true)
+    return
+  }
+  currentFile = imageFile
+  const token = ++runToken
+  showStatus(tr('processing'))
+  setProcessing(true)
+  try {
+    const result = await runPipeline(imageFile, readOptions(), lang)
+    if (token !== runToken) return // a newer run superseded this one
+    current = result
+    initTau(current.quantized)
+    autoPalette = result.quantized.palette.map((c) => ({ ...c }))
+    // Overlay the saved palette in one pass.
+    for (let i = 0; i < Math.min(project.palette.length, current.quantized.palette.length); i++) {
+      const slot = project.palette[i]
+      current.quantized.palette[i] = hexToRgb(slot.hex)
+      current.quantized.tauMm![i] = Math.min(6, Math.max(0.2, slot.tauMm))
+      if (slot.filament) {
+        restoreCustomFilament({
+          id: slot.filament.id,
+          nameRu: slot.filament.nameRu,
+          nameEn: slot.filament.nameEn,
+          hex: slot.filament.hex,
+          rgb: hexToRgb(slot.filament.hex),
+          materialId: slot.filament.materialId as MaterialId,
+        } satisfies CustomFilament)
+        filamentAssignments[i] = slot.filament.id
+      } else if (slot.filamentId && findFilament(slot.filamentId)) {
+        filamentAssignments[i] = slot.filamentId
+      } else {
+        filamentAssignments[i] = null
+      }
+    }
+    current = finishPipeline(current.image, current.quantized, readOptions())
+    updateUI()
+    setProcessing(false)
+    showStatus(tr('projectLoaded', { name: project.image.name }))
+  } catch (err) {
+    if (token !== runToken) return
+    setProcessing(false)
+    current = null
+    btnStl.disabled = true
+    btn3mf.disabled = true
+    btnDescribe.disabled = true
+    btnSlicer.disabled = true
+    btnOpenSlicer.disabled = true
+    btnProjectSave.disabled = true
+    calibBlock.hidden = true
+    printabilityList.innerHTML = ''
+    printabilitySummary.textContent = tr('pbDefault')
+    pbBadge.hidden = true
+    showStatus(err instanceof Error ? err.message : String(err), true)
+  }
 }
 
 // ---- Open in slicer (opt-in hand-off via the local server) ----------------

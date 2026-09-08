@@ -648,6 +648,28 @@ export const dict: Dict = {
     en: 'You changed {params}',
     ru: 'Вы изменили {params}',
   },
+
+  // ---- project save/load ----
+  btnProjectSave: { en: 'Save project', ru: 'Сохранить проект' },
+  btnProjectOpen: { en: 'Open project', ru: 'Открыть проект' },
+  helpProjectSave: {
+    en: 'Save everything — the image, palette colors, fitted τ values, filament picks and all settings — into a portable .hueforge.json file you can reopen anytime.',
+    ru: 'Сохранить всё — изображение, цвета палитры, подобранные значения τ, выбранные филаменты и все настройки — в переносимый файл .hueforge.json, который можно открыть в любой момент.',
+  },
+  helpProjectOpen: {
+    en: 'Load a saved project: settings are applied, the image is restored, and the palette (colors, τ, filament assignments) comes back exactly as saved.',
+    ru: 'Загрузить сохранённый проект: применятся настройки, восстановится изображение, а палитра (цвета, τ, назначенные филаменты) вернётся ровно в сохранённом виде.',
+  },
+  projectSaved: { en: 'Project saved: {name}', ru: 'Проект сохранён: {name}' },
+  projectLoaded: { en: 'Project loaded: {name}', ru: 'Проект загружен: {name}' },
+  projectSaveError: {
+    en: 'Could not read the image for saving',
+    ru: 'Не удалось прочитать изображение для сохранения',
+  },
+  projectInvalid: {
+    en: 'Not a HueForge project file ({detail})',
+    ru: 'Это не файл проекта HueForge ({detail})',
+  },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
   tourWidthTitle: { en: 'Width', ru: 'Ширина' },
   tourHeightTitle: { en: 'Height', ru: 'Высота' },
