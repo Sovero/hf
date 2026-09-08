@@ -112,6 +112,64 @@ export function transmittedBandColors(result: PipelineResult): RGB[] {
   return tops.map((top) => columnColor(result, top))
 }
 
+/**
+ * Backlight viewing: the print lit from behind, transmission only.
+ *
+ * Front-lit viewing stacks translucent sheets over an *opaque* backdrop (the
+ * base slab / wall). Backlight inverts the situation: light enters from
+ * behind and passes through the whole stack — every sheet attenuates and
+ * tints it, and the base slab participates too (it is no longer an opaque
+ * backdrop, just another sheet). Dark filaments act like filters, so thin
+ * dark areas glow with the light leaking through — the signature backlit
+ * look of HueForge wall art hung over a lamp or window.
+ *
+ * Physics: incident white light, per channel, is folded through the sheets
+ * bottom → top. Sheet k transmits a fraction (1 − T(z_k)) of what reaches it
+ * and tints it toward its pigment: `out = c·T + out·(1 − T)`. This is the
+ * same blend algebra as the front-lit stack but with **no opaque floor** —
+ * the stack starts from white instead, and the base slab participates as
+ * sheet 0. Order is not free: each sheet filters the light that has already
+ * passed through the sheets below it, so the fold must run bottom → top.
+ */
+export function backlitColumnColor(result: PipelineResult, columnTopZMm: number): RGB {
+  const { settings, quantized } = result
+  const n = quantized.palette.length
+  const tops = snappedBandTops(quantized, settings)
+
+  // Fold incident white light through every sheet below the column top,
+  // bottom → top. The base slab (0..baseMm) is printed in the first color
+  // (slice 0 owns 0..tops[0]), so it joins the stack as sheet 0 with its own
+  // τ — in backlight it attenuates and tints like any other sheet.
+  let out = { r: 255, g: 255, b: 255 }
+  let base = 0 // backlight fold starts from the bed: the slab is a sheet
+  for (let k = 0; k < n; k++) {
+    const top = tops[k]
+    if (top <= base + 1e-9) continue
+    const thickness = Math.min(top, columnTopZMm) - base
+    if (thickness <= 0) break
+    const tau = sheetTau(result, k)
+    const t = transmission(thickness, tau)
+    const c = sliceColor(result, k)
+    out = {
+      r: c.r * t + out.r * (1 - t),
+      g: c.g * t + out.g * (1 - t),
+      b: c.b * t + out.b * (1 - t),
+    }
+    base = top
+    if (top >= columnTopZMm - 1e-9) break
+  }
+  return out
+}
+
+/**
+ * Backlit color of every band, indexed bottom → top by print slice — the
+ * backlight-mode lookup table for previews, mirroring transmittedBandColors.
+ */
+export function backlitBandColors(result: PipelineResult): RGB[] {
+  const tops = snappedBandTops(result.quantized, result.settings)
+  return tops.map((top) => backlitColumnColor(result, top))
+}
+
 /** Palette RGB of print slice k (0 = bottom/first-printed). */
 function sliceColor(result: PipelineResult, k: number): RGB {
   const n = result.quantized.palette.length

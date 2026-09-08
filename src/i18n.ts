@@ -363,6 +363,20 @@ export const dict: Dict = {
   // ---- viewers ----
   viewerSource: { en: 'Source', ru: 'Исходное' },
   viewerQuantized: { en: 'Color-reduced (print preview)', ru: 'Цветовое сокращение (предпросмотр печати)' },
+  lightFront: { en: 'Front-lit', ru: 'Со стороны света' },
+  lightBack: { en: 'Backlight', ru: 'На просвет' },
+  lightNoteFront: {
+    en: 'Front-lit: opaque base behind the print — thin top sheets let lower colors shine through.',
+    ru: 'Со стороны света: позади непрозрачная подложка — тонкие верхние листы пропускают нижние цвета.',
+  },
+  lightNoteBack: {
+    en: 'Backlit: light passes through the whole stack — thin dark areas glow where light leaks through.',
+    ru: 'На просвет: свет проходит через весь стек — тонкие тёмные участки светятся там, где просачивается свет.',
+  },
+  helpLightToggle: {
+    en: 'Switch how the preview is lit. Front-lit is the wall look (opaque base behind the print). Backlight simulates the print lit from behind — the classic HueForge lamp/window display — where thin dark areas glow because light leaks through them. Both use your per-filament τ values.',
+    ru: 'Переключает освещение предпросмотра. «Со стороны света» — вид на стене (позади непрозрачная подложка). «На просвет» — печать, подсвеченная сзади, как классическая настенная картина HueForge у лампы или окна: тонкие тёмные участки светятся, потому что свет сквозь них проходит. Оба режима используют ваши значения τ для каждого филамента.',
+  },
   viewer3dTitle: { en: '3D preview', ru: '3D-предпросмотр' },
   viewer3dHint: { en: 'Drag to rotate · scroll to zoom', ru: 'Тяните, чтобы вращать · колесо — масштаб' },
 

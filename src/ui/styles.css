@@ -552,6 +552,55 @@ body {
   letter-spacing: 0.05em;
 }
 
+/* Print-preview card: title row with the front-lit / backlight toggle. */
+.viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.viewer-head h3 {
+  margin: 0;
+}
+
+.light-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.light-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.light-btn + .light-btn {
+  border-left: 1px solid var(--border);
+}
+
+.light-btn.is-active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.light-note {
+  margin: 0.5rem 0 0;
+}
+
+/* Backlit canvas: dark room behind the print, the glow does the talking. */
+.canvas-wrap-backlit {
+  background: #05070a;
+}
+
 .canvas-wrap {
   display: flex;
   justify-content: center;

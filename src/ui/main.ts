@@ -4,7 +4,7 @@ import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findF
 import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
-import { DEFAULT_TAU_MM, transmittedBandColors } from '../lib/transmission'
+import { DEFAULT_TAU_MM, backlitBandColors, transmittedBandColors } from '../lib/transmission'
 import type { QuantizedImage } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
@@ -54,6 +54,10 @@ const slicerSelect = $<HTMLSelectElement>('#slicer-select')
 const btnOpenSlicer = $<HTMLButtonElement>('#btn-open-slicer')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
+const lightFrontBtn = $<HTMLButtonElement>('#light-front')
+const lightBackBtn = $<HTMLButtonElement>('#light-back')
+const lightNote = $<HTMLParagraphElement>('#light-note')
+const quantizedCard = $<HTMLDivElement>('#viewer-quantized')
 const canvasLayer = $<HTMLCanvasElement>('#canvas-layer')
 const layerSlider = $<HTMLInputElement>('#layer-slider')
 const layerTicks = $<HTMLDivElement>('#layer-ticks')
@@ -133,6 +137,7 @@ type Settings = {
   maxMm: number
   layerMm: number
   dither: number
+  backlight: boolean
 }
 /** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
 function clampNum(v: number, lo: number, hi: number, fb: number): number {
@@ -151,6 +156,7 @@ function saveSettings() {
       maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
+      backlight: lightBackBtn.classList.contains('is-active'),
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -175,10 +181,35 @@ function restoreSettings() {
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
     ditherSlider.value = String(clampNum(Number(s.dither), 0, 100, 0))
     ditherValue.textContent = `${ditherSlider.value}%`
+    if (s.backlight === true) setLightMode('back')
   } catch {
     /* ignore corrupt settings */
   }
 }
+
+/** Current preview lighting: 'front' (default) or 'back' (transmission-only). */
+let lightMode: 'front' | 'back' = 'front'
+
+/**
+ * Switch the print preview between front-lit (stack over opaque base) and
+ * backlit (transmission-only fold from white, no base reflection). Also
+ * flips the canvas backdrop so the dark-background backlit look reads.
+ */
+function setLightMode(mode: 'front' | 'back') {
+  lightMode = mode
+  const back = mode === 'back'
+  lightFrontBtn.classList.toggle('is-active', !back)
+  lightBackBtn.classList.toggle('is-active', back)
+  quantizedCard.classList.toggle('is-backlit', back)
+  lightNote.dataset.i18n = back ? 'lightNoteBack' : 'lightNoteFront'
+  lightNote.textContent = tr(back ? 'lightNoteBack' : 'lightNoteFront')
+  lightNote.hidden = !current
+  saveSettings()
+  if (current) drawQuantized()
+}
+
+lightFrontBtn.addEventListener('click', () => setLightMode('front'))
+lightBackBtn.addEventListener('click', () => setLightMode('back'))
 
 function readOptions() {
   // Clamp every numeric input to sane bounds: Number() can yield NaN/±Infinity
@@ -475,7 +506,8 @@ function drawQuantized() {
   const n = palette.length
   // The finished print shows translucent blends, not opaque band colors:
   // per band, look up the transmitted column color (per-filament τ-aware).
-  const blends = transmittedBandColors(current!)
+  // Backlight mode swaps the lookup: pure transmission fold from white.
+  const blends = lightMode === 'back' ? backlitBandColors(current!) : transmittedBandColors(current!)
   const rgba = new Uint8ClampedArray(width * height * 4)
   for (let i = 0; i < width * height; i++) {
     const slice = current!.settings.darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
