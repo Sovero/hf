@@ -1,5 +1,8 @@
 import './styles.css'
-import { runPipeline, finishPipeline, exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
+import { exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
+import { loadImageForPrint } from '../lib/loadImage'
+import { quantizeInWorker, rebuildInWorker, setResultListener } from './workerClient'
+import type { WorkerResult } from '../lib/workerProtocol'
 import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, restoreCustomFilament, customFilaments, isCustomId, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId, type CustomFilament } from '../lib/filamentLibrary'
 import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION, type ProjectFile } from '../lib/project'
 import { describeExport } from '../lib/describe'
@@ -13,7 +16,7 @@ import { deltaE2000Rgb } from '../lib/deltae'
 import { analyzePrintability } from '../lib/printability'
 import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
 import { parseReference3mf, Reference3mfParseError } from '../lib/reference3mf'
-import { planReferenceApply, reprocessWithReference, type ReferenceApplyPlan } from '../lib/referenceApply'
+import { planReferenceApply, type ReferenceApplyPlan } from '../lib/referenceApply'
 import type { Reference3mfAnalysis } from '../lib/reference3mf'
 import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
@@ -31,6 +34,11 @@ let currentFile: File | null = null
 let viewer3d: Viewer3D | null = null
 /** Guards against overlapping runs writing stale results (live reprocessing). */
 let runToken = 0
+/**
+ * Bumped on every editor mutation that changes the quantized mirror; worker
+ * rebuild responses captured with an older version are stale and ignored.
+ */
+let stateVersion = 0
 let lang: Lang = loadLang()
 const tr = (key: string, params?: Record<string, string | number>) => t(lang, key, params)
 
@@ -260,9 +268,11 @@ async function readFile(file: File) {
   showStatus(tr('processing'))
   setProcessing(true)
   try {
-    const result = await runPipeline(file, readOptions(), lang)
+    const opts = readOptions()
+    const { image } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
+    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts)
     if (token !== runToken) return // a newer run superseded this one; it owns the UI
-    current = result
+    current = { ...result, image }
     // Custom band heights are indexed by palette slot: a color-count change
     // invalidates them, and a fresh run re-stamps the effective heights.
     if (bandHeights && bandHeights.length !== result.quantized.palette.length) bandHeights = null
@@ -803,11 +813,11 @@ function filamentLabel(choice: LibraryChoice): string {
  */
 function setPaletteColor(idx: number, rgb: RGB, fullUpdate = true) {
   if (!current) return
+  // Optimistic mirror + preview; the worker rebuild lands moments later and
+  // updates the mesh/previews via the result listener.
   current.quantized.palette[idx] = rgb
-  current = finishPipeline(current.image, current.quantized, readOptions())
   drawQuantized()
-  update3d()
-  if (fullUpdate) updateUI()
+  rebuildNow(fullUpdate)
 }
 
 /**
@@ -829,11 +839,9 @@ function bandThicknessForSlot(i: number): number {
  */
 function applyBandHeights() {
   if (!current) return
-  current = finishPipeline(current.image, current.quantized, readOptions())
   drawQuantized()
   drawLayerView()
-  update3d()
-  renderPrintability()
+  rebuildNow(false)
 }
 
 /**
@@ -855,12 +863,50 @@ function syncMaxInput() {
 paletteHeightsReset.addEventListener('click', () => {
   bandHeights = null
   syncMaxInput()
-  if (current) {
-    current = finishPipeline(current.image, current.quantized, readOptions())
-    updateUI()
-  }
+  rebuildNow(true)
   saveSettings()
 })
+
+/**
+ * Apply a worker rebuild result to the live editor state. Stale responses
+ * (a newer reprocess, or a newer editor mutation since the request was sent)
+ * are ignored — the coalescing pump always sends the latest state next.
+ */
+function applyWorkerResult(r: WorkerResult, token: number, version: number) {
+  if (!current || token !== runToken || version !== stateVersion) return
+  current.settings = r.settings
+  current.darkIsTall = r.darkIsTall
+  current.palette = r.palette
+  current.quantized.palette = r.quantized.palette
+  current.quantized.bandHeightsMm = r.quantized.bandHeightsMm
+  current.field = r.field
+  current.mesh = r.mesh
+  drawQuantized()
+  drawLayerView()
+  update3d()
+  renderPrintability()
+}
+
+setResultListener((r, token, version) => applyWorkerResult(r, token, version))
+
+/** Rebuild geometry in the worker from the current editor state (coalesced). */
+function rebuildNow(final = true) {
+  if (!current) return
+  const token = runToken
+  const version = ++stateVersion
+  void rebuildInWorker({
+    opts: readOptions(),
+    palette: current.quantized.palette.map((c) => ({ ...c })),
+    token,
+    version,
+  })
+    .then(() => {
+      if (token === runToken && version === stateVersion && final) updateUI()
+    })
+    .catch((err: unknown) => {
+      if (token === runToken) showStatus(err instanceof Error ? err.message : String(err), true)
+    })
+}
 
 /** One row of the filament-library popover: a <select> for one axis. */
 function librarySelect(
@@ -1737,7 +1783,7 @@ async function analyzeReference(file: File) {
   }
 }
 
-function applyReference() {
+async function applyReference() {
   if (!referencePlan || !referencePlan.canApply) return
   if (!current || !currentFile) return
   const plan = referencePlan
@@ -1756,16 +1802,37 @@ function applyReference() {
   layerInput.value = String(o.layerMm)
   saveSettings()
 
-  const keepTau = current.quantized.tauMm
-  current = reprocessWithReference(current.image, plan)
-  initTau(current.quantized)
-  // Keep fitted τ when the reference apply keeps the same color count.
-  if (keepTau && keepTau.length === current.quantized.palette.length) {
-    current.quantized.tauMm = keepTau
+  const token = ++runToken
+  showStatus(tr('processing'))
+  setProcessing(true)
+  try {
+    const keepTau = current.quantized.tauMm
+    const result = await quantizeInWorker(
+      current.image.rgba.slice(),
+      current.image.width,
+      current.image.height,
+      o,
+      {
+        palette: plan.paletteOverride ?? undefined,
+        bandTops: plan.bandTopsOverride ?? undefined,
+      },
+    )
+    if (token !== runToken) return
+    current = { ...result, image: current.image }
+    initTau(current.quantized)
+    // Keep fitted τ when the reference apply keeps the same color count.
+    if (keepTau && keepTau.length === current.quantized.palette.length) {
+      current.quantized.tauMm = keepTau
+    }
+    autoPalette = current.quantized.palette.map((c) => ({ ...c }))
+    updateUI()
+    setProcessing(false)
+    showStatus(tr('refAppliedDone', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+  } catch (err) {
+    if (token !== runToken) return
+    setProcessing(false)
+    showStatus(err instanceof Error ? err.message : String(err), true)
   }
-  autoPalette = current.quantized.palette.map((c) => ({ ...c }))
-  updateUI()
-  showStatus(tr('refAppliedDone', { colors: word(lang, current.quantized.palette.length, 'colors') }))
 }
 
 function setupReference() {
@@ -1948,9 +2015,11 @@ async function openProjectFile(file: File) {
   showStatus(tr('processing'))
   setProcessing(true)
   try {
-    const result = await runPipeline(imageFile, readOptions(), lang)
+    const opts = readOptions()
+    const { image } = await loadImageForPrint(imageFile, opts.widthMm, opts.heightMm, lang)
+    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts)
     if (token !== runToken) return // a newer run superseded this one
-    current = result
+    current = { ...result, image }
     initTau(current.quantized)
     autoPalette = result.quantized.palette.map((c) => ({ ...c }))
     // Overlay the saved palette in one pass.
@@ -1974,7 +2043,16 @@ async function openProjectFile(file: File) {
         filamentAssignments[i] = null
       }
     }
-    current = finishPipeline(current.image, current.quantized, readOptions())
+    // Rebuild once more in the worker so the mesh colors carry the restored
+    // palette; the result listener keeps the previews live meanwhile.
+    const version = ++stateVersion
+    await rebuildInWorker({
+      opts: readOptions(),
+      palette: current.quantized.palette.map((c) => ({ ...c })),
+      token,
+      version,
+    })
+    if (token !== runToken) return
     updateUI()
     setProcessing(false)
     showStatus(tr('projectLoaded', { name: project.image.name }))
