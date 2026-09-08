@@ -1,4 +1,4 @@
-import { mapToLuminanceBands } from './quantize'
+import { mapToLuminanceBands, quantizeToPalette } from './quantize'
 import { finishPipeline, type PaletteEntry, type PipelineOptions } from './pipeline'
 import type { HeightField, Mesh, QuantizedImage, RGB } from './types'
 
@@ -28,6 +28,12 @@ export interface QuantizeTask {
   paletteOverride?: RGB[] | null
   /** Reference-apply: override the band boundaries (fractions of usable height). */
   bandTopsOverride?: number[] | null
+  /**
+   * Catalog mode (HueForge-style): assign every pixel the NEAREST palette
+   * color instead of a luminance band, with equal-thickness bands. Requires
+   * `paletteOverride` (the chosen spool colors, dark → light).
+   */
+  nearestPalette?: boolean
 }
 
 /** Second half: rebuild geometry from the stored quantized image. */
@@ -86,18 +92,23 @@ function runFinish(q: QuantizedImage, opts: PipelineOptions): WorkerResult {
 /** Run one task; throws Error with a user-presentable message on misuse. */
 export function runWorkerTask(task: WorkerTask): WorkerResult {
   if (task.type === 'quantize') {
-    const q = mapToLuminanceBands(
-      task.rgba,
-      task.opts.numColors,
-      task.width,
-      task.height,
-      task.opts.darkIsTall,
-      task.opts.dither ?? 0,
-    )
-    if (task.paletteOverride && task.paletteOverride.length === q.palette.length) {
-      q.palette = task.paletteOverride.map((c) => ({ ...c }))
+    let q: QuantizedImage
+    if (task.nearestPalette && task.paletteOverride && task.paletteOverride.length > 1) {
+      q = quantizeToPalette(task.rgba, task.paletteOverride, task.width, task.height, task.opts.dither ?? 0)
+    } else {
+      q = mapToLuminanceBands(
+        task.rgba,
+        task.opts.numColors,
+        task.width,
+        task.height,
+        task.opts.darkIsTall,
+        task.opts.dither ?? 0,
+      )
+      if (task.paletteOverride && task.paletteOverride.length === q.palette.length) {
+        q.palette = task.paletteOverride.map((c) => ({ ...c }))
+      }
+      if (task.bandTopsOverride) q.bandTops = [...task.bandTopsOverride]
     }
-    if (task.bandTopsOverride) q.bandTops = [...task.bandTopsOverride]
     quantized = q
     return runFinish(q, task.opts)
   }

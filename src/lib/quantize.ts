@@ -510,3 +510,188 @@ export function mapToLuminanceBands(
   if (finalIndexMap !== indexMap) result.cleanIndexMap = indexMap
   return result
 }
+// ---- Catalog palette quantization (HueForge-style: nearest filament color) ----
+
+/**
+ * Merge connected components smaller than `minArea` into the most common
+ * neighbor label (4-connectivity), like the luminance path merges speckles.
+ * Repeats until no small components remain or a fixed guard limit is hit.
+ * Returns a new label array; the input is never mutated.
+ */
+function cleanupSmallRegions(labels: Uint8Array, width: number, height: number, minArea = MIN_REGION_CELLS): Uint8Array {
+  let out = labels
+  for (let pass = 0; pass < 8; pass++) {
+    const comps = components(out, width, height)
+    const small = comps.filter((c) => c.cells.length < minArea)
+    if (small.length === 0) break
+    out = out.slice()
+    for (const comp of small) {
+      const counts = new Map<number, number>()
+      for (const p of comp.cells) {
+        const px = p % width
+        if (px > 0 && out[p - 1] !== comp.color) counts.set(out[p - 1], (counts.get(out[p - 1]) ?? 0) + 1)
+        if (px < width - 1 && out[p + 1] !== comp.color) counts.set(out[p + 1], (counts.get(out[p + 1]) ?? 0) + 1)
+        if (p >= width && out[p - width] !== comp.color) counts.set(out[p - width], (counts.get(out[p - width]) ?? 0) + 1)
+        if (p < width * height - width && out[p + width] !== comp.color) counts.set(out[p + width], (counts.get(out[p + width]) ?? 0) + 1)
+      }
+      let best = -1
+      let bestCount = 0
+      for (const [label, count] of counts) {
+        if (count > bestCount) {
+          bestCount = count
+          best = label
+        }
+      }
+      if (best >= 0) for (const p of comp.cells) out[p] = best
+    }
+  }
+  return out
+}
+
+/**
+ * Floyd–Steinberg error diffusion over RGB against the given spool colors:
+ * each pixel picks the nearest spool (redmean), and the channel-wise color
+ * error — scaled by `strength` — is diffused to the neighbors, so hard color
+ * transitions become smooth dithered gradients. Serpentine scan, like the
+ * luminance dither. `strength` 0..1; 0 leaves the labels untouched.
+ */
+function ditherColors(
+  rgba: Uint8ClampedArray,
+  cleanLabels: Uint8Array,
+  spools: RGB[],
+  width: number,
+  height: number,
+  strength: number,
+): Uint8Array {
+  const n = spools.length
+  const total = width * height
+  const out = cleanLabels.slice()
+  const err = new Float32Array(total * 3)
+  const pick = (r: number, g: number, b: number): number => {
+    let best = 0
+    let bestD = Infinity
+    for (let s = 0; s < n; s++) {
+      const c = spools[s]
+      const dr = r - c.r
+      const dg = g - c.g
+      const db = b - c.b
+      const rm = (r + c.r) / 2
+      const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db
+      if (d < bestD) {
+        bestD = d
+        best = s
+      }
+    }
+    return best
+  }
+  for (let y = 0; y < height; y++) {
+    const ltr = y % 2 === 0
+    for (let xi = 0; xi < width; xi++) {
+      const x = ltr ? xi : width - 1 - xi
+      const i = y * width + x
+      const p = i * 4
+      const er = err[i * 3]
+      const eg = err[i * 3 + 1]
+      const eb = err[i * 3 + 2]
+      const r = Math.min(255, Math.max(0, rgba[p] + er))
+      const g = Math.min(255, Math.max(0, rgba[p + 1] + eg))
+      const b = Math.min(255, Math.max(0, rgba[p + 2] + eb))
+      const s = pick(r, g, b)
+      out[i] = s
+      const eR = (r - spools[s].r) * strength
+      const eG = (g - spools[s].g) * strength
+      const eB = (b - spools[s].b) * strength
+      if (eR === 0 && eG === 0 && eB === 0) continue
+      const dx = ltr ? 1 : -1
+      const xr = x + dx
+      const yn = y + 1
+      if (xr >= 0 && xr < width) {
+        const ni = i - x + xr
+        err[ni * 3] += (eR * 7) / 16
+        err[ni * 3 + 1] += (eG * 7) / 16
+        err[ni * 3 + 2] += (eB * 7) / 16
+      }
+      if (yn < height) {
+        const xl = x - dx
+        if (xl >= 0 && xl < width) {
+          const ni = yn * width + xl
+          err[ni * 3] += (eR * 3) / 16
+          err[ni * 3 + 1] += (eG * 3) / 16
+          err[ni * 3 + 2] += (eB * 3) / 16
+        }
+        const ni = yn * width + x
+        err[ni * 3] += (eR * 5) / 16
+        err[ni * 3 + 1] += (eG * 5) / 16
+        err[ni * 3 + 2] += (eB * 5) / 16
+        if (xr >= 0 && xr < width) {
+          const ni = yn * width + xr
+          err[ni * 3] += (eR * 1) / 16
+          err[ni * 3 + 1] += (eG * 1) / 16
+          err[ni * 3 + 2] += (eB * 1) / 16
+        }
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * HueForge-style palette quantization against a fixed set of filament colors:
+ * every pixel is assigned the nearest spool color (redmean distance), so the
+ * printed picture is made of exactly the chosen spools — no auto-derived
+ * colors, no «it printed a different shade» surprises.
+ *
+ * The caller passes the spools already sorted dark → light (slot order).
+ * Bands are equal-thickness (each color owns 1/N of the usable height), tiny
+ * same-color speckles are merged into their surroundings, and optional
+ * Floyd–Steinberg dithering smooths hard color transitions. The pre-dither
+ * labels are kept as `cleanIndexMap` so printability judges honest geometry.
+ */
+export function quantizeToPalette(
+  rgba: Uint8ClampedArray,
+  spools: RGB[],
+  width: number,
+  height: number,
+  dither = 0,
+): QuantizedImage {
+  const n = spools.length
+  const total = width * height
+  const labels = new Uint8Array(total)
+  for (let i = 0; i < total; i++) {
+    const p = i * 4
+    const r = rgba[p]
+    const g = rgba[p + 1]
+    const b = rgba[p + 2]
+    let best = 0
+    let bestD = Infinity
+    for (let s = 0; s < n; s++) {
+      const c = spools[s]
+      const dr = r - c.r
+      const dg = g - c.g
+      const db = b - c.b
+      const rm = (r + c.r) / 2
+      const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db
+      if (d < bestD) {
+        bestD = d
+        best = s
+      }
+    }
+    labels[i] = best
+  }
+  const clean = cleanupSmallRegions(labels, width, height)
+  const clampedDither = Math.min(1, Math.max(0, dither))
+  const finalIndexMap = clampedDither > 0 ? ditherColors(rgba, clean, spools, width, height, clampedDither) : clean
+  // Equal-thickness bands; luminance is unused by the height/printability
+  // paths for palette quantization, so it is zero-filled.
+  const bandTops = Array.from({ length: n }, (_, b) => (b + 1) / n)
+  const result: QuantizedImage = {
+    palette: spools.map((c) => ({ ...c })),
+    indexMap: finalIndexMap,
+    luminance: new Float32Array(total),
+    bandTops,
+    width,
+    height,
+  }
+  if (finalIndexMap !== clean) result.cleanIndexMap = clean
+  return result
+}

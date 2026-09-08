@@ -14,7 +14,7 @@ import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { deltaE2000Rgb } from '../lib/deltae'
 import { analyzePrintability } from '../lib/printability'
-import { rgbToHex, hexToRgb, nearestFilament } from '../lib/palette'
+import { rgbToHex, hexToRgb, nearestFilament, luminance } from '../lib/palette'
 import { parseReference3mf, Reference3mfParseError } from '../lib/reference3mf'
 import { planReferenceApply, type ReferenceApplyPlan } from '../lib/referenceApply'
 import type { Reference3mfAnalysis } from '../lib/reference3mf'
@@ -48,6 +48,7 @@ const imageInfo = $<HTMLParagraphElement>('#image-info')
 const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
 const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
+const catalogBtn = $<HTMLButtonElement>('#catalog-pick')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
 const calibDownload = $<HTMLButtonElement>('#calib-download')
@@ -269,8 +270,23 @@ async function readFile(file: File) {
   setProcessing(true)
   try {
     const opts = readOptions()
+    // Catalog palette mode survives reprocesses: re-quantize against the same
+    // spool colors while every slot still carries a real filament; if any
+    // slot lost its assignment (color-count change, manual color edit) fall
+    // back to the plain luminance-brightness palette.
+    let overrides: { palette?: RGB[]; nearest?: boolean } | undefined
+    if (catalogActive) {
+      const spools = catalogSpools()
+      if (spools) {
+        overrides = { palette: spools.colors, nearest: true }
+        filamentAssignments = spools.ids
+      } else {
+        catalogActive = false
+        updateCatalogBtn()
+      }
+    }
     const { image } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
-    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts)
+    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, overrides)
     if (token !== runToken) return // a newer run superseded this one; it owns the UI
     current = { ...result, image }
     // Custom band heights are indexed by palette slot: a color-count change
@@ -318,6 +334,7 @@ function applyStaticText() {
   }
   colorsSlider.ariaLabel = tr('sliderAria')
   colorsValue.ariaLabel = tr('sliderValueAria')
+  updateCatalogBtn() // the catalog toggle label depends on its active state
   renderTicks() // rebuild tick tooltips/labels in the current language
 }
 
@@ -785,6 +802,13 @@ let autoPalette: RGB[] = []
 let bandHeights: number[] | null = null
 
 /**
+ * Catalog palette mode: quantization assigns every pixel the nearest chosen
+ * filament color (HueForge-style) instead of a luminance band. Stays active
+ * across reprocesses while every slot still carries a real filament.
+ */
+let catalogActive = false
+
+/**
  * Library filament assigned to each palette slot (by palette index). Keyed
  * by slot, not color, so it survives color tweaks and follows the band.
  * A null slot falls back to the nearest library suggestion.
@@ -865,6 +889,80 @@ paletteHeightsReset.addEventListener('click', () => {
   syncMaxInput()
   rebuildNow(true)
   saveSettings()
+})
+
+/**
+ * The currently assigned catalog filaments as a dark → light palette.
+ * Every slot must carry a real filament (library or custom) — returns null
+ * otherwise. The ids are re-keyed to the sorted order so the ★ assignments
+ * follow the colors they belong to across the slot reordering.
+ */
+function catalogSpools(): { colors: RGB[]; ids: (string | null)[] } | null {
+  if (!current) return null
+  const n = current.quantized.palette.length
+  const entries: { rgb: RGB; id: string | null }[] = []
+  for (let i = 0; i < n; i++) {
+    const id = filamentAssignments[i]
+    const f = id ? findFilament(id) : undefined
+    if (!f) return null
+    entries.push({ rgb: { ...f.color.rgb }, id })
+  }
+  entries.sort((a, b) => luminance(a.rgb) - luminance(b.rgb))
+  return { colors: entries.map((e) => e.rgb), ids: entries.map((e) => e.id) }
+}
+
+function updateCatalogBtn() {
+  catalogBtn.textContent = tr(catalogActive ? 'catalogReset' : 'catalogPick')
+  catalogBtn.title = tr(catalogActive ? 'catalogResetHelp' : 'catalogPickHelp')
+}
+
+/** Re-quantize the image against the chosen spool colors (nearest-color). */
+async function quantizeCatalog(spools: RGB[]) {
+  if (!current || !currentFile) return
+  const token = ++runToken
+  showStatus(tr('processing'))
+  setProcessing(true)
+  try {
+    const opts = readOptions()
+    const { image } = await loadImageForPrint(currentFile, opts.widthMm, opts.heightMm, lang)
+    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, {
+      palette: spools,
+      nearest: true,
+    })
+    if (token !== runToken) return
+    current = { ...result, image }
+    // Custom band heights follow the color count; a fresh run re-stamps them.
+    if (bandHeights && bandHeights.length !== result.quantized.palette.length) bandHeights = null
+    bandHeights = result.quantized.bandHeightsMm?.slice() ?? null
+    initTau(current.quantized)
+    autoPalette = result.quantized.palette.map((c) => ({ ...c }))
+    updateUI()
+    setProcessing(false)
+    showStatus(tr('catalogDone', { colors: word(lang, spools.length, 'colors') }))
+  } catch (err) {
+    if (token !== runToken) return
+    setProcessing(false)
+    showStatus(err instanceof Error ? err.message : String(err), true)
+  }
+}
+
+catalogBtn.addEventListener('click', () => {
+  if (!current) return
+  if (catalogActive) {
+    catalogActive = false
+    updateCatalogBtn()
+    if (currentFile) void readFile(currentFile)
+    return
+  }
+  const spools = catalogSpools()
+  if (!spools) {
+    showStatus(tr('catalogNeedAll'), true)
+    return
+  }
+  catalogActive = true
+  filamentAssignments = spools.ids
+  updateCatalogBtn()
+  void quantizeCatalog(spools.colors)
 })
 
 /**
@@ -1320,6 +1418,7 @@ function renderPalette() {
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
+  updateCatalogBtn()
   // Keep assignments aligned with the (possibly changed) color count.
   filamentAssignments.length = palette.length
   for (let i = 0; i < palette.length; i++) filamentAssignments[i] ??= null

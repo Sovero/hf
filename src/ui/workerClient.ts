@@ -75,7 +75,7 @@ export function quantizeInWorker(
   width: number,
   height: number,
   opts: PipelineOptions,
-  overrides?: { palette?: RGB[]; bandTops?: number[] } | null,
+  overrides?: { palette?: RGB[]; bandTops?: number[]; nearest?: boolean } | null,
 ): Promise<WorkerResult> {
   const id = nextId++
   const w = ensureWorker()
@@ -91,6 +91,7 @@ export function quantizeInWorker(
         opts,
         paletteOverride: overrides?.palette,
         bandTopsOverride: overrides?.bandTops,
+        nearestPalette: overrides?.nearest,
       },
       [rgba.buffer],
     )

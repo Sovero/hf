@@ -313,6 +313,30 @@ export const dict: Dict = {
     en: 'Computed from the band height sliders: base + Σ band thicknesses. Move a band slider to change it, or click «Equal heights» in the palette.',
     ru: 'Рассчитывается из ползунков высот полос: основание + Σ толщин. Измените ползунок полосы или нажмите «Равные высоты» в палитре.',
   },
+  catalogPick: {
+    en: 'Quantize by spools',
+    ru: 'Квантовать по катушкам',
+  },
+  catalogPickHelp: {
+    en: 'Assign a real filament to every color with the ★ button, then quantize the image against exactly those spool colors — every pixel takes its nearest filament, so the print is made of the chosen spools (HueForge-style).',
+    ru: 'Назначьте каждому цвету реальный филамент кнопкой ★, затем квантуйте изображение ровно по этим цветам катушек: каждый пиксель получает ближайший филамент — картина печатается именно выбранными катушками (как в HueForge).',
+  },
+  catalogReset: {
+    en: 'Auto palette',
+    ru: 'Авто-палитра',
+  },
+  catalogResetHelp: {
+    en: 'Back to the auto-derived palette: brightness bands colored by their own content.',
+    ru: 'Вернуть автоматически подбираемую палитру: яркостные полосы, окрашенные своим содержимым.',
+  },
+  catalogNeedAll: {
+    en: 'Assign a filament to every color first — press ★ in each palette row.',
+    ru: 'Сначала назначьте филамент каждому цвету — нажмите ★ в каждой строке палитры.',
+  },
+  catalogDone: {
+    en: 'Palette from catalog: {colors} — every pixel now takes its nearest spool color.',
+    ru: 'Палитра из каталога: {colors} — каждый пиксель теперь берёт ближайший цвет катушки.',
+  },
   filamLibraryTitle: { en: 'Filament library', ru: 'Библиотека филамента' },
   filamLibraryHint: {
     en: 'Pick a real filament from a Russian manufacturer for this band — brand, material, color.',
