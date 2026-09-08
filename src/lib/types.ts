@@ -40,6 +40,13 @@ export interface QuantizedImage {
    * the default τ. Fitted per filament from a printed calibration swatch.
    */
   tauMm?: number[]
+  /**
+   * The label map before Floyd–Steinberg dithering (present only when
+   * dithering ran). Dither dots at band boundaries are intentional gradient
+   * texture, not fragile specks — printability analysis judges this clean
+   * map instead, so an active dither slider doesn't trigger a warning storm.
+   */
+  cleanIndexMap?: Uint8Array
   width: number
   height: number
 }

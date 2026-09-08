@@ -497,11 +497,16 @@ export function mapToLuminanceBands(
   }
 
   // Dithering is the last step: it only re-labels pixels near the band
-  // boundaries, keeping the filament colors and band tops from above.
+  // boundaries, keeping the filament colors and band tops from above. When it
+  // runs, the pre-dither labels are kept alongside: they are the honest input
+  // for printability's fragile-speck check, because FS dots are intentional
+  // texture, not specks.
   const clampedDither = Math.min(1, Math.max(0, dither))
   const finalIndexMap = clampedDither > 0
     ? ditherLabels(relief, indexMap, width, height, n, darkIsTall, clampedDither)
     : indexMap
 
-  return { palette, indexMap: finalIndexMap, luminance: relief, bandTops, width, height }
+  const result: QuantizedImage = { palette, indexMap: finalIndexMap, luminance: relief, bandTops, width, height }
+  if (finalIndexMap !== indexMap) result.cleanIndexMap = indexMap
+  return result
 }

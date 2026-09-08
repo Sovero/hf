@@ -36,8 +36,12 @@ function checkerboardImage(size = 32): { width: number; height: number; rgba: Ui
 
 type TestSettings = PrintSettings & { numColors: 2 | 4 | 8 | 12 | 16 | 24 }
 
-function run(image: { width: number; height: number; rgba: Uint8ClampedArray }, settings: TestSettings): PipelineResult {
-  const q = mapToLuminanceBands(image.rgba, settings.numColors, image.width, image.height, settings.darkIsTall)
+function run(
+  image: { width: number; height: number; rgba: Uint8ClampedArray },
+  settings: TestSettings,
+  dither = 0,
+): PipelineResult {
+  const q = mapToLuminanceBands(image.rgba, settings.numColors, image.width, image.height, settings.darkIsTall, dither)
   return finishPipeline(image, q, {
     numColors: settings.numColors,
     darkIsTall: settings.darkIsTall,
@@ -46,6 +50,7 @@ function run(image: { width: number; height: number; rgba: Uint8ClampedArray }, 
     baseMm: settings.baseMm,
     maxHeightMm: settings.maxHeightMm,
     layerMm: settings.layerMm,
+    dither,
   })
 }
 
@@ -104,5 +109,31 @@ describe('printability', () => {
     const support = report.checks.find((c) => c.id === 'support')!
     expect(support.level).toBe('warn')
     expect(support.detail).toContain('no supports or true overhangs exist')
+  })
+
+  it('counts specks on the pre-dither map when dithering ran', () => {
+    // A checkerboard quantized with dithering would show thousands of FS dots,
+    // which are intentional gradient texture — the analysis must judge the
+    // clean pre-dither map instead, so the warn decision matches the
+    // no-dither run for the same image.
+    const withDither = analyzePrintability(run(checkerboardImage(32), {
+      widthMm: 40, heightMm: 40, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 2,
+    }, 0.6))
+    const withoutDither = analyzePrintability(run(checkerboardImage(32), {
+      widthMm: 40, heightMm: 40, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 2,
+    }))
+    const support = withDither.checks.find((c) => c.id === 'support')!
+    expect(support.level).toBe(withoutDither.checks.find((c) => c.id === 'support')!.level)
+    // And the user is told the analysis is dither-aware.
+    expect(support.detail).toContain('Dithering is on')
+  })
+
+  it('keeps the plain ok message when no dithering ran', () => {
+    const report = analyzePrintability(run(gradientImage(), {
+      widthMm: 40, heightMm: 40, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 4,
+    }))
+    const support = report.checks.find((c) => c.id === 'support')!
+    expect(support.level).toBe('ok')
+    expect(support.detail).not.toContain('Dithering is on')
   })
 })

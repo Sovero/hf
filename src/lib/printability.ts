@@ -152,7 +152,15 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
   }
 
   // ---- 4. Support & overhang risk (isolated fragile regions) ----
-  const { specks, speckCells } = findIsolatedRegions(result.quantized.indexMap, result.image.width, result.image.height)
+  // Judge the pre-dither map when dithering ran: FS dots at band boundaries
+  // are intentional gradient texture, not fragile specks — counting them on
+  // the dithered map would warn about the very feature the user turned on.
+  const dithered = result.quantized.cleanIndexMap !== undefined
+  const { specks, speckCells } = findIsolatedRegions(
+    result.quantized.cleanIndexMap ?? result.quantized.indexMap,
+    result.image.width,
+    result.image.height,
+  )
   const fraction = speckCells / (result.image.width * result.image.height)
   if (specks >= MIN_SPECKS || fraction >= MIN_SPECK_FRACTION) {
     checks.push({
@@ -162,7 +170,14 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
       detail: str('pbSupportDetailWarn', {
         regionsText: regionsText(specks),
         fraction: (fraction * 100).toFixed(1),
-      }),
+      }) + (dithered ? ` ${str('pbSupportDitherNote')}` : ''),
+    })
+  } else if (dithered) {
+    checks.push({
+      id: 'support',
+      level: 'ok',
+      title: str('pbSupportTitleOk'),
+      detail: `${str('pbSupportDetailOk')} ${str('pbSupportDetailOkDither')}`,
     })
   } else {
     checks.push({

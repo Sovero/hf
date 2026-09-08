@@ -584,6 +584,14 @@ export const dict: Dict = {
     en: 'All walls are vertical (≤90°) and every layer rests on material below, so no supports or true overhangs exist. Fragile isolated regions are merged into their surroundings automatically, but {regionsText} (under 3×3 cells, ~{fraction}% of the image) remain — each pass merges more, and a higher color count or a smoother image removes the rest.',
     ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на материал снизу, поэтому поддержки не нужны. Хрупкие изолированные участки автоматически сливаются с окружением, но {regionsText} (меньше 3×3 ячеек, ~{fraction}% изображения) ещё остаются — при каждом проходе их сливается больше, а большее число цветов или более гладкое изображение уберёт остальные.',
   },
+  pbSupportDitherNote: {
+    en: 'Dithering is on: isolated dots at band boundaries are intentional gradient texture and are counted on the pre-dither map.',
+    ru: 'Дизеринг включён: отдельные точки на границах полос — намеренная градиентная текстура; подсчёт ведётся по карте до дизеринга.',
+  },
+  pbSupportDetailOkDither: {
+    en: 'Dithering is on — the analysis judges the pre-dither map, so intentional dither dots do not count as fragile specks.',
+    ru: 'Дизеринг включён — анализ ведётся по карте до дизеринга, поэтому намеренные точки дизеринга не считаются хрупкими участками.',
+  },
   pbSupportTitleOk: { en: 'Support & overhangs', ru: 'Поддержки и нависания' },
   pbSupportDetailOk: {
     en: 'All walls are vertical (≤90°) and every layer is supported from below — no supports needed, no overhang risk. Fragile isolated regions were flattened automatically.',
