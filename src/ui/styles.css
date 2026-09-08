@@ -1386,9 +1386,13 @@ body {
   cursor: pointer;
 }
 
-.tour-btn:hover:not(:disabled) {
+.tour-btn:hover:not(:disabled):not(.primary) {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.tour-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
 }
 
 .tour-btn:disabled {
