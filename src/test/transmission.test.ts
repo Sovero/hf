@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { transmission, columnColor, transmittedBandColors } from '../lib/transmission'
+import { transmission, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, DEFAULT_TAU_MM } from '../lib/transmission'
 import { finishPipeline } from '../lib/pipeline'
 import type { PipelineResult } from '../lib/pipeline'
 import type { LoadedImage, QuantizedImage, RGB } from '../lib/types'
@@ -55,7 +55,73 @@ describe('transmission model', () => {
     expect(bands[3].r).toBeGreaterThan(0) // black top lifted by sheets below
     expect(bands[3].r).toBeLessThan(bands[0].r)
   })
+
+  it('backlit fold starts from white and attenuates through every sheet including the base slab', () => {
+    // darkIsTall=false → the bottom sheet is the darkest (black), so the base
+    // slab is black. Front-lit treats it as an opaque floor: the bottom band
+    // is pure black. Backlit folds incident white light through the black
+    // sheet — it glows, the signature HueForge backlit look.
+    const result = makeDarkBaseResult()
+    const bottom = backlitColumnColor(result, 2.6)
+    expect(bottom.r).toBeGreaterThan(0) // light leaks through the black slab
+    const frontBottom = columnColor(result, 2.6)
+    expect(frontBottom.r).toBeCloseTo(0, 0) // opaque floor reflects nothing
+    expect(bottom.r).toBeGreaterThan(frontBottom.r)
+    // Full stack: backlit stays above the front-lit floor (no black backdrop).
+    const back = backlitColumnColor(result, 8)
+    const front = columnColor(result, 8)
+    expect(back.r).toBeGreaterThan(front.r)
+  })
+
+  it('backlit band colors are indexed bottom → top like the front-lit lookup', () => {
+    const result = makeResult()
+    const bands = backlitBandColors(result)
+    expect(bands).toHaveLength(4)
+    expect(bands[0].r).toBeCloseTo(255, 0) // white sheet, white slab: near-white
+    expect(bands[3].r).toBeGreaterThan(0) // black top: light still leaks through
+    expect(bands[3].r).toBeLessThan(bands[0].r)
+  })
+
+  it('a white base is invisible in backlight: backlit matches front-lit exactly', () => {
+    // darkIsTall=true → the bottom sheet is white (255). White light folded
+    // through a white sheet stays white, so the backlit stack is identical
+    // to the front-lit stack over the opaque white base.
+    const result = makeResult()
+    const back = backlitColumnColor(result, 8)
+    const front = columnColor(result, 8)
+    expect(back.r).toBeCloseTo(front.r, 5)
+    expect(back.g).toBeCloseTo(front.g, 5)
+    expect(back.b).toBeCloseTo(front.b, 5)
+  })
+
+  it('a dark slab leaks a known amount of light (255·(1−T(z, τ)))', () => {
+    // darkIsTall=false → the bottom sheet is black (0). Backlit, the slab is
+    // not an opaque floor: white light leaks through it. At 2.6 mm with the
+    // default τ=1.2, T = 1−e^(−2.6/1.2) ≈ 0.883 → leak ≈ 255·0.117 ≈ 29.9.
+    const result = makeDarkBaseResult()
+    const c = backlitColumnColor(result, 2.6)
+    const expected = 255 * (1 - transmission(2.6, DEFAULT_TAU_MM))
+    expect(c.r).toBeCloseTo(expected, 5)
+    expect(c.g).toBeCloseTo(expected, 5)
+    expect(c.b).toBeCloseTo(expected, 5)
+  })
 });
+
+/** darkIsTall=false: the black filament prints first (bottom), the base slab is black. */
+function makeDarkBaseResult(): PipelineResult {
+  const quantized: QuantizedImage = {
+    palette: PALETTE_4,
+    indexMap: Uint8Array.from([0, 1, 2, 3]),
+    luminance: Float32Array.from([0.1, 0.35, 0.6, 0.9]),
+    bandTops: [0.25, 0.5, 0.75, 1],
+    width: 2,
+    height: 2,
+  }
+  const image: LoadedImage = { width: 2, height: 2, rgba: new Uint8ClampedArray(2 * 2 * 4) }
+  return finishPipeline(image, quantized, {
+    numColors: 4, darkIsTall: false, widthMm: 40, heightMm: 40, baseMm: 0.8, maxHeightMm: 8, layerMm: 0.2,
+  })
+}
 
 const PALETTE_4: RGB[] = [
   { r: 0, g: 0, b: 0 },
