@@ -43,6 +43,12 @@ export interface PipelineOptions {
   layerMm?: number
   /** Floyd–Steinberg dithering strength 0..1 (0 = off, the default). */
   dither?: number
+  /**
+   * Per-band sheet thickness in mm (palette order, dark → light), HueForge
+   * style. When present and valid, the total model height becomes
+   * base + Σ thicknesses (the max-height input is then derived, not free).
+   */
+  bandHeightsMm?: number[]
 }
 
 /**
@@ -75,11 +81,34 @@ export function finishPipeline(
   quantized: QuantizedImage,
   opts: PipelineOptions,
 ): PipelineResult {
+  const n = quantized.palette.length
+  // Custom band heights make the sum authoritative: maxHeight = base + Σh,
+  // clamped to the app-wide 40 mm ceiling by scaling the heights so the
+  // geometry always stays consistent (the UI prevents this while dragging).
+  const custom = opts.bandHeightsMm
+  const hasCustom =
+    !!custom &&
+    custom.length === n &&
+    custom.every((h) => Number.isFinite(h) && h > 0) &&
+    custom.every((h) => h <= 10)
+  let heights: number[] | undefined
+  let maxHeightMm = opts.maxHeightMm
+  if (hasCustom) {
+    const usableMax = 40 - opts.baseMm
+    const total = custom!.reduce((a, c) => a + c, 0)
+    const scale = total > usableMax ? usableMax / total : 1
+    heights = custom!.map((h) => h * scale)
+    quantized.bandHeightsMm = heights
+    maxHeightMm = opts.baseMm + heights.reduce((a, c) => a + c, 0)
+  } else {
+    delete quantized.bandHeightsMm
+  }
+
   const settings: PrintSettings = {
     widthMm: opts.widthMm,
     heightMm: opts.heightMm,
     baseMm: opts.baseMm,
-    maxHeightMm: opts.maxHeightMm,
+    maxHeightMm,
     darkIsTall: opts.darkIsTall,
     layerMm: opts.layerMm ?? 0.2,
   }
@@ -87,7 +116,6 @@ export function finishPipeline(
   const field = buildHeightField(quantized, settings)
   const mesh = buildMesh(field, quantized.indexMap, quantized.palette, settings)
 
-  const n = quantized.palette.length
   // Each filament owns one contiguous block of the total height (base..max);
   // its top comes from the equal-population band boundaries, snapped to the
   // whole-layer grid of the chosen layer height, so a tool change always lands

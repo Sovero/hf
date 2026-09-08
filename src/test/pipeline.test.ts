@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { unzipSync, strFromU8 } from 'fflate'
-import { buildHeightField } from '../lib/heightmap'
+import { buildHeightField, snappedBandTops } from '../lib/heightmap'
 import { buildMesh } from '../lib/mesh'
 import { quantize, mapToLuminanceBands, removeIsolatedRegions, MIN_REGION_CELLS } from '../lib/quantize'
 import { findIsolatedRegions } from '../lib/printability'
@@ -682,5 +682,83 @@ describe('auto-removal of fragile isolated regions', () => {
     for (const c of counts.values()) {
       expect(c).toBeGreaterThanOrEqual(Math.floor((w * h) / 8) - 1)
     }
+  })
+})
+
+describe('custom band heights (HueForge-style per-color thickness)', () => {
+  const baseMm = 0.8
+  const layerMm = 0.2
+
+  function run(heights: number[] | undefined) {
+    return finishPipeline(
+      { width: 2, height: 2, rgba: new Uint8ClampedArray(16) },
+      quantizedFixture(),
+      {
+        numColors: 4,
+        darkIsTall: true,
+        widthMm: 40,
+        heightMm: 40,
+        baseMm,
+        maxHeightMm: 8,
+        layerMm,
+        bandHeightsMm: heights,
+      },
+    )
+  }
+
+  it('derives the total height from the band sums (base + Σh)', () => {
+    const r = run([1.2, 0.9, 0.6, 0.4])
+    expect(r.settings.maxHeightMm).toBeCloseTo(baseMm + 3.1, 9)
+    expect(r.quantized.bandHeightsMm).toEqual([1.2, 0.9, 0.6, 0.4])
+    expect(r.settings.maxHeightMm).toBeCloseTo(
+      baseMm + r.quantized.bandHeightsMm!.reduce((a, c) => a + c, 0),
+      9,
+    )
+  })
+
+  it('snaps internal tops to the layer grid and keeps the final top exactly at max height', () => {
+    const r = run([1.2, 0.9, 0.6, 0.4])
+    const tops = snappedBandTops(r.quantized, r.settings)
+    expect(tops[3]).toBeCloseTo(r.settings.maxHeightMm, 9)
+    for (let i = 0; i < 3; i++) {
+      const grid = tops[i] / layerMm
+      expect(Math.abs(grid - Math.round(grid))).toBeLessThan(1e-9)
+      expect(tops[i]).toBeGreaterThan(baseMm)
+      expect(tops[i]).toBeLessThan(tops[i + 1])
+    }
+  })
+
+  it('builds the height field from the custom tops', () => {
+    const r = run([1.2, 0.9, 0.6, 0.4])
+    const tops = snappedBandTops(r.quantized, r.settings)
+    // indexMap [0,1,2,3] with darkIsTall → slices [3,2,1,0]
+    const round4 = (a: number[]) => a.map((v) => +v.toFixed(4))
+    expect(round4(Array.from(r.field.values))).toEqual(round4([tops[3], tops[2], tops[1], tops[0]]))
+  })
+
+  it('reports custom thicknesses through the palette entries (print order)', () => {
+    const r = run([1.2, 0.9, 0.6, 0.4])
+    const byOrder = new Map(r.palette.map((p) => [p.printOrder, p.topZMm]))
+    // darkIsTall → darkest palette idx (0) prints last (order 4); the lightest
+    // (idx 3, thickness 0.4) prints first: its top is base + 0.4 exactly, and
+    // the darkest band's top is the derived max height.
+    expect(byOrder.get(1)).toBeCloseTo(baseMm + 0.4, 9)
+    expect(byOrder.get(4)).toBeCloseTo(r.settings.maxHeightMm, 9)
+  })
+
+  it('falls back to equal bands when no custom heights are given', () => {
+    const r = run(undefined)
+    expect(r.settings.maxHeightMm).toBe(8)
+    expect(r.quantized.bandHeightsMm).toBeUndefined()
+  })
+
+  it('scales heights down when the sum would exceed the 40 mm ceiling', () => {
+    const r = run([10, 10, 10, 10])
+    expect(r.settings.maxHeightMm).toBeLessThanOrEqual(40)
+    expect(r.settings.maxHeightMm).toBeCloseTo(
+      baseMm + r.quantized.bandHeightsMm!.reduce((a, c) => a + c, 0),
+      9,
+    )
+    expect(r.settings.maxHeightMm).toBeGreaterThan(baseMm)
   })
 })

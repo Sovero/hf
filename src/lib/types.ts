@@ -41,6 +41,14 @@ export interface QuantizedImage {
    */
   tauMm?: number[]
   /**
+   * Per-band sheet thickness in mm (HueForge-style custom band heights),
+   * indexed like `palette` (dark → light). When present, the total usable
+   * height is the sum of the band thicknesses (maxHeight = base + Σh) and
+   * each band top is base + cumulative sum. Absent → equal bands spanning
+   * the user's max-height exactly.
+   */
+  bandHeightsMm?: number[]
+  /**
    * The label map before Floyd–Steinberg dithering (present only when
    * dithering ran). Dither dots at band boundaries are intentional gradient
    * texture, not fragile specks — printability analysis judges this clean

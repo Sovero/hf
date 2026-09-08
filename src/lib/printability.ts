@@ -48,13 +48,20 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
     if (pos[i + 1] > heightMm) heightMm = pos[i + 1]
   }
 
-  // The layer height the user chose drives all band/layer math. Each filament
-  // band owns 1/N of the usable relief height (base..max), and the model's
-  // total height is the user's chosen max — band tops are snapped around it,
-  // so the ideal band size is what determines thin-band risk.
+  // The layer height the user chose drives all band/layer math. Band sizes
+  // come from the actual snapped band tops (base → first top, between tops,
+  // last top → max): equal bands are usable/n each, and with custom per-color
+  // heights the thinnest band is the real thin-band risk.
   const layerMm = result.settings.layerMm
-  const usable = result.settings.maxHeightMm - result.settings.baseMm
-  const bandMm = n > 1 ? usable / n : usable
+  const sortedTops = [...result.palette].sort((a, b) => a.topZMm - b.topZMm).map((p) => p.topZMm)
+  const bandSizes: number[] = []
+  let prevTop = result.settings.baseMm
+  for (const t of sortedTops) {
+    bandSizes.push(t - prevTop)
+    prevTop = t
+  }
+  const bandMm = Math.min(...bandSizes)
+  const customHeights = !!result.quantized.bandHeightsMm
   const layersPerBand = bandMm / layerMm
   const totalLayers = result.settings.maxHeightMm / layerMm
   const swaps = n - 1
@@ -75,14 +82,14 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
       id: 'bands',
       level: 'fail',
       title: str('pbBandsTitleFail'),
-      detail: str('pbBandsDetailFail', { band: mm(bandMm), layer: mm(layerMm) }),
+      detail: str(customHeights ? 'pbBandsDetailFailCustom' : 'pbBandsDetailFail', { band: mm(bandMm), layer: mm(layerMm) }),
     })
   } else if (bandMm < NOZZLE_MM) {
     checks.push({
       id: 'bands',
       level: 'warn',
       title: str('pbBandsTitleWarn'),
-      detail: str('pbBandsDetailWarn', {
+      detail: str(customHeights ? 'pbBandsDetailWarnCustom' : 'pbBandsDetailWarn', {
         band: mm(bandMm),
         layersText: layersText(layersPerBand),
         layer: mm(layerMm),
@@ -94,7 +101,7 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
       id: 'bands',
       level: 'ok',
       title: str('pbBandsTitleOk'),
-      detail: str('pbBandsDetailOk', {
+      detail: str(customHeights ? 'pbBandsDetailOkCustom' : 'pbBandsDetailOk', {
         band: mm(bandMm),
         layersText: layersText(layersPerBand),
         layer: mm(layerMm),

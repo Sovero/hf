@@ -280,8 +280,8 @@ export const dict: Dict = {
   paramLayer: { en: 'Layer height', ru: 'Высота слоя' },
   unitMm: { en: 'mm', ru: 'мм' },
   sizeHint: {
-    en: 'Each of the N colors prints as a flat sheet of its own height: every pixel of a color stands at the same height, so the top surface is smooth and a color switch always happens between whole layers — one color per printed layer.',
-    ru: 'Каждый из N цветов печатается как плоский лист своей высоты: все пиксели одного цвета стоят на одной высоте, поэтому верхняя поверхность гладкая, а смена цвета всегда происходит между целыми слоями — один цвет на слой.',
+    en: 'Each of the N colors prints as a flat sheet of its own height: every pixel of a color stands at the same height, so the top surface is smooth and a color switch always happens between whole layers — one color per printed layer. By default the sheets are equal; drag the height slider in a palette row to give a color its own thickness (HueForge-style).',
+    ru: 'Каждый из N цветов печатается как плоский лист своей высоты: все пиксели одного цвета стоят на одной высоте, поэтому верхняя поверхность гладкая, а смена цвета всегда происходит между целыми слоями — один цвет на слой. По умолчанию листы равные; ползунок высоты в строке палитры задаёт цвету собственную толщину (как в HueForge).',
   },
 
   // ---- printability ----
@@ -300,6 +300,18 @@ export const dict: Dict = {
   paletteReset: {
     en: 'Reset to the auto-detected color',
     ru: 'Вернуть автоматически подобранный цвет',
+  },
+  paletteHeight: {
+    en: 'Band thickness (mm): how thick this color prints. The total model height is base + the sum of all bands; the max-height field follows while any band has its own height.',
+    ru: 'Толщина полосы (мм): насколько толсто печатается этот цвет. Общая высота модели = основание + сумма всех полос; поле «Макс. высота» следует за ней, пока заданы свои высоты.',
+  },
+  paletteHeightsReset: {
+    en: 'Equal heights',
+    ru: 'Равные высоты',
+  },
+  maxDerived: {
+    en: 'Computed from the band height sliders: base + Σ band thicknesses. Move a band slider to change it, or click «Equal heights» in the palette.',
+    ru: 'Рассчитывается из ползунков высот полос: основание + Σ толщин. Измените ползунок полосы или нажмите «Равные высоты» в палитре.',
   },
   filamLibraryTitle: { en: 'Filament library', ru: 'Библиотека филамента' },
   filamLibraryHint: {
@@ -558,6 +570,19 @@ export const dict: Dict = {
   pbBandsDetailOk: {
     en: 'Each color is {band} ≈ {layersText} @ {layer} — clean filament transitions.',
     ru: 'Каждый цвет занимает {band} ≈ {layersText} по {layer} — чистые переходы между цветами.',
+  },
+  // Custom per-color heights: the thinnest band is the real risk.
+  pbBandsDetailFailCustom: {
+    en: 'The thinnest color band is only {band} — less than a single {layer} layer, so it cannot print as a distinct sheet. Increase its height slider or reduce the color count.',
+    ru: 'Самая тонкая цветовая полоса — всего {band}, меньше одного слоя {layer}, поэтому она не напечатается как отдельная пластина. Поднимите её ползунок высоты или уменьшите число цветов.',
+  },
+  pbBandsDetailWarnCustom: {
+    en: 'The thinnest color band is {band} (~{layersText} @ {layer}) — thinner than the {nozzle} nozzle, so its transitions will smear. Raise its height slider or use fewer colors.',
+    ru: 'Самая тонкая цветовая полоса — {band} (~{layersText} по {layer}), тоньше сопла {nozzle}, поэтому её переходы будут размытыми. Поднимите её ползунок высоты или уменьшите число цветов.',
+  },
+  pbBandsDetailOkCustom: {
+    en: 'Thinnest color band is {band} ≈ {layersText} @ {layer} — clean filament transitions; thicker bands print even cleaner.',
+    ru: 'Самая тонкая цветовая полоса — {band} ≈ {layersText} по {layer} — чистые переходы; более толстые полосы печатаются ещё чище.',
   },
   pbResTitleFail: {
     en: 'Image cells far below nozzle width',

@@ -248,7 +248,10 @@
               <button type="button" class="hint-btn" data-help="helpPalette" aria-label="Help">?</button>
             </div>
           <div id="palette-list" class="palette-list"></div>
-          <p id="palette-summary" class="muted small"></p>
+          <div class="palette-summary-row">
+            <p id="palette-summary" class="muted small"></p>
+            <button id="palette-heights-reset" type="button" class="palette-reset-btn" data-i18n="paletteHeightsReset" hidden>Equal heights</button>
+          </div>
           <div id="calib" class="calib" hidden>
             <p class="muted small" data-i18n="calibIntro">Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.</p>
             <div class="calib-row">

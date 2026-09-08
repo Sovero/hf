@@ -15,8 +15,26 @@ export function snappedBandTops(image: QuantizedImage, settings: PrintSettings):
   const usable = settings.maxHeightMm - settings.baseMm
   const layerMm = settings.layerMm
   const out: number[] = []
+  // Custom per-band thicknesses (HueForge-style). The palette is sorted dark
+  // → light, but stacking follows the depth mode: with darkIsTall the lightest
+  // band prints first (bottom) and the darkest last (top). A band's top is the
+  // base plus the cumulative thickness of every band below it plus its own.
+  // The final top is the derived max height (base + Σh) exactly, so the model
+  // top stays exactly at maxHeight even when the sum isn't a layer multiple.
+  const custom = image.bandHeightsMm
+  const hasCustom = !!custom && custom.length === n && custom.every((h) => Number.isFinite(h) && h > 0)
+  const stackTop: number[] = []
+  if (hasCustom) {
+    let z = settings.baseMm
+    for (let r = 0; r < n; r++) {
+      // Stack position r (bottom → top) holds palette band n-1-r when the
+      // dark colors print last, else palette band r.
+      z += custom[settings.darkIsTall ? n - 1 - r : r]
+      stackTop.push(z)
+    }
+  }
   for (let b = 0; b < n; b++) {
-    const ideal = settings.baseMm + usable * image.bandTops[b]
+    const ideal = hasCustom ? stackTop[b] : settings.baseMm + usable * image.bandTops[b]
     const snapped = Math.round(ideal / layerMm) * layerMm
     const min = (out.length > 0 ? out[out.length - 1] : settings.baseMm) + layerMm
     const top = b === n - 1 ? settings.maxHeightMm : snapped

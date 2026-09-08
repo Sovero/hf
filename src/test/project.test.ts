@@ -45,6 +45,28 @@ describe('project save/load', () => {
     expect(parsed.version).toBe(PROJECT_VERSION)
   })
 
+  it('roundtrips per-band heights and falls back to equal bands when absent', () => {
+    const palette = Array.from({ length: 8 }, (_, i) => ({ hex: `#${String(i).repeat(6)}`, tauMm: 1.0 }))
+    const withHeights = buildProjectFile({
+      imageName: 'photo.png',
+      dataUrl: DATA_URL,
+      settings: { ...SETTINGS, bandHeightsMm: [1.2, 0.9, 0.6, 0.4, 0.5, 0.6, 0.7, 0.8] },
+      palette,
+    })
+    const parsed = parseProjectFile(JSON.stringify(withHeights))
+    expect(parsed.settings.bandHeightsMm).toEqual([1.2, 0.9, 0.6, 0.4, 0.5, 0.6, 0.7, 0.8])
+
+    const plain = parseProjectFile(JSON.stringify(sample()))
+    expect(plain.settings.bandHeightsMm).toBeUndefined()
+  })
+
+  it('rejects a corrupt bandHeightsMm array', () => {
+    for (const bad of ['x', [1, -1, 1, 1], [1, 2], [0.1, Number.NaN, 1, 1]]) {
+      const text = JSON.stringify({ ...sample(), settings: { ...sample().settings, bandHeightsMm: bad } })
+      expect(() => parseProjectFile(text)).toThrow(ProjectFileError)
+    }
+  })
+
   it('serializes custom filaments in full so projects are portable', () => {
     const custom = addCustomFilament({ name: 'Мой красный', hex: '#ff3300', materialId: 'pla' })
     const project = buildProjectFile({

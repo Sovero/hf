@@ -39,6 +39,7 @@ const fileInput = $<HTMLInputElement>('#file-input')
 const imageInfo = $<HTMLParagraphElement>('#image-info')
 const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
+const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
 const calibDownload = $<HTMLButtonElement>('#calib-download')
@@ -239,6 +240,7 @@ function readOptions() {
     numColors: numColors as 2 | 4 | 8 | 12 | 16 | 24,
     darkIsTall,
     dither,
+    bandHeightsMm: bandHeights ?? undefined,
     widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
     heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
     baseMm,
@@ -261,6 +263,10 @@ async function readFile(file: File) {
     const result = await runPipeline(file, readOptions(), lang)
     if (token !== runToken) return // a newer run superseded this one; it owns the UI
     current = result
+    // Custom band heights are indexed by palette slot: a color-count change
+    // invalidates them, and a fresh run re-stamps the effective heights.
+    if (bandHeights && bandHeights.length !== result.quantized.palette.length) bandHeights = null
+    bandHeights = result.quantized.bandHeightsMm?.slice() ?? null
     initTau(current.quantized)
     autoPalette = result.quantized.palette.map((c) => ({ ...c }))
     updateUI()
@@ -500,6 +506,7 @@ function setupWelcome() {
 
 function updateUI() {
   if (!current) return
+  syncMaxInput()
   drawSource()
   drawQuantized()
   renderPalette()
@@ -760,6 +767,14 @@ layerSlider.addEventListener('input', () => {
 let autoPalette: RGB[] = []
 
 /**
+ * Per-band sheet thickness in mm (palette order, dark → light). Null = equal
+ * bands spanning base..max (the default). While set, the sum of the heights
+ * is authoritative and the max-height field becomes a derived read-only
+ * value; the «Equal heights» button clears this back to equal bands.
+ */
+let bandHeights: number[] | null = null
+
+/**
  * Library filament assigned to each palette slot (by palette index). Keyed
  * by slot, not color, so it survives color tweaks and follows the band.
  * A null slot falls back to the nearest library suggestion.
@@ -794,6 +809,58 @@ function setPaletteColor(idx: number, rgb: RGB, fullUpdate = true) {
   update3d()
   if (fullUpdate) updateUI()
 }
+
+/**
+ * Effective sheet thickness (mm) for palette slot i — the custom height when
+ * set, else the equal share of the usable height. Reads the geometry's own
+ * values (quantized), so labels always match what will actually be printed.
+ */
+function bandThicknessForSlot(i: number): number {
+  const q = current!.quantized
+  if (q.bandHeightsMm && q.bandHeightsMm.length === q.palette.length) return q.bandHeightsMm[i]
+  const usable = current!.settings.maxHeightMm - current!.settings.baseMm
+  return Number((usable / q.palette.length).toFixed(2))
+}
+
+/**
+ * Rebuild everything that depends on band heights (geometry, layers, 3D,
+ * printability) without re-rendering the palette — the slider being dragged
+ * must stay alive. Palette labels refresh on 'change' via updateUI().
+ */
+function applyBandHeights() {
+  if (!current) return
+  current = finishPipeline(current.image, current.quantized, readOptions())
+  drawQuantized()
+  drawLayerView()
+  update3d()
+  renderPrintability()
+}
+
+/**
+ * Max-height input is a derived, read-only value while custom band heights
+ * are active (total = base + Σh); the «Equal heights» button returns to
+ * equal bands and re-enables it. Also shows/hides the reset button.
+ */
+function syncMaxInput() {
+  const custom = !!bandHeights && bandHeights.length > 0
+  maxInput.disabled = custom
+  maxInput.title = custom ? tr('maxDerived') : ''
+  if (custom) {
+    const base = Number(baseInput.value) || 0.8
+    maxInput.value = String(Number((base + bandHeights!.reduce((a, c) => a + c, 0)).toFixed(2)))
+  }
+  paletteHeightsReset.hidden = !custom
+}
+
+paletteHeightsReset.addEventListener('click', () => {
+  bandHeights = null
+  syncMaxInput()
+  if (current) {
+    current = finishPipeline(current.image, current.quantized, readOptions())
+    updateUI()
+  }
+  saveSettings()
+})
 
 /** One row of the filament-library popover: a <select> for one axis. */
 function librarySelect(
@@ -1130,6 +1197,46 @@ function renderPalette() {
       labelSub.textContent = subText()
     })
 
+    // Per-band sheet thickness (HueForge-style): this slider sets the band's
+    // thickness in mm; the total model height becomes base + Σh while any
+    // custom heights are active (the max-height input turns read-only).
+    const heightSlider = document.createElement('input')
+    heightSlider.type = 'range'
+    heightSlider.className = 'palette-height'
+    heightSlider.min = '0.1'
+    heightSlider.max = '10'
+    heightSlider.step = '0.05'
+    heightSlider.value = String(bandThicknessForSlot(i))
+    heightSlider.title = tr('paletteHeight')
+    heightSlider.ariaLabel = `${tr('paletteHeight')} — #${entry.printOrder}`
+    const heightVal = document.createElement('span')
+    heightVal.className = 'palette-height-val'
+    heightVal.textContent = bandThicknessForSlot(i).toFixed(2)
+    heightSlider.addEventListener('input', () => {
+      if (!current) return
+      const baseMm = Number(baseInput.value) || 0.8
+      // First touch seeds custom mode from equal shares so the total doesn't
+      // jump while the user starts adjusting one band.
+      if (!bandHeights || bandHeights.length !== current.quantized.palette.length) {
+        const usable = current.settings.maxHeightMm - current.settings.baseMm
+        const share = Number((usable / current.quantized.palette.length).toFixed(2))
+        bandHeights = current.quantized.palette.map(() => Math.min(10, Math.max(0.1, share)))
+        syncMaxInput()
+      }
+      const others = bandHeights.reduce((a, c, idx) => (idx === i ? a : a + c), 0)
+      const v = Math.min(10, Math.max(0.1, Number(heightSlider.value)))
+      const clamped = Math.max(0.1, Math.min(v, 40 - baseMm - others))
+      bandHeights[i] = Number(clamped.toFixed(2))
+      heightSlider.value = String(bandHeights[i])
+      heightVal.textContent = bandHeights[i].toFixed(2)
+      syncMaxInput()
+      applyBandHeights()
+    })
+    heightSlider.addEventListener('change', () => {
+      updateUI()
+      saveSettings()
+    })
+
     // Restore the auto-quantized color for this entry.
     const reset = document.createElement('button')
     reset.type = 'button'
@@ -1163,7 +1270,7 @@ function renderPalette() {
       showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }))
     })
 
-    row.append(picker, label, tauInput, libBtn, reset)
+    row.append(picker, label, heightSlider, heightVal, tauInput, libBtn, reset)
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
@@ -1761,6 +1868,7 @@ function saveProject() {
         dither: opts.dither * 100,
         darkIsTall,
         backlight: lightBackBtn.classList.contains('is-active'),
+        ...(bandHeights ? { bandHeightsMm: [...bandHeights] } : {}),
       },
       palette,
     })
@@ -1784,6 +1892,14 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   baseInput.value = String(baseMm)
   maxInput.value = String(clamp(s.maxMm, baseMm + 2, 40, 8))
   layerInput.value = String(clamp(s.layerMm, 0.04, 0.6, 0.2))
+  // Custom band heights restore as-is when the color count matches; any
+  // mismatch (or a corrupt array) falls back to equal bands.
+  const bh = s.bandHeightsMm
+  bandHeights =
+    bh && bh.length === Number(colorsSlider.value) && bh.every((h) => Number.isFinite(h) && h > 0)
+      ? [...bh]
+      : null
+  syncMaxInput()
   const mode = document.querySelector<HTMLInputElement>(`input[name="mode"][value="${s.darkIsTall ? 'dark' : 'light'}"]`)
   if (mode) mode.checked = true
   setLightMode(s.backlight ? 'back' : 'front')

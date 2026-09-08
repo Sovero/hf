@@ -39,6 +39,8 @@ export interface ProjectSettings {
   dither: number
   darkIsTall: boolean
   backlight: boolean
+  /** Per-band sheet thickness in mm (palette order); absent = equal bands. */
+  bandHeightsMm?: number[]
 }
 
 export interface ProjectFile {
@@ -161,6 +163,17 @@ export function parseProjectFile(text: string): ProjectFile {
     dither: num('dither'),
     darkIsTall: bool('darkIsTall'),
     backlight: bool('backlight'),
+  }
+  // Optional per-band thicknesses: one positive finite number per color.
+  if (s.bandHeightsMm !== undefined) {
+    if (
+      !Array.isArray(s.bandHeightsMm) ||
+      s.bandHeightsMm.length !== settings.colors ||
+      !s.bandHeightsMm.every((h) => isFiniteNumber(h) && (h as number) > 0)
+    ) {
+      throw new ProjectFileError('settings.bandHeightsMm must have one positive finite number per color')
+    }
+    settings.bandHeightsMm = [...(s.bandHeightsMm as number[])]
   }
   return {
     app: PROJECT_APP,
