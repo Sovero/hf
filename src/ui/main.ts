@@ -441,6 +441,21 @@ const WELCOME_DISMISS_KEY = 'hf-welcome-dismissed'
 const TOUR_SEEN_KEY = 'hf-tour-seen'
 let tourStop: (() => void) | null = null
 
+/**
+ * Onboarding resolved: hide the welcome for good and remember the tour was
+ * seen (finish, skip or explicit «Hide») so neither the panel nor the tour
+ * auto-start ever come back on later visits.
+ */
+function markOnboardingDone() {
+  welcomePanel.hidden = true
+  try {
+    localStorage.setItem(TOUR_SEEN_KEY, '1')
+    localStorage.setItem(WELCOME_DISMISS_KEY, '1')
+  } catch {
+    /* private mode */
+  }
+}
+
 /** Starts the spotlight tour; a no-op while it is already running. */
 function startAppTour() {
   if (tourStop) return
@@ -448,38 +463,28 @@ function startAppTour() {
     tr,
     onFinish: () => {
       tourStop = null
-      try {
-        localStorage.setItem(TOUR_SEEN_KEY, '1')
-      } catch {
-        /* private mode */
-      }
+      markOnboardingDone()
     },
     onSkip: () => {
       tourStop = null
-      try {
-        localStorage.setItem(TOUR_SEEN_KEY, '1')
-      } catch {
-        /* private mode */
-      }
+      markOnboardingDone()
     },
   })
 }
 
 function setupWelcome() {
+  // First visit only: the welcome stays visible until onboarding is resolved
+  // (tour seen or «Hide» clicked) — after that it never returns.
   try {
-    if (localStorage.getItem(WELCOME_DISMISS_KEY)) welcomePanel.hidden = true
+    if (localStorage.getItem(TOUR_SEEN_KEY) !== null || localStorage.getItem(WELCOME_DISMISS_KEY)) welcomePanel.hidden = true
   } catch {
     /* private mode — keep the panel visible */
   }
   btnWelcomeTour.addEventListener('click', startAppTour)
   btnTour.addEventListener('click', startAppTour)
   btnWelcomeHide.addEventListener('click', () => {
-    welcomePanel.hidden = true
-    try {
-      localStorage.setItem(WELCOME_DISMISS_KEY, '1')
-    } catch {
-      /* private mode */
-    }
+    // Hiding the welcome also declines the tour auto-start.
+    markOnboardingDone()
   })
 }
 
