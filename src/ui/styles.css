@@ -1282,6 +1282,30 @@ body {
   transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease;
 }
 
+.tour-focus {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  pointer-events: none;
+  z-index: 1001;
+  animation: tour-pulse 1.6s ease-out infinite;
+}
+
+@keyframes tour-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 184, 255, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(79, 184, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 184, 255, 0);
+  }
+}
+
 .tour-card {
   position: fixed;
   width: min(340px, calc(100vw - 2rem));

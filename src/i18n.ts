@@ -636,6 +636,12 @@ export const dict: Dict = {
   tourNext: { en: 'Next', ru: 'Далее' },
   tourFinish: { en: 'Finish', ru: 'Завершить' },
   tourStep: { en: 'Step {n} of {total}', ru: 'Шаг {n} из {total}' },
+  tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
+  tourWidthTitle: { en: 'Width', ru: 'Ширина' },
+  tourHeightTitle: { en: 'Height', ru: 'Высота' },
+  tourBaseTitle: { en: 'Base', ru: 'Основание' },
+  tourMaxTitle: { en: 'Max height', ru: 'Макс. высота' },
+  tourLayerTitle: { en: 'Layer height', ru: 'Высота слоя' },
 }
 
 export function t(lang: Lang, key: string, params?: Record<string, string | number>): string {

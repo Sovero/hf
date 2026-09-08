@@ -23,13 +23,25 @@ export interface TourCallbacks {
   onSkip?: () => void
 }
 
-/** App sections in walk-through order (text keys reuse the section helps). */
+/**
+ * App sections and individual controls in walk-through order. Section steps
+ * spotlight the whole panel; control steps zoom into a single input (colors
+ * slider, dithering, each size field) and show a pulsing focus dot on it.
+ * Text keys reuse the existing per-control tooltips from the dict.
+ */
 export const TOUR_STEPS: TourStep[] = [
   { titleKey: 'tourIntroTitle', textKey: 'tourIntro' },
   { target: '#img-details', titleKey: 'panelImage', textKey: 'helpImage' },
   { target: '#colors-details', titleKey: 'panelColors', textKey: 'helpColors' },
+  { target: '#colors-slider', titleKey: 'sliderAria', textKey: 'helpColorsSlider' },
+  { target: '#dither-slider', titleKey: 'tourDitherTitle', textKey: 'helpDither' },
   { target: '#depth-details', titleKey: 'panelDepth', textKey: 'helpDepth' },
   { target: '#size-details', titleKey: 'panelSize', textKey: 'helpSize' },
+  { target: '#width-mm', titleKey: 'tourWidthTitle', textKey: 'helpWidth' },
+  { target: '#height-mm', titleKey: 'tourHeightTitle', textKey: 'helpHeight' },
+  { target: '#base-mm', titleKey: 'tourBaseTitle', textKey: 'helpBase' },
+  { target: '#max-mm', titleKey: 'tourMaxTitle', textKey: 'helpMax' },
+  { target: '#layer-mm', titleKey: 'tourLayerTitle', textKey: 'helpLayerMm' },
   { target: '#palette-details', titleKey: 'panelPalette', textKey: 'helpPalette' },
   { target: '#pb-details', titleKey: 'panelPrintability', textKey: 'helpPrintability' },
   { target: '#export-details', titleKey: 'panelExport', textKey: 'helpExport' },
@@ -52,12 +64,14 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
   overlay.className = 'tour-overlay'
   const spotlight = document.createElement('div')
   spotlight.className = 'tour-spotlight'
+  const focusDot = document.createElement('div')
+  focusDot.className = 'tour-focus'
   const card = document.createElement('div')
   card.className = 'tour-card'
   card.setAttribute('role', 'dialog')
   card.setAttribute('aria-modal', 'true')
   card.tabIndex = -1
-  overlay.append(spotlight, card)
+  overlay.append(spotlight, focusDot, card)
   document.body.appendChild(overlay)
   document.body.style.overflow = 'hidden'
 
@@ -122,6 +136,7 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
     }
 
     spotlight.hidden = !target
+    focusDot.hidden = !target
     if (target) {
       target.scrollIntoView({ block: 'center', inline: 'nearest' })
       const r = target.getBoundingClientRect()
@@ -129,6 +144,10 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
       spotlight.style.top = `${r.top - SPOT_PAD}px`
       spotlight.style.width = `${r.width + SPOT_PAD * 2}px`
       spotlight.style.height = `${r.height + SPOT_PAD * 2}px`
+      // Pulsing focus dot on the spotlight's top-right corner.
+      const s = spotlight.getBoundingClientRect()
+      focusDot.style.left = `${s.right - 5}px`
+      focusDot.style.top = `${s.top - 5}px`
     }
 
     const title = document.createElement('h3')
