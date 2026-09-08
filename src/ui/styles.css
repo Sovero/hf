@@ -1447,8 +1447,18 @@ body {
 }
 
 .tour-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: default;
+}
+
+/* Disabled primary: full-opacity muted surface so the dark label stays
+   readable instead of washing out at 40%% opacity on the bright accent. */
+.tour-btn.primary:disabled {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 38%, var(--panel-2));
+  border-color: transparent;
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .tour-btn.primary {
