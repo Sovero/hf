@@ -383,9 +383,42 @@ body {
 
 .palette-row {
   display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.25rem 0;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.palette-row:last-child {
+  border-bottom: none;
+}
+
+/* First line: swatch + band-height slider + τ + actions. */
+.palette-row-main {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  min-width: 0;
+}
+
+/* Second line: full-width info (mm · layers · share · τ) — no more
+   overflowing under the slider. */
+.palette-row .palette-label {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.palette-row .palette-label-main {
+  flex-shrink: 1;
+}
+
+.palette-row .palette-label-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
 }
 
 .palette-picker {
@@ -573,8 +606,8 @@ body {
 
 /* Palette row band-height slider (HueForge-style per-color thickness). */
 .palette-height {
-  flex: 1 1 3.5rem;
-  min-width: 2.75rem;
+  flex: 1 1 5rem;
+  min-width: 4rem;
   accent-color: var(--accent);
 }
 

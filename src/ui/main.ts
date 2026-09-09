@@ -2046,6 +2046,11 @@ function renderPalette() {
     const entry = palette[i]
     const row = document.createElement('div')
     row.className = 'palette-row'
+    // Two-line layout: controls on the first line, the full-width info
+    // line below (mm/layers/share/τ) — it never fits beside the controls
+    // in a 300 px panel and overflowed under the slider.
+    const rowMain = document.createElement('div')
+    rowMain.className = 'palette-row-main'
 
     // Native color picker styled as a swatch; live previews while dragging.
     const picker = document.createElement('input')
@@ -2191,7 +2196,8 @@ function renderPalette() {
       showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }))
     })
 
-    row.append(picker, label, heightSlider, heightVal, tauInput, libBtn, reset)
+    rowMain.append(picker, heightSlider, heightVal, tauInput, libBtn, reset)
+    row.append(rowMain, label)
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
