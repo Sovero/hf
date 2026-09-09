@@ -611,6 +611,14 @@ export const dict: Dict = {
     en: 'Model size: {w} × {h} × {z} mm (W × D × H)',
     ru: 'Габариты модели: {w} × {h} × {z} мм (Ш × Г × В)',
   },
+  printerNone: {
+    en: 'No printer bed',
+    ru: 'Без стола принтера',
+  },
+  printerHelp: {
+    en: 'Show a translucent plane of this printer\'s table — see whether the print fits and how much of the bed it uses.',
+    ru: 'Показывает полупрозрачный стол выбранного принтера — видно, влезает ли модель и сколько места занимает.',
+  },
   viewerHome: { en: 'Home view', ru: 'Домашний вид' },
   cubeTitle: { en: 'View cube', ru: 'Куб ориентации' },
   cubeHint: { en: 'Click a face, edge or corner to look from that side', ru: 'Кликните по грани, ребру или углу — камера встанет с этой стороны' },

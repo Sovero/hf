@@ -830,8 +830,21 @@ body {
 /* 3D analysis-mode toggle reuses the segmented-toggle look. */
 .viewer3d-head {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
   margin-bottom: 0.35rem;
+}
+
+.printer-select {
+  max-width: 15rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.8rem;
 }
 
 /* Model dimensions caption under the 3D view. */

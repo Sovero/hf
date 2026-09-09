@@ -27,6 +27,7 @@ import { colorShares, formatShare } from '../lib/colorShare'
 import { orderSpools } from '../lib/spoolOrder'
 import { recentSpoolIds, recordRecentSpools } from '../lib/recentSpools'
 import { shoppingList, unassignedCount, formatShoppingList } from '../lib/shoppingList'
+import { PRINTERS, PRINTER_NONE, bedSizeFor } from '../lib/printers'
 import { dropSparseColors, dropTargets } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
@@ -63,6 +64,7 @@ const dropSparseBtn = $<HTMLButtonElement>('#palette-drop-sparse')
 const dropSparseWrap = $<HTMLSpanElement>('#drop-sparse-wrap')
 const dropSparseThreshold = $<HTMLInputElement>('#drop-sparse-threshold')
 const dimsEl = $<HTMLParagraphElement>('#viewer3d-dims')
+const printerSelect = $<HTMLSelectElement>('#printer-select')
 const shoppingListBtn = $<HTMLButtonElement>('#btn-shopping-list')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
@@ -426,6 +428,7 @@ function applyStaticText() {
   viewer3d?.setFaceLabels(cubeFaceLabels())
   updateCatalogBtn() // the catalog toggle label depends on its active state
   renderTicks() // rebuild tick tooltips/labels in the current language
+  fillPrinterSelect() // option labels and tooltip follow the language
 }
 
 /**
@@ -2290,10 +2293,38 @@ function update3d() {
   const z = Math.max(...current!.palette.map((e) => e.topZMm))
   const fmt = (v: number) => String(parseFloat(v.toFixed(2)))
   dimsEl.textContent = tr('viewer3dDims', { w: fmt(w), h: fmt(h), z: fmt(z) })
+  viewer3d.setPrinterBed(bedSizeFor(printerSelect.value))
   // Re-apply the active analysis mode to the fresh geometry.
   if (viewer3dMode === 'deltae') applyDeltaETo3d()
   else if (viewer3dMode === 'slice') applySliceTo3d()
 }
+
+/** Fill the printer-bed selector (call again on language change for labels). */
+function fillPrinterSelect() {
+  const prev = printerSelect.value || localStorage.getItem('hf-printer') || PRINTER_NONE
+  printerSelect.replaceChildren()
+  const none = document.createElement('option')
+  none.value = PRINTER_NONE
+  none.textContent = tr('printerNone')
+  printerSelect.appendChild(none)
+  for (const p of PRINTERS) {
+    const opt = document.createElement('option')
+    opt.value = p.id
+    opt.textContent = `${p.name} — ${p.bedX}×${p.bedY}`
+    printerSelect.appendChild(opt)
+  }
+  printerSelect.value = findPrinterOption(prev)
+  printerSelect.title = tr('printerHelp')
+}
+
+function findPrinterOption(id: string): string {
+  return [...printerSelect.options].some((o) => o.value === id) ? id : PRINTER_NONE
+}
+
+printerSelect.addEventListener('change', () => {
+  try { localStorage.setItem('hf-printer', printerSelect.value) } catch { /* private mode */ }
+  viewer3d?.setPrinterBed(bedSizeFor(printerSelect.value))
+})
 
 /** Active 3D analysis mode ('model' = plain filament colors). */
 let viewer3dMode: 'model' | 'deltae' | 'slice' = 'model'
@@ -3179,6 +3210,7 @@ btnOpenSlicer.addEventListener('click', async () => {
 versionBadge.textContent = `v${__APP_VERSION__}`
 
 restoreSettings()
+fillPrinterSelect()
 void setupOpenInSlicer()
 
 // Language: apply immediately (before first paint), bind the switcher.

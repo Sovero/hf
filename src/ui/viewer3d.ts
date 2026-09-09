@@ -119,6 +119,9 @@ export class Viewer3D {
   private meshGroup: THREE.Group
   /** World group: mesh + bed + axes, shifted so the print is centered at origin. */
   private worldGroup: THREE.Group
+  /** Translucent real-printer bed plane + its outline (when a printer is picked). */
+  private printerBed: THREE.Group | null = null
+  private printerBedSize: { x: number; y: number } | null = null
   private container: HTMLElement
   private rafHandle = 0
   private hasMesh = false
@@ -279,6 +282,60 @@ export class Viewer3D {
     // Axes at the print origin corner, scaled to the print size.
     this.axesGroup = this.buildAxes(Math.max(wMm, hMm) * 0.5, Math.max(wMm, hMm) * 0.06)
     this.worldGroup.add(this.axesGroup)
+
+    // Real-printer bed plane follows the (possibly changed) footprint.
+    if (this.printerBedSize) this.rebuildPrinterBed()
+  }
+
+  /**
+   * Translucent plane of a real printer's table, centered under the print.
+   * A print larger than the bed visibly overhangs it on all sides; null
+   * hides the plane ("no printer" selection).
+   */
+  setPrinterBed(size: { x: number; y: number } | null) {
+    this.printerBedSize = size
+    this.rebuildPrinterBed()
+  }
+
+  private rebuildPrinterBed() {
+    if (this.printerBed) {
+      this.worldGroup.remove(this.printerBed)
+      disposeTree(this.printerBed)
+      this.printerBed = null
+    }
+    const size = this.printerBedSize
+    if (!size || !this.bedDims) return
+    const { x, y } = size
+    const group = new THREE.Group()
+
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(x, y),
+      new THREE.MeshBasicMaterial({
+        color: 0x4fb8ff,
+        transparent: true,
+        opacity: 0.07,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    )
+    plane.rotation.x = -Math.PI / 2
+
+    const outline = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.PlaneGeometry(x, y)),
+      new THREE.LineBasicMaterial({ color: 0x4fb8ff, transparent: true, opacity: 0.55 }),
+    )
+    outline.rotation.x = -Math.PI / 2
+
+    group.add(plane, outline)
+    // worldGroup-local space still uses print coords: the footprint spans
+    // X [0,w], Z [−h,0] and worldGroup's POSITION is what centers it on the
+    // scene origin. The bed therefore centers on the footprint's local
+    // center (w/2, −h/2), riding along with the world offset.
+    const w = this.bedDims.w
+    const h = this.bedDims.h
+    group.position.set(w / 2, -0.01, -h / 2)
+    this.printerBed = group
+    this.worldGroup.add(group)
   }
 
   /**
