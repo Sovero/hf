@@ -2086,8 +2086,17 @@ function renderPalette() {
       const tauPart = ` · τ ${tauOfSlot(i).toFixed(2)} mm`
       return t ? `${mmOf(lang, t.mm)} · ${word(lang, t.layers, 'layers')}${sharePart}${tauPart}` : `${sharePart}${tauPart}`
     }
-    labelMain.textContent = labelText()
-    labelSub.textContent = subText()
+    // Full details also ride on the row tooltip: the info line truncates
+    // with ellipsis in a narrow panel, so hovering must reveal everything
+    // (native tooltips render \n as a line break).
+    const syncLabel = () => {
+      const main = labelText()
+      const sub = subText()
+      labelMain.textContent = main
+      labelSub.textContent = sub
+      label.title = `${main}\n${sub}`
+    }
+    syncLabel()
     label.append(labelMain, labelSub)
 
     // Filament-library button: pick a real catalog plastic for this band.
@@ -2124,7 +2133,7 @@ function renderPalette() {
       current.quantized.tauMm![i] = Math.min(6, Math.max(0.2, v))
       drawQuantized()
       drawLayerView()
-      labelSub.textContent = subText()
+      syncLabel()
       scheduleSettle()
     })
 
@@ -2180,7 +2189,7 @@ function renderPalette() {
       if (!auto) return
       picker.value = rgbToHex(auto)
       setPaletteColor(i, { ...auto })
-      labelMain.textContent = labelText()
+      syncLabel()
       libBtn.textContent = filamentAssignments[i] ? '★' : '☆'
     })
 
@@ -2193,7 +2202,7 @@ function renderPalette() {
         filamentAssignments[i] = null
         libBtn.textContent = '☆'
       }
-      labelMain.textContent = labelText()
+      syncLabel()
     })
     // Commit: full re-render (palette list, printability, status).
     picker.addEventListener('change', () => {
