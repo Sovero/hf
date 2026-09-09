@@ -275,6 +275,22 @@ export const dict: Dict = {
     en: 'Area coverage: each segment is one palette color, its width is that color’s share of the printed area. A hairline segment is a color that barely appears — it still costs a filament swap.',
     ru: 'Покрытие площади: каждый сегмент — один цвет палитры, ширина — его доля напечатанной площади. Волосный сегмент — цвет, которого почти нет, но он всё равно требует смены филамента.',
   },
+  mode3dModel: {
+    en: 'Model',
+    ru: 'Модель',
+  },
+  mode3dDeltaE: {
+    en: 'ΔE map',
+    ru: 'ΔE-карта',
+  },
+  mode3dSlice: {
+    en: 'Layer cut',
+    ru: 'Срез слоя',
+  },
+  helpViewer3dModes: {
+    en: 'Model — filament colors. ΔE map — the top surface is painted with the error heatmap (green = matches the target, red = visible mismatch; same scale as the ΔE error map panel). Layer cut — follow the layer slider: everything above the chosen layer is clipped away, showing which colors are printed by that height.',
+    ru: 'Модель — цвета филаментов. ΔE-карта — верхняя поверхность окрашена тепловой картой ошибок (зелёный = совпадает с целью, красный = заметное расхождение; шкала как в панели ΔE-карты). Срез слоя — следите за ползунком слоёв: всё выше выбранного слоя отрезано, видно, какие цвета напечатаны к этой высоте.',
+  },
   helpDither: {
     en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it.',
     ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт.',
@@ -482,6 +498,14 @@ export const dict: Dict = {
   catdlgCount: {
     en: '{n} selected',
     ru: 'Выбрано: {n}',
+  },
+  catdlgSearchPlaceholder: {
+    en: 'Search color, brand, material…',
+    ru: 'Поиск: цвет, бренд, материал…',
+  },
+  catdlgRecents: {
+    en: 'Recent:',
+    ru: 'Недавние:',
   },
   catdlgApply: {
     en: 'Build palette',

@@ -794,6 +794,40 @@ body {
   color: var(--text);
 }
 
+/* 3D analysis-mode toggle reuses the segmented-toggle look. */
+.viewer3d-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.35rem;
+}
+
+.seg-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.seg-toggle button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.seg-toggle button + button {
+  border-left: 1px solid var(--border);
+}
+
+.seg-toggle button.is-active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
 .light-note {
   margin: 0.5rem 0 0;
 }
@@ -1279,6 +1313,42 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.catdlg-search {
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  margin: 0.5rem 0 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.catdlg-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.catdlg-recents {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.catdlg-recents-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-right: 0.2rem;
+}
+
+.catdlg-recent {
+  width: 26px;
+  aspect-ratio: auto;
+  flex: 0 0 auto;
 }
 
 .catdlg-controls {

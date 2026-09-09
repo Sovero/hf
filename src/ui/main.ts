@@ -25,6 +25,7 @@ import type { FaceName } from '../lib/viewCubeMath'
 import { autoPickFilaments } from '../lib/autoPick'
 import { colorShares, formatShare } from '../lib/colorShare'
 import { orderSpools } from '../lib/spoolOrder'
+import { recentSpoolIds, recordRecentSpools } from '../lib/recentSpools'
 import { dropSparseColors } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
@@ -868,6 +869,8 @@ layerSlider.addEventListener('input', () => {
   const l = Number(layerSlider.value)
   layerPos = total > 1 ? (l - 1) / (total - 1) : 1
   drawLayerView()
+  // Slice mode follows the layer slider live.
+  if (viewer3dMode === 'slice') applySliceTo3d()
 })
 
 /** Snapshot of the auto-quantized palette, so any color can be reset. */
@@ -1497,6 +1500,7 @@ function openCatalogDialog() {
   // Brand / material selectors + a live counter, mirroring the ★ popover.
   let brandId = BRANDS[0].id
   let materialId: MaterialId = 'pla'
+  let searchQuery = ''
   const selected = new Map<string, { hex: string; rgb: RGB; label: string }>()
 
   const controls = document.createElement('div')
@@ -1508,6 +1512,42 @@ function openCatalogDialog() {
     counter.textContent = tr('catdlgCount', { n: String(selected.size) })
     counter.classList.toggle('is-full', selected.size >= SLIDER_MAX)
     okBtn.disabled = selected.size < 2
+  }
+
+  // ---- Search: filters the grid by color/brand name across all brands ----
+  const searchInput = document.createElement('input')
+  searchInput.type = 'search'
+  searchInput.className = 'catdlg-search'
+  searchInput.placeholder = tr('catdlgSearchPlaceholder')
+  searchInput.setAttribute('aria-label', tr('catdlgSearchPlaceholder'))
+  searchInput.addEventListener('input', () => {
+    searchQuery = searchInput.value.trim().toLowerCase()
+    renderGrid()
+  })
+
+  // ---- Recently used: one-click row of the user's usual spools ----
+  const recentsRow = document.createElement('div')
+  recentsRow.className = 'catdlg-recents'
+  const recentIds = recentSpoolIds()
+  if (recentIds.length > 0) {
+    const label = document.createElement('span')
+    label.className = 'catdlg-recents-label'
+    label.textContent = tr('catdlgRecents')
+    recentsRow.appendChild(label)
+    for (const id of recentIds) {
+      const f = findFilament(id)
+      if (!f) continue
+      const cell = document.createElement('button')
+      cell.type = 'button'
+      cell.className = 'catdlg-cell catdlg-recent'
+      cell.title = `${f.brandName} · ${materialName(f.materialId)} · ${lang === 'ru' ? f.color.nameRu : f.color.nameEn}`
+      const sw = document.createElement('span')
+      sw.className = 'catdlg-swatch'
+      sw.style.background = f.color.hex
+      cell.append(sw)
+      cell.addEventListener('click', () => toggleSpool(f, f.materialId))
+      recentsRow.appendChild(cell)
+    }
   }
 
   const brandSel = librarySelect(
@@ -1542,32 +1582,47 @@ function openCatalogDialog() {
   cancelBtn.className = 'catdlg-cancel'
   cancelBtn.textContent = tr('catdlgCancel')
 
+  /** Shared grid/recents toggle: flip selection state for one filament. */
+  const toggleSpool = (f: { color: { id: string; hex: string; rgb: RGB; nameRu: string; nameEn: string }, brandName: string }, material: MaterialId) => {
+    if (selected.has(f.color.id)) {
+      selected.delete(f.color.id)
+    } else {
+      if (selected.size >= SLIDER_MAX) return
+      selected.set(f.color.id, {
+        hex: f.color.hex,
+        rgb: { ...f.color.rgb },
+        label: `${f.brandName} · ${materialName(material)} · ${lang === 'ru' ? f.color.nameRu : f.color.nameEn}`,
+      })
+    }
+    updateCounter()
+    syncSelectedClasses()
+  }
+
+  /** Selection changed: rebuild the grid so cells re-mark and re-filter. */
+  const syncSelectedClasses = () => renderGrid()
+
   const renderGrid = () => {
     grid.replaceChildren()
+    const brandName = BRANDS.find((b) => b.id === brandId)?.name ?? brandId
     for (const c of LIBRARY[brandId][materialId].colors) {
+      const name = lang === 'ru' ? c.nameRu : c.nameEn
+      // Search matches color name, brand name, or material across all brands.
+      if (searchQuery) {
+        const hayRu = `${c.nameRu} ${brandName} ${materialName(materialId)}`.toLowerCase()
+        const nameMatch = hayRu.includes(searchQuery) || `${c.nameEn} ${brandName} ${materialName(materialId)}`.toLowerCase().includes(searchQuery)
+        if (!nameMatch) continue
+      }
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.className = 'catdlg-cell'
-      btn.title = lang === 'ru' ? c.nameRu : c.nameEn
+      btn.title = name
       const sw = document.createElement('span')
       sw.className = 'catdlg-swatch'
       sw.style.background = c.hex
       btn.append(sw)
       if (selected.has(c.id)) btn.classList.add('is-selected')
       btn.addEventListener('click', () => {
-        if (selected.has(c.id)) {
-          selected.delete(c.id)
-          btn.classList.remove('is-selected')
-        } else {
-          if (selected.size >= SLIDER_MAX) return
-          selected.set(c.id, {
-            hex: c.hex,
-            rgb: { ...c.rgb },
-            label: `${BRANDS.find((b) => b.id === brandId)?.name ?? brandId} · ${materialName(materialId)} · ${lang === 'ru' ? c.nameRu : c.nameEn}`,
-          })
-          btn.classList.add('is-selected')
-        }
-        updateCounter()
+        toggleSpool({ color: c, brandName }, materialId)
       })
       grid.appendChild(btn)
     }
@@ -1582,6 +1637,7 @@ function openCatalogDialog() {
   okBtn.addEventListener('click', () => {
     if (selected.size < 2) return
     const picks = [...selected.entries()].map(([id, v]) => ({ id, rgb: v.rgb }))
+    recordRecentSpools(picks.map((p) => p.id))
     const ordered = orderSpools(picks)
     // ★ assignments follow their spools so the rows show the real plastic.
     filamentAssignments = [...ordered.ids]
@@ -1595,7 +1651,7 @@ function openCatalogDialog() {
   footer.className = 'catdlg-footer'
   footer.append(okBtn, cancelBtn)
 
-  dlg.append(title, hint, controls, grid, footer)
+  dlg.append(title, hint, searchInput, recentsRow, controls, grid, footer)
   back.appendChild(dlg)
   document.body.appendChild(back)
 }
@@ -2164,9 +2220,67 @@ function update3d() {
     viewer3d.setFaceLabels(cubeFaceLabels())
     const homeBtn = document.getElementById('viewer-home')
     homeBtn?.addEventListener('click', () => viewer3d?.goHome())
+    for (const b of document.querySelectorAll<HTMLButtonElement>('#viewer3d-modes button')) {
+      b.addEventListener('click', () => setViewer3dMode(b.dataset.mode as 'model' | 'deltae' | 'slice'))
+    }
   }
   viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
   viewer3d.setMesh(current!.mesh, { wMm: current!.settings.widthMm, hMm: current!.settings.heightMm })
+  // Re-apply the active analysis mode to the fresh geometry.
+  if (viewer3dMode === 'deltae') applyDeltaETo3d()
+  else if (viewer3dMode === 'slice') applySliceTo3d()
+}
+
+/** Active 3D analysis mode ('model' = plain filament colors). */
+let viewer3dMode: 'model' | 'deltae' | 'slice' = 'model'
+
+/**
+ * Compute the per-cell ΔE error (same values the 2D map shows) and hand
+ * them to the 3D viewer as a heatmap over the top surface.
+ */
+function applyDeltaETo3d() {
+  if (!viewer3d || !current) return
+  const { width, height, indexMap, palette } = current.quantized
+  const n = palette.length
+  const blends = transmittedBandColors(current)
+  const src = current.image.rgba
+  const darkIsTall = current.settings.darkIsTall
+  const de = new Float32Array(width * height)
+  for (let i = 0; i < width * height; i++) {
+    const si = i * 4
+    const slice = darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
+    const c = blends[slice] ?? palette[indexMap[i]]
+    de[i] = deltaE2000Rgb(src[si], src[si + 1], src[si + 2], c.r, c.g, c.b)
+  }
+  viewer3d.setDeltaEMap(de, width, height, indexMap, palette)
+}
+
+/** Push the current layer-view position into the 3D slice mode. */
+function applySliceTo3d() {
+  if (!viewer3d || !current) return
+  const total = Math.max(1, Math.round(current.settings.maxHeightMm / current.settings.layerMm))
+  const l = Math.round(layerPos * (total - 1)) + 1
+  viewer3d.setSlice(l * current.settings.layerMm)
+}
+
+/** Switch the 3D viewer's analysis mode and keep the UI in step. */
+function setViewer3dMode(mode: 'model' | 'deltae' | 'slice') {
+  viewer3dMode = mode
+  const group = document.getElementById('viewer3d-modes')
+  for (const b of group?.querySelectorAll<HTMLButtonElement>('button') ?? []) {
+    b.classList.toggle('is-active', b.dataset.mode === mode)
+  }
+  if (!viewer3d || !current) return
+  if (mode === 'deltae') {
+    applyDeltaETo3d()
+    viewer3d.setSlice(null)
+  } else if (mode === 'slice') {
+    viewer3d.clearDeltaEOverlay()
+    applySliceTo3d()
+  } else {
+    viewer3d.clearDeltaEOverlay()
+    viewer3d.setSlice(null)
+  }
 }
 
 // ---- Per-filament opacity calibration (swatch print + photo fit) ---------
