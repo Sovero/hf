@@ -735,7 +735,10 @@ body {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  flex-shrink: 0;
+  /* The 320px sidebar fits ~2 buttons per line; let the chips flow onto
+     extra lines instead of overflowing the panel edge. */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 /* "Barely used" threshold: number field + % unit + the drop button. */
@@ -777,6 +780,7 @@ body {
 
 .palette-reset-btn {
   flex-shrink: 0;
+  white-space: nowrap; /* wrap as a whole chip, never mid-label */
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 4px;
