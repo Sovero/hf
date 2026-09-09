@@ -1,6 +1,8 @@
 import type { PipelineResult } from './pipeline'
 import { MIN_REGION_CELLS } from './quantize'
+import { snappedBandTops } from './heightmap'
 import { t, word, mmOf, type Lang } from '../i18n'
+import type { PrintSettings, QuantizedImage } from './types'
 
 export type CheckLevel = 'ok' | 'warn' | 'fail'
 
@@ -15,6 +17,143 @@ export interface PrintabilityReport {
   checks: PrintabilityCheck[]
   errors: number
   warnings: number
+}
+
+/**
+ * A concrete, apply-able auto-fix for a failing check. The UI turns one of
+ * these into a settings change (input value + reprocess).
+ */
+export type PrintabilityFix =
+  | { kind: 'maxHeight'; to: number }
+  | { kind: 'colors'; to: number }
+  | { kind: 'bandHeights'; heights: number[] }
+  | { kind: 'size'; width: number; height: number }
+
+/** App-wide ceilings the fixer must respect (mirror readOptions/clamps). */
+const MAX_HEIGHT_MM = 40
+const MAX_SIZE_MM = 500
+const MAX_BAND_HEIGHT_MM = 10
+
+/**
+ * Smallest band thickness (mm) the current geometry would have if the
+ * settings were applied: a pure re-run of snappedBandTops, so the fixer
+ * verifies its candidate settings against the exact same math the pipeline
+ * uses — no off-by-half-layer surprises from grid rounding.
+ */
+function minSnappedBand(q: QuantizedImage, settings: PrintSettings): number {
+  const tops = snappedBandTops(q, settings)
+  let prev = settings.baseMm
+  let minBand = Infinity
+  for (const t of tops) {
+    minBand = Math.min(minBand, t - prev)
+    prev = t
+  }
+  return minBand
+}
+
+const round2 = (v: number) => Math.round(v * 100) / 100
+const round1 = (v: number) => Math.round(v * 10) / 10
+
+/**
+ * Compute the auto-fix for a check, or null when nothing within the app's
+ * limits can repair it (or the check is fine).
+ *
+ * - 'bands' warn/fail: raise Max height so every band ≥ the nozzle width
+ *   (bands thinner than the nozzle smear; bands at exactly one layer already
+ *   print fine — snappedBandTops guarantees ≥ one layer by construction).
+ *   Custom per-color heights are scaled up instead; if the 40 mm / 10 mm
+ *   per-band ceilings block that, the color count is reduced.
+ * - 'resolution' fail/warn: enlarge the print so each image cell maps to at
+ *   least a layer (fail) or the nozzle width (warn).
+ * - Everything else: no automatic fix (warnings are inherent to the artwork).
+ */
+export function fixFor(checkId: string, result: PipelineResult): PrintabilityFix | null {
+  const { settings, quantized } = result
+  const layerMm = settings.layerMm
+  const baseMm = settings.baseMm
+  const n = quantized.palette.length
+
+  if (checkId === 'bands') {
+    // The geometry already has every band at or above the nozzle width —
+    // nothing to fix. (snappedBandTops forces bands ≥ one layer by
+    // construction, so the fixable risk is bands thinner than the nozzle.)
+    if (minSnappedBand(quantized, settings) >= NOZZLE_MM - 1e-9) return null
+
+    // Custom per-color heights: scale every band up so the thinnest reaches
+    // the nozzle width, then nudge the top band until the grid rounding
+    // actually yields a passing geometry (the final top sits at maxHeight
+    // exactly, so rounding of the band below can still starve it).
+    const custom = quantized.bandHeightsMm
+    if (custom && custom.length === n) {
+      const hMin = Math.min(...custom)
+      if (hMin < NOZZLE_MM) {
+        const scale = NOZZLE_MM / hMin
+        const scaled = custom.map((h) => Math.min(MAX_BAND_HEIGHT_MM, round2(h * scale)))
+        const usable = MAX_HEIGHT_MM - baseMm
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const total = scaled.reduce((a, c) => a + c, 0)
+          if (total > usable) break
+          const q2: QuantizedImage = { ...quantized, bandHeightsMm: scaled }
+          const s2: PrintSettings = { ...settings, maxHeightMm: round2(baseMm + total) }
+          const band = minSnappedBand(q2, s2)
+          if (band >= NOZZLE_MM - 1e-9) return { kind: 'bandHeights', heights: scaled }
+          // Grid rounding starved the top band: give it the shortfall.
+          const topIdx = settings.darkIsTall ? 0 : n - 1
+          scaled[topIdx] = round2(scaled[topIdx] + (NOZZLE_MM - band))
+          if (scaled[topIdx] > MAX_BAND_HEIGHT_MM) break
+        }
+      }
+      // Custom heights that cannot be scaled within limits fall through to
+      // the color-count reduction below (which resets to equal heights).
+    }
+
+    // Equal heights: find the smallest max height on the layer grid whose
+    // simulated geometry has every band ≥ the nozzle width.
+    for (let usable = n * NOZZLE_MM; usable <= MAX_HEIGHT_MM - baseMm + 1e-9; usable += layerMm) {
+      const candidate = round2(baseMm + usable)
+      if (candidate > MAX_HEIGHT_MM) break
+      const q2: QuantizedImage = { ...quantized, bandHeightsMm: undefined }
+      const s2: PrintSettings = { ...settings, maxHeightMm: candidate }
+      if (minSnappedBand(q2, s2) >= NOZZLE_MM - 1e-9) return { kind: 'maxHeight', to: candidate }
+    }
+
+    // Max height alone cannot fix it within 40 mm: reduce the color count
+    // (equal population bands), keeping the current max height when it
+    // already passes, otherwise growing it on the same grid search.
+    for (let fewer = n - 1; fewer >= 2; fewer--) {
+      const q2: QuantizedImage = {
+        ...quantized,
+        bandHeightsMm: undefined,
+        bandTops: Array.from({ length: fewer }, (_, i) => (i + 1) / fewer),
+      }
+      if (minSnappedBand(q2, settings) >= NOZZLE_MM - 1e-9) return { kind: 'colors', to: fewer }
+      for (let usable = fewer * NOZZLE_MM; usable <= MAX_HEIGHT_MM - baseMm + 1e-9; usable += layerMm) {
+        const candidate = round2(baseMm + usable)
+        if (candidate > MAX_HEIGHT_MM) break
+        const s2: PrintSettings = { ...settings, maxHeightMm: candidate }
+        if (minSnappedBand(q2, s2) >= NOZZLE_MM - 1e-9) return { kind: 'colors', to: fewer }
+      }
+    }
+    return null
+  }
+
+  if (checkId === 'resolution') {
+    const pos = result.mesh.positions
+    let w = 0
+    let h = 0
+    for (let i = 0; i < pos.length; i += 3) {
+      if (pos[i] > w) w = pos[i]
+      if (pos[i + 1] > h) h = pos[i + 1]
+    }
+    const cellMm = Math.min(w / result.image.width, h / result.image.height)
+    const target = cellMm < layerMm - 1e-9 ? layerMm : NOZZLE_MM
+    if (cellMm >= target - 1e-9) return null
+    const s = Math.min(target / cellMm, MAX_SIZE_MM / Math.max(w, h))
+    if (s * cellMm < target - 1e-9) return null
+    return { kind: 'size', width: round1(w * s), height: round1(h * s) }
+  }
+
+  return null
 }
 
 /** Typical nozzle diameter (mm). */
@@ -77,14 +216,19 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
   const regionsText = (v: number) => word(lang, v, 'regions')
 
   // ---- 1. Color band thickness ----
-  if (bandMm < layerMm) {
+  // snappedBandTops forces every band to at least one layer (monotonicity
+  // clamp), so a sub-layer band can only appear through float dust (e.g.
+  // 0.29999999999999993 vs 0.3). Compare with a small epsilon so a band that
+  // is exactly one layer — which prints fine as a single-layer sheet — is
+  // never flagged as an error. The real risk below the nozzle is smearing.
+  if (bandMm < layerMm - 1e-6) {
     checks.push({
       id: 'bands',
       level: 'fail',
       title: str('pbBandsTitleFail'),
       detail: str(customHeights ? 'pbBandsDetailFailCustom' : 'pbBandsDetailFail', { band: mm(bandMm), layer: mm(layerMm) }),
     })
-  } else if (bandMm < NOZZLE_MM) {
+  } else if (bandMm < NOZZLE_MM - 1e-6) {
     checks.push({
       id: 'bands',
       level: 'warn',
@@ -110,14 +254,14 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
   }
 
   // ---- 2. Feature resolution vs nozzle ----
-  if (cellMm < layerMm) {
+  if (cellMm < layerMm - 1e-6) {
     checks.push({
       id: 'resolution',
       level: 'fail',
       title: str('pbResTitleFail'),
       detail: str('pbResDetailFail', { cell: mm(cellMm), layer: mm(layerMm) }),
     })
-  } else if (cellMm < NOZZLE_MM) {
+  } else if (cellMm < NOZZLE_MM - 1e-6) {
     checks.push({
       id: 'resolution',
       level: 'warn',

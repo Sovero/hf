@@ -880,6 +880,19 @@ export const dict: Dict = {
     en: 'All walls are vertical (≤90°) and every layer is supported from below — no supports needed, no overhang risk. Fragile isolated regions were flattened automatically.',
     ru: 'Все стены вертикальны (≤90°) и каждый слой опирается на нижний — поддержки не нужны, нависаний нет. Хрупкие изолированные участки сглажены автоматически.',
   },
+  pbFix: { en: 'Fix', ru: 'Исправить' },
+  pbFixTitle: {
+    en: 'Apply the recommended settings automatically and reprocess.',
+    ru: 'Применить рекомендуемые настройки автоматически и пересчитать.',
+  },
+  pbFixApplied: {
+    en: 'Auto-fix applied: {what}.',
+    ru: 'Автоисправление применено: {what}.',
+  },
+  pbFixWhatMax: { en: 'max height → {v}', ru: 'макс. высота → {v}' },
+  pbFixWhatColors: { en: 'colors → {n}', ru: 'цветов → {n}' },
+  pbFixWhatHeights: { en: 'band heights raised', ru: 'высоты полос подняты' },
+  pbFixWhatSize: { en: 'print size → {w}×{h}', ru: 'размер → {w}×{h}' },
 
   // ---- welcome panel + guided tour ----
   welcomeTitle: { en: 'Welcome to HueForge Web', ru: 'Добро пожаловать в HueForge Web' },

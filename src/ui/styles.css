@@ -840,6 +840,20 @@ body {
 .check-ok .check-icon { color: var(--accent-2); }
 .check-ok { opacity: 0.8; }
 
+.fix-btn {
+  margin-top: 0.4rem;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.fix-btn:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
 .viewers {
   display: flex;
   flex-direction: column;

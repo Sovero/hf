@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mapToLuminanceBands } from '../lib/quantize'
 import { finishPipeline, type PipelineResult } from '../lib/pipeline'
-import { analyzePrintability } from '../lib/printability'
+import { analyzePrintability, fixFor } from '../lib/printability'
 import type { PrintSettings } from '../lib/types'
 
 function gradientImage(size = 64): { width: number; height: number; rgba: Uint8ClampedArray } {
@@ -65,14 +65,17 @@ describe('printability', () => {
     expect(report.checks.every((c) => c.level === 'ok')).toBe(true)
   })
 
-  it('flags bands thinner than one layer as an error', () => {
-    // 24 colors squeezed into 2 mm of usable height → 0.087 mm bands.
+  it('never flags bands at exactly one layer (float-dust safe)', () => {
+    // 24 colors squeezed into 2 mm of usable height: snappedBandTops forces
+    // every band to at least one layer (monotonicity clamp), so the only way
+    // this could read as a sub-layer band is float dust (0.2 vs 0.19999…).
+    // A one-layer band prints fine as a distinct sheet — it must not fail.
     const report = analyzePrintability(run(gradientImage(), {
       widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 2.8, darkIsTall: true, layerMm: 0.2, numColors: 24,
     }))
     const bands = report.checks.find((c) => c.id === 'bands')!
-    expect(bands.level).toBe('fail')
-    expect(report.errors).toBeGreaterThanOrEqual(1)
+    expect(bands.level).not.toBe('fail')
+    expect(report.errors).toBe(0)
   })
 
   it('warns on bands thinner than the nozzle but thicker than a layer', () => {
@@ -135,5 +138,99 @@ describe('printability', () => {
     const support = report.checks.find((c) => c.id === 'support')!
     expect(support.level).toBe('ok')
     expect(support.detail).not.toContain('Dithering is on')
+  })
+})
+
+describe('auto-fix (fixFor)', () => {
+  it('raises max height so thin equal bands reach the nozzle width', () => {
+    const result = run(gradientImage(), {
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 2.8, darkIsTall: true, layerMm: 0.2, numColors: 24,
+    })
+    // 0.2 mm bands: one layer thick (warn, not fail) but below the 0.4 nozzle.
+    const before = analyzePrintability(result).checks.find((c) => c.id === 'bands')!
+    expect(before.level).toBe('warn')
+    const fix = fixFor('bands', result)
+    expect(fix).not.toBeNull()
+    expect(fix!.kind).toBe('maxHeight')
+    expect((fix as { to: number }).to).toBeGreaterThan(2.8)
+    // Applying the fix must make the check pass.
+    const fixed = run(gradientImage(), {
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: (fix as { to: number }).to, darkIsTall: true, layerMm: 0.2, numColors: 24,
+    })
+    const bands = analyzePrintability(fixed).checks.find((c) => c.id === 'bands')!
+    expect(bands.level).not.toBe('warn')
+    expect(bands.level).not.toBe('fail')
+  })
+
+  it('scales custom band heights up to the nozzle width', () => {
+    const img = gradientImage()
+    const q = mapToLuminanceBands(img.rgba, 4, img.width, img.height, true, 0)
+    const heights = [0.05, 0.5, 0.5, 0.5] // thinnest band stacked on top
+    const result = finishPipeline(img, q, {
+      numColors: 4, darkIsTall: true, widthMm: 40, heightMm: 40,
+      baseMm: 0.8, maxHeightMm: 2.35, layerMm: 0.3, dither: 0,
+      bandHeightsMm: heights,
+    })
+    const before = analyzePrintability(result).checks.find((c) => c.id === 'bands')!
+    expect(before.level).toBe('warn')
+    const fix = fixFor('bands', result)
+    expect(fix).not.toBeNull()
+    expect(fix!.kind).toBe('bandHeights')
+    const q2 = mapToLuminanceBands(img.rgba, 4, img.width, img.height, true, 0)
+    const fixed = finishPipeline(img, q2, {
+      numColors: 4, darkIsTall: true, widthMm: 40, heightMm: 40,
+      baseMm: 0.8, maxHeightMm: 0.8 + (fix as { heights: number[] }).heights.reduce((a, c) => a + c, 0),
+      layerMm: 0.3, dither: 0,
+      bandHeightsMm: (fix as { heights: number[] }).heights,
+    })
+    const bands = analyzePrintability(fixed).checks.find((c) => c.id === 'bands')!
+    expect(bands.level).not.toBe('warn')
+    expect(bands.level).not.toBe('fail')
+  })
+
+  it('enlarges the print so cells reach the nozzle on a resolution warn', () => {
+    const result = run(gradientImage(), {
+      widthMm: 20, heightMm: 20, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 4,
+    })
+    const fix = fixFor('resolution', result)
+    expect(fix).not.toBeNull()
+    expect(fix!.kind).toBe('size')
+    const s = fix as { width: number; height: number }
+    expect(s.width).toBeGreaterThan(20)
+    expect(s.height).toBeGreaterThan(20)
+    expect(s.width).toBeCloseTo(s.height, 5)
+    // Re-running at the fixed size: cell = 25.6/64 = 0.4 ≥ nozzle.
+    const fixed = run(gradientImage(), {
+      widthMm: s.width, heightMm: s.height, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 4,
+    })
+    const res = analyzePrintability(fixed).checks.find((c) => c.id === 'resolution')!
+    expect(res.level).not.toBe('warn')
+    expect(res.level).not.toBe('fail')
+  })
+
+  it('targets one layer on a hard resolution fail', () => {
+    const result = run(gradientImage(), {
+      widthMm: 20, heightMm: 20, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.4, numColors: 4,
+    })
+    const fix = fixFor('resolution', result)
+    expect(fix).not.toBeNull()
+    expect(fix!.kind).toBe('size')
+    // 0.3125 mm cells → 0.4/0.3125 = 1.28× → 25.6 mm.
+    expect((fix as { width: number }).width).toBeCloseTo(25.6, 1)
+  })
+
+  it('returns null for passing checks and non-fixable warnings', () => {
+    const ok = run(gradientImage(), {
+      widthMm: 40, heightMm: 40, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 4,
+    })
+    expect(fixFor('bands', ok)).toBeNull()
+    expect(fixFor('resolution', ok)).toBeNull()
+    expect(fixFor('support', ok)).toBeNull()
+    expect(fixFor('swaps', ok)).toBeNull()
+    const swaps = run(gradientImage(), {
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 24,
+    })
+    expect(fixFor('swaps', swaps)).toBeNull()
+    expect(fixFor('unknown', swaps)).toBeNull()
   })
 })

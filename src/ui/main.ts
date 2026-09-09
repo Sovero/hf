@@ -14,7 +14,7 @@ import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { fitPrintSizeToAspect } from '../lib/printConsts'
 import { deltaE2000Rgb } from '../lib/deltae'
-import { analyzePrintability } from '../lib/printability'
+import { analyzePrintability, fixFor, type PrintabilityFix } from '../lib/printability'
 import { createPerfStats } from '../lib/perfStats'
 import { rgbToHex, hexToRgb, nearestFilament, luminance } from '../lib/palette'
 import { parseReference3mf, Reference3mfParseError } from '../lib/reference3mf'
@@ -679,6 +679,15 @@ function renderPrintability() {
     detail.className = 'check-detail'
     detail.textContent = check.detail
     body.append(title, detail)
+    const fix = fixFor(check.id, current!)
+    if (fix) {
+      const btn = document.createElement('button')
+      btn.className = 'fix-btn'
+      btn.textContent = tr('pbFix')
+      btn.title = tr('pbFixTitle')
+      btn.addEventListener('click', () => applyFix(fix))
+      body.append(btn)
+    }
     row.append(icon, body)
     printabilityList.appendChild(row)
   }
@@ -687,6 +696,44 @@ function renderPrintability() {
       ? tr('allPassed')
       : `${word(lang, report.errors, 'errors')} · ${word(lang, report.warnings, 'warnings')}`
   setPbBadge(report)
+}
+
+function fixLabel(fix: PrintabilityFix): string {
+  switch (fix.kind) {
+    case 'maxHeight':
+      return tr('pbFixWhatMax', { v: mmOf(lang, fix.to) })
+    case 'colors':
+      return tr('pbFixWhatColors', { n: fix.to })
+    case 'bandHeights':
+      return tr('pbFixWhatHeights')
+    case 'size':
+      return tr('pbFixWhatSize', { w: mmOf(lang, fix.width), h: mmOf(lang, fix.height) })
+  }
+}
+
+/** Apply an auto-fix: set the recommended inputs and reprocess in one step. */
+function applyFix(fix: PrintabilityFix) {
+  switch (fix.kind) {
+    case 'maxHeight':
+      maxInput.value = String(fix.to)
+      break
+    case 'colors':
+      colorsSlider.value = String(fix.to)
+      colorsValue.value = String(fix.to)
+      renderTicks()
+      break
+    case 'bandHeights':
+      bandHeights = fix.heights
+      syncMaxInput()
+      break
+    case 'size':
+      widthInput.value = String(fix.width)
+      heightInput.value = String(fix.height)
+      break
+  }
+  saveSettings()
+  showStatus(tr('pbFixApplied', { what: fixLabel(fix) }))
+  if (currentFile) void readFile(currentFile)
 }
 
 /** Collapsed-summary badge: worst finding at a glance without expanding. */
