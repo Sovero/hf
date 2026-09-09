@@ -341,6 +341,18 @@ export const dict: Dict = {
     en: 'Drop unused',
     ru: 'Убрать неиспользуемые',
   },
+  btnShoppingList: {
+    en: 'Shopping list',
+    ru: 'Список покупок',
+  },
+  helpShoppingList: {
+    en: 'Download a TXT with every distinct filament used by the palette: brand, material, color, hex, bands and their share of the print area.',
+    ru: 'Скачает TXT со всеми филаментами палитры: бренд, материал, цвет, hex, полосы и их долю площади печати.',
+  },
+  shoppingListDone: {
+    en: 'Shopping list saved: {filename}',
+    ru: 'Список покупок сохранён: {filename}',
+  },
   dropSparseHelp: {
     en: 'Remove colors under 1% of the print area and requantize — saves their filament swaps.',
     ru: 'Убирает цвета меньше 1% площади печати и пересчитывает квантование — экономит их смены филамента.',
@@ -941,6 +953,7 @@ const WORDS: Record<string, PluralForms> = {
   regions: { en: ['region', 'regions'], ru: ['участок', 'участка', 'участков'] },
   tris: { en: ['triangle', 'triangles'], ru: ['треугольник', 'треугольника', 'треугольников'] },
   params: { en: ['parameter', 'parameters'], ru: ['параметр', 'параметра', 'параметров'] },
+  spools: { en: ['spool', 'spools'], ru: ['катушка', 'катушки', 'катушек'] },
 }
 
 export type WordKey = keyof typeof WORDS

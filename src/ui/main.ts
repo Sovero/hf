@@ -26,6 +26,7 @@ import { autoPickFilaments } from '../lib/autoPick'
 import { colorShares, formatShare } from '../lib/colorShare'
 import { orderSpools } from '../lib/spoolOrder'
 import { recentSpoolIds, recordRecentSpools } from '../lib/recentSpools'
+import { shoppingList, unassignedCount, formatShoppingList } from '../lib/shoppingList'
 import { dropSparseColors } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
@@ -59,6 +60,7 @@ const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
 const catalogBtn = $<HTMLButtonElement>('#catalog-pick')
 const autoPickBtn = $<HTMLButtonElement>('#auto-pick')
 const dropSparseBtn = $<HTMLButtonElement>('#palette-drop-sparse')
+const shoppingListBtn = $<HTMLButtonElement>('#btn-shopping-list')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
 const calibDownload = $<HTMLButtonElement>('#calib-download')
@@ -1477,6 +1479,24 @@ dropSparseBtn.addEventListener('click', () => {
 })
 
 /**
+ * Shopping list export: every distinct filament in the palette as a
+ * downloadable TXT — brand, material, color, bands, area share.
+ */
+shoppingListBtn.addEventListener('click', () => {
+  if (!current) return
+  const items = shoppingList(filamentAssignments, current.quantized.indexMap, lang)
+  const unassigned = unassignedCount(filamentAssignments)
+  const base = exportFilename(current, 'txt').replace(/\.txt$/, '')
+  const filename = `${base}-shopping-list.txt`
+  const header = lang === 'ru'
+    ? `HueForge Web — список покупок (${word(lang, items.length, 'spools')})`
+    : `HueForge Web — shopping list (${word(lang, items.length, 'spools')})`
+  const text = formatShoppingList(items, { unassigned, lang, header })
+  triggerDownload(text, filename, 'text/plain;charset=utf-8')
+  showStatus(tr('shoppingListDone', { filename }))
+})
+
+/**
  * Single dialog "Build from catalog": pick N spools across brands/materials
  * in one modal, confirm, and the palette + quantization are assembled in one
  * step — no per-slot ★ needed.
@@ -2186,6 +2206,8 @@ function renderPalette() {
       .join(', ')
     dropSparseBtn.title = `${tr('dropSparseHelp')} ${tr('dropSparseList', { list: detail })}`
   }
+  // Shopping list is meaningful once any slot has a real filament.
+  shoppingListBtn.disabled = !current || filamentAssignments.every((id) => !id)
   updateCatalogBtn()
   // Keep assignments aligned with the (possibly changed) color count.
   filamentAssignments.length = palette.length
