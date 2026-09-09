@@ -28,6 +28,7 @@ export const PRINTERS: PrinterInfo[] = [
   { id: 'anycubic-kobra2', name: 'Anycubic Kobra 2', bedX: 220, bedY: 220 },
   { id: 'sovol-sv06', name: 'Sovol SV06', bedX: 220, bedY: 220 },
   { id: 'flashforge-ad5m', name: 'FlashForge Adventurer 5M', bedX: 220, bedY: 220 },
+  { id: 'qidi-q2', name: 'Qidi Q2', bedX: 270, bedY: 270 },
   { id: 'qidi-plus4', name: 'Qidi Plus4', bedX: 305, bedY: 305 },
   { id: 'ultimaker-s3', name: 'Ultimaker S3', bedX: 230, bedY: 230 },
 ]

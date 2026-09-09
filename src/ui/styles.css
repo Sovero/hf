@@ -991,6 +991,17 @@ body {
   color: var(--accent);
 }
 
+/* Top-down toggle sits right of the home button; accent when ortho is on. */
+.viewer-top {
+  left: 44px;
+}
+
+.viewer-top.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+
 /* ---- first-run language banner ---- */
 .lang-banner {
   position: fixed;

@@ -435,6 +435,11 @@ function applyStaticText() {
     homeBtn.title = tr('viewerHome')
     homeBtn.ariaLabel = tr('viewerHome')
   }
+  const topBtn = document.getElementById('viewer-top')
+  if (topBtn) {
+    topBtn.title = tr('viewerTop')
+    topBtn.ariaLabel = tr('viewerTop')
+  }
   autoPickBtn.title = tr('autoPickHelp')
   autoPickBtn.ariaLabel = tr('autoPickHelp')
   viewer3d?.setFaceLabels(cubeFaceLabels())
@@ -2286,6 +2291,9 @@ function update3d() {
     viewer3d.setFaceLabels(cubeFaceLabels())
     const homeBtn = document.getElementById('viewer-home')
     homeBtn?.addEventListener('click', () => viewer3d?.goHome())
+    const topBtn = document.getElementById('viewer-top')
+    topBtn?.addEventListener('click', () => viewer3d?.setTopDown(!viewer3d.topDown))
+    if (viewer3d) viewer3d.onTopDownChange = (on) => topBtn?.classList.toggle('is-active', on)
     for (const b of document.querySelectorAll<HTMLButtonElement>('#viewer3d-modes button')) {
       b.addEventListener('click', () => setViewer3dMode(b.dataset.mode as 'model' | 'deltae' | 'slice'))
     }

@@ -163,6 +163,13 @@ export class Viewer3D {
   private homePos = new THREE.Vector3(220, 180, 260)
   private homeTarget = new THREE.Vector3(0, 0, 0)
 
+  // ---- orthographic top-down mode (precise footprint checks) ----
+  private ortho = false
+  private orthoCamera: THREE.OrthographicCamera
+  private orthoControls: OrbitControls
+  /** Perspective camera pose saved when entering top-down. */
+  private perspState: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null
+
   constructor(container: HTMLElement, cubeOverlay?: HTMLElement) {
     this.container = container
 
@@ -180,6 +187,17 @@ export class Viewer3D {
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
+
+    // Orthographic top-down camera: locked to the +Y axis (looking straight
+    // down at the bed), north-up (print Y points up the screen), pannable and
+    // wheel-zoomable but not rotatable — for exact footprint checks.
+    this.orthoCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 1, 2000)
+    this.orthoCamera.up.set(0, 0, -1) // print +Y (scene −Z) reads as screen-up
+    this.orthoControls = new OrbitControls(this.orthoCamera, this.renderer.domElement)
+    this.orthoControls.enableRotate = false
+    this.orthoControls.enableDamping = false
+    this.orthoControls.enabled = false
+    this.orthoControls.addEventListener('change', () => this.requestRender())
 
     // Lighting — mostly ambient for accurate flat colors.
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.95))
@@ -218,6 +236,11 @@ export class Viewer3D {
       this.stepFlight()
       if (this.flight) {
         this.renderFrame()
+        return
+      }
+      if (this.ortho) {
+        // Pan/zoom deltas from the ortho controls apply inside update().
+        if (this.orthoControls.update()) this.renderFrame()
         return
       }
       // damping still settling → keep updating (update() fires change)
@@ -326,6 +349,9 @@ export class Viewer3D {
 
     // Real-printer bed plane follows the (possibly changed) footprint.
     if (this.printerBedSize) this.rebuildPrinterBed()
+
+    // The top-down frustum is fitted to the footprint — refit on resize.
+    if (this.ortho) this.frameOrtho()
   }
 
   /**
@@ -442,6 +468,74 @@ export class Viewer3D {
   /** Fly the camera back to the fitted home view. */
   goHome() {
     this.flyTo(this.homePos.clone(), this.homeTarget.clone())
+  }
+
+  // =====================================================================
+  // Orthographic top-down mode
+  // =====================================================================
+
+  /** Whether the orthographic top-down projection is active. */
+  get topDown(): boolean {
+    return this.ortho
+  }
+
+  /** Toggle between the perspective orbit view and the ortho top-down. */
+  setTopDown(on: boolean) {
+    if (on === this.ortho) {
+      this.requestRender()
+      return
+    }
+    this.ortho = on
+    if (on) {
+      this.perspState = { pos: this.camera.position.clone(), target: this.controls.target.clone() }
+      this.frameOrtho()
+      this.orthoControls.target.set(0, 0, 0)
+      this.orthoCamera.zoom = 1
+      this.orthoControls.enabled = true
+      this.controls.enabled = false
+    } else {
+      this.orthoControls.enabled = false
+      this.controls.enabled = true
+      const s = this.perspState ?? { pos: this.homePos.clone(), target: this.homeTarget.clone() }
+      this.camera.position.copy(s.pos)
+      this.controls.target.copy(s.target)
+      this.camera.updateProjectionMatrix()
+      this.controls.update()
+    }
+    this.onTopDownChange?.(on)
+    this.requestRender()
+  }
+
+  /** Fit the ortho frustum to the bed footprint plus its grid margin. */
+  private frameOrtho() {
+    const w = this.container.clientWidth
+    const h = this.container.clientHeight
+    if (w === 0 || h === 0) return
+    const dims = this.bedDims ?? { w: 150, h: 150 }
+    // Same margin rule as the bed grid so the whole table stays framed.
+    const margin = Math.min(60, Math.max(20, 0.2 * Math.max(dims.w, dims.h)))
+    const spanX = dims.w + margin * 2
+    const spanZ = dims.h + margin * 2
+    const aspect = w / Math.max(1, h)
+    const halfW = (Math.max(spanX, spanZ * aspect) / 2) * 1.03
+    const halfH = halfW / aspect
+    this.orthoCamera.left = -halfW
+    this.orthoCamera.right = halfW
+    this.orthoCamera.top = halfH
+    this.orthoCamera.bottom = -halfH
+    // Hover above the model; near/far comfortably bracket the scene.
+    this.orthoCamera.position.set(0, 400, 0)
+    this.orthoCamera.lookAt(0, 0, 0)
+    this.orthoCamera.updateProjectionMatrix()
+  }
+
+  /** Notified when top-down mode toggles (also when a cube jump exits it). */
+  onTopDownChange: ((on: boolean) => void) | null = null
+
+  /** Swap to the ortho camera: [left, right, top, bottom, near, far]. */
+  getOrthoState(): { frustum: [number, number, number, number, number, number]; zoom: number } {
+    const c = this.orthoCamera
+    return { frustum: [c.left, c.right, c.top, c.bottom, c.near, c.far], zoom: c.zoom }
   }
 
   private fitCamera() {
@@ -582,7 +676,7 @@ export class Viewer3D {
 
     this.renderer.setViewport(0, 0, w, h)
     this.renderer.setScissorTest(false)
-    this.renderer.render(this.scene, this.camera)
+    this.renderer.render(this.scene, this.ortho ? this.orthoCamera : this.camera)
 
     this.renderer.setScissorTest(true)
     const cx = w - CUBE_VIEW_PX - CUBE_MARGIN_PX
@@ -668,6 +762,9 @@ export class Viewer3D {
 
   /** Start a smooth camera flight; user grabs cancel it. */
   private flyTo(toPos: THREE.Vector3, toTarget: THREE.Vector3) {
+    // Quick transitions (home, ViewCube) are perspective navigation: they
+    // leave the locked top-down mode and fly the orbit camera instead.
+    if (this.ortho) this.setTopDown(false)
     this.flight = {
       t0: performance.now(),
       dur: 550,
@@ -874,6 +971,7 @@ export class Viewer3D {
     if (w === 0 || h === 0) return
     this.camera.aspect = w / h
     this.camera.updateProjectionMatrix()
+    if (this.ortho) this.frameOrtho()
     this.renderer.setSize(w, h)
     this.requestRender()
   }
@@ -900,6 +998,7 @@ export class Viewer3D {
       ;(this.helperPlane.material as THREE.Material).dispose()
       this.helperPlane = null
     }
+    this.orthoControls.dispose()
     this.controls.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()

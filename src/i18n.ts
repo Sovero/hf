@@ -620,6 +620,10 @@ export const dict: Dict = {
     ru: 'Показывает полупрозрачный стол выбранного принтера — видно, влезает ли модель и сколько места занимает.',
   },
   viewerHome: { en: 'Home view', ru: 'Домашний вид' },
+  viewerTop: {
+    en: 'Top-down orthographic view — pan with drag, zoom with wheel',
+    ru: 'Ортографический вид сверху — панорама перетаскиванием, зум колесом',
+  },
   cubeTitle: { en: 'View cube', ru: 'Куб ориентации' },
   cubeHint: { en: 'Click a face, edge or corner to look from that side', ru: 'Кликните по грани, ребру или углу — камера встанет с этой стороны' },
   faceTop: { en: 'TOP', ru: 'ВЕРХ' },
