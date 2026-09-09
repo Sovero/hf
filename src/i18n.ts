@@ -329,6 +329,10 @@ export const dict: Dict = {
     en: 'Remove colors under 1% of the print area and requantize — saves their filament swaps.',
     ru: 'Убирает цвета меньше 1% площади печати и пересчитывает квантование — экономит их смены филамента.',
   },
+  dropSparseList: {
+    en: 'Will drop: {list}.',
+    ru: 'Уберёт: {list}.',
+  },
   dropSparseDone: {
     en: 'Dropped {n} barely-used color(s)',
     ru: 'Убрано редко используемых цветов: {n}',

@@ -2108,12 +2108,28 @@ function renderPalette() {
   } else {
     paletteSummary.title = ''
   }
-  // The one-click cleanup is only meaningful in catalog mode (dropping a
-  // spool means re-quantizing against the remaining ones) and only when
-  // there is something to drop.
-  dropSparseBtn.hidden = !(catalogActive && lowUse.length > 0 && palette.length > 2)
-  if (dropSparseBtn.hidden) dropSparseBtn.title = ''
-  else dropSparseBtn.title = tr('dropSparseHelp')
+  // The one-click cleanup stays visible in catalog mode (discoverability);
+  // it disables itself when there is nothing to drop. Outside catalog mode
+  // dropping a spool is meaningless, so the button hides.
+  const droppable = catalogActive
+    ? current!.quantized.indexMap
+      ? colorShares(current!.quantized.indexMap, palette.length).filter((s) => s.share < 0.01).length
+      : 0
+    : 0
+  dropSparseBtn.hidden = !catalogActive
+  dropSparseBtn.disabled = !(catalogActive && droppable > 0 && palette.length > 2)
+  dropSparseBtn.textContent = droppable > 0
+    ? `${tr('dropSparse')} (${droppable})`
+    : tr('dropSparse')
+  if (dropSparseBtn.disabled) dropSparseBtn.title = tr('dropSparseNone')
+  else {
+    const detail = colorShares(current!.quantized.indexMap, palette.length)
+      .map((s, i) => ({ s, order: palette[i].printOrder }))
+      .filter((x) => x.s.share < 0.01)
+      .map((x) => `#${x.order} ${formatShare(x.s.percent)}`)
+      .join(', ')
+    dropSparseBtn.title = `${tr('dropSparseHelp')} ${tr('dropSparseList', { list: detail })}`
+  }
   updateCatalogBtn()
   // Keep assignments aligned with the (possibly changed) color count.
   filamentAssignments.length = palette.length
