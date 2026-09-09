@@ -354,8 +354,8 @@ export const dict: Dict = {
     ru: 'Список покупок сохранён: {filename}',
   },
   dropSparseHelp: {
-    en: 'Remove colors under 1% of the print area and requantize — saves their filament swaps.',
-    ru: 'Убирает цвета меньше 1% площади печати и пересчитывает квантование — экономит их смены филамента.',
+    en: 'Remove colors under the threshold (the % field) and requantize — saves their filament swaps.',
+    ru: 'Убирает цвета меньше порога (поле в %) и пересчитывает квантование — экономит их смены филамента.',
   },
   dropSparseList: {
     en: 'Will drop: {list}.',
@@ -364,6 +364,10 @@ export const dict: Dict = {
   dropSparseMoves: {
     en: 'Pixels move: {list}.',
     ru: 'Пиксели перейдут: {list}.',
+  },
+  dropSparseUnit: {
+    en: '%',
+    ru: '%',
   },
   dropSparseDone: {
     en: 'Dropped {n} barely-used color(s)',

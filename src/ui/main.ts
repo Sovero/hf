@@ -60,6 +60,8 @@ const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
 const catalogBtn = $<HTMLButtonElement>('#catalog-pick')
 const autoPickBtn = $<HTMLButtonElement>('#auto-pick')
 const dropSparseBtn = $<HTMLButtonElement>('#palette-drop-sparse')
+const dropSparseWrap = $<HTMLSpanElement>('#drop-sparse-wrap')
+const dropSparseThreshold = $<HTMLInputElement>('#drop-sparse-threshold')
 const shoppingListBtn = $<HTMLButtonElement>('#btn-shopping-list')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
@@ -178,6 +180,7 @@ type Settings = {
   dither: number
   backlight: boolean
   mergeDeltaE: number
+  dropThreshold: number
 }
 /** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
 function clampNum(v: number, lo: number, hi: number, fb: number): number {
@@ -204,6 +207,7 @@ function saveSettings() {
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
       backlight: lightBackBtn.classList.contains('is-active'),
       mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
+      dropThreshold: clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1),
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -235,6 +239,9 @@ function restoreSettings() {
       syncMergeThreshold()
     }
     if (s.backlight === true) setLightMode('back')
+    if (s.dropThreshold !== undefined) {
+      dropSparseThreshold.value = String(clampNum(Number(s.dropThreshold), 0.1, 10, 1))
+    }
   } catch {
     /* ignore corrupt settings */
   }
@@ -1456,7 +1463,7 @@ dropSparseBtn.addEventListener('click', () => {
   if (!current || !catalogActive) return
   const spools = catalogSpools()
   if (!spools) return
-  const result = dropSparseColors(current.quantized.indexMap, spools.colors, 0.01)
+  const result = dropSparseColors(current.quantized.indexMap, spools.colors, clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1) / 100)
   if (!result) {
     showStatus(tr('dropSparseNone'), true)
     return
@@ -1476,6 +1483,19 @@ dropSparseBtn.addEventListener('click', () => {
   filamentAssignments = keptIds
   void quantizeCatalog(keptColors)
   showStatus(tr('dropSparseDone', { n: String(result.dropped) }))
+})
+
+/**
+ * Editing the drop threshold re-evaluates which spools count as "barely
+ * used": the button label, tooltip and drop itself all follow the field.
+ */
+dropSparseThreshold.addEventListener('input', () => {
+  const v = Number(dropSparseThreshold.value)
+  if (Number.isFinite(v) && v >= 0.1 && v <= 10) {
+    dropSparseThreshold.value = String(v)
+    saveSettings()
+    if (current) renderPalette()
+  }
 })
 
 /**
@@ -2172,10 +2192,12 @@ function renderPalette() {
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
   // Flag spools that barely appear in the print (<1% of the area) so a
-  // wasted color change is visible before slicing.
+  // wasted color change is visible before slicing. Same threshold as the
+  // drop button, so the summary and the action always agree.
+  const lowUseThreshold = clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1)
   const lowUse = palette
     .map((e, i) => ({ order: e.printOrder, percent: shares[i].percent }))
-    .filter((s) => s.percent < 1)
+    .filter((s) => s.percent < lowUseThreshold)
     .sort((a, b) => a.percent - b.percent)
     .map((s) => `#${s.order} ${formatShare(s.percent)}`)
   if (lowUse.length) {
@@ -2186,13 +2208,16 @@ function renderPalette() {
   }
   // The one-click cleanup stays visible in catalog mode (discoverability);
   // it disables itself when there is nothing to drop. Outside catalog mode
-  // dropping a spool is meaningless, so the button hides.
+  // dropping a spool is meaningless, so the whole group hides. The
+  // threshold (share below which a spool counts as "barely used") is
+  // user-editable in percent, default 1%.
+  const dropThreshold = clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1) / 100
   const droppable = catalogActive
     ? current!.quantized.indexMap
-      ? colorShares(current!.quantized.indexMap, palette.length).filter((s) => s.share < 0.01).length
+      ? colorShares(current!.quantized.indexMap, palette.length).filter((s) => s.share < dropThreshold).length
       : 0
     : 0
-  dropSparseBtn.hidden = !catalogActive
+  dropSparseWrap.hidden = !catalogActive
   dropSparseBtn.disabled = !(catalogActive && droppable > 0 && palette.length > 2)
   dropSparseBtn.textContent = droppable > 0
     ? `${tr('dropSparse')} (${droppable})`
@@ -2200,7 +2225,7 @@ function renderPalette() {
   if (dropSparseBtn.disabled) dropSparseBtn.title = tr('dropSparseNone')
   else {
     const sharesFull = colorShares(current!.quantized.indexMap, palette.length)
-    const sparseIdx = sharesFull.map((s, i) => ({ s, i })).filter((x) => x.s.share < 0.01).map((x) => x.i)
+    const sparseIdx = sharesFull.map((s, i) => ({ s, i })).filter((x) => x.s.share < dropThreshold).map((x) => x.i)
     const detail = sparseIdx
       .map((i) => `#${palette[i].printOrder} ${formatShare(sharesFull[i].percent)}`)
       .join(', ')

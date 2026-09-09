@@ -615,6 +615,39 @@ body {
   flex-shrink: 0;
 }
 
+/* "Barely used" threshold: number field + % unit + the drop button. */
+#drop-sparse-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+#drop-sparse-wrap[hidden] {
+  display: none;
+}
+
+#drop-sparse-threshold {
+  width: 3.6em;
+  padding: 0.25rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+#drop-sparse-threshold:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.threshold-unit {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-right: 0.15rem;
+}
+
 .palette-summary-row p {
   margin: 0;
 }

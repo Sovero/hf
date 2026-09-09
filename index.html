@@ -278,7 +278,11 @@
             <span class="palette-summary-actions">
               <button id="auto-pick" type="button" class="palette-reset-btn" data-i18n="autoPick" disabled>Auto-pick filaments</button>
               <button id="catalog-pick" type="button" class="palette-reset-btn" data-i18n="catalogPick">Quantize by spools</button>
-              <button id="palette-drop-sparse" type="button" class="palette-reset-btn" data-i18n="dropSparse" hidden>Drop unused</button>
+              <span id="drop-sparse-wrap" hidden>
+                <input id="drop-sparse-threshold" type="number" min="0.1" max="10" step="0.1" value="1" />
+                <span class="threshold-unit" data-i18n="dropSparseUnit">%</span>
+                <button id="palette-drop-sparse" type="button" class="palette-reset-btn" data-i18n="dropSparse" data-help="dropSparseHelp">Drop unused</button>
+              </span>
               <button id="palette-heights-reset" type="button" class="palette-reset-btn" data-i18n="paletteHeightsReset" hidden>Equal heights</button>
               <button id="btn-shopping-list" type="button" class="palette-reset-btn" data-i18n="btnShoppingList" data-help="helpShoppingList" disabled>Shopping list</button>
             </span>
