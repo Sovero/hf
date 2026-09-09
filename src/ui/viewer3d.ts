@@ -727,9 +727,10 @@ export class Viewer3D {
 
   /**
    * Slice mode: hide everything above zMm (print height) with a clipping
-   * plane and show a thin translucent cap plane at the cut.
+   * plane and show a thin cap plane at the cut, tinted with the filament
+   * currently being extruded (one filament per layer — the print-model rule).
    */
-  setSlice(zMm: number | null) {
+  setSlice(zMm: number | null, filamentHex?: string) {
     if (zMm === null) {
       this.currentView = 'model'
       this.clipPlane = null
@@ -749,12 +750,12 @@ export class Viewer3D {
     this.clipPlane.set(new THREE.Vector3(0, -1, 0), zMm)
     if (this.standardMaterial) this.standardMaterial.clippingPlanes = [this.clipPlane]
     if (this.deMaterial) this.deMaterial.clippingPlanes = [this.clipPlane]
-    this.updateSliceCap(zMm)
+    this.updateSliceCap(zMm, filamentHex)
     this.requestRender()
   }
 
-  /** Translucent cap at the cut so the cross-section reads as a surface. */
-  private updateSliceCap(zMm: number) {
+  /** Cap at the cut, tinted with the layer's filament (or neutral if absent). */
+  private updateSliceCap(zMm: number, filamentHex?: string) {
     const w = this.bedDims?.w ?? 150
     const h = this.bedDims?.h ?? 150
     if (!this.helperPlane) {
@@ -763,7 +764,7 @@ export class Viewer3D {
         new THREE.MeshBasicMaterial({
           color: 0x4fb8ff,
           transparent: true,
-          opacity: 0.18,
+          opacity: 0.22,
           side: THREE.DoubleSide,
           depthWrite: false,
         }),
@@ -778,6 +779,9 @@ export class Viewer3D {
     // the cap is a child of worldGroup, so its local coords still match the
     // print's: center of the footprint, cut at height zMm.
     this.helperPlane.position.set(w / 2, zMm, -h / 2)
+    if (filamentHex) {
+      ;(this.helperPlane.material as THREE.MeshBasicMaterial).color.set(filamentHex)
+    }
     this.helperPlane.visible = true
   }
 

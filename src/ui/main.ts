@@ -2330,7 +2330,11 @@ function applySliceTo3d() {
   if (!viewer3d || !current) return
   const total = Math.max(1, Math.round(current.settings.maxHeightMm / current.settings.layerMm))
   const l = Math.round(layerPos * (total - 1)) + 1
-  viewer3d.setSlice(l * current.settings.layerMm)
+  // One filament per layer: tint the slice cap with the band printed at z.
+  const { activeBand } = layerView(current, l * current.settings.layerMm)
+  const n = current.quantized.palette.length
+  const entry = current.palette.find((p) => (current!.settings.darkIsTall ? n - p.printOrder : p.printOrder - 1) === activeBand)
+  viewer3d.setSlice(l * current.settings.layerMm, entry ? rgbToHex(entry.color) : undefined)
 }
 
 /** Switch the 3D viewer's analysis mode and keep the UI in step. */
@@ -2340,6 +2344,9 @@ function setViewer3dMode(mode: 'model' | 'deltae' | 'slice') {
   for (const b of group?.querySelectorAll<HTMLButtonElement>('button') ?? []) {
     b.classList.toggle('is-active', b.dataset.mode === mode)
   }
+  // The layer slider only means something in slice mode — show it there.
+  const controls = document.querySelector<HTMLElement>('#viewer-3d .layer-controls')
+  if (controls) controls.hidden = mode !== 'slice'
   if (!viewer3d || !current) return
   if (mode === 'deltae') {
     applyDeltaETo3d()
