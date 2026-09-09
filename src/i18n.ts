@@ -361,6 +361,10 @@ export const dict: Dict = {
     en: 'Will drop: {list}.',
     ru: 'Уберёт: {list}.',
   },
+  dropSparseMoves: {
+    en: 'Pixels move: {list}.',
+    ru: 'Пиксели перейдут: {list}.',
+  },
   dropSparseDone: {
     en: 'Dropped {n} barely-used color(s)',
     ru: 'Убрано редко используемых цветов: {n}',

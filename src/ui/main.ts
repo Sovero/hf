@@ -27,7 +27,7 @@ import { colorShares, formatShare } from '../lib/colorShare'
 import { orderSpools } from '../lib/spoolOrder'
 import { recentSpoolIds, recordRecentSpools } from '../lib/recentSpools'
 import { shoppingList, unassignedCount, formatShoppingList } from '../lib/shoppingList'
-import { dropSparseColors } from '../lib/dropSparse'
+import { dropSparseColors, dropTargets } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
@@ -2199,12 +2199,21 @@ function renderPalette() {
     : tr('dropSparse')
   if (dropSparseBtn.disabled) dropSparseBtn.title = tr('dropSparseNone')
   else {
-    const detail = colorShares(current!.quantized.indexMap, palette.length)
-      .map((s, i) => ({ s, order: palette[i].printOrder }))
-      .filter((x) => x.s.share < 0.01)
-      .map((x) => `#${x.order} ${formatShare(x.s.percent)}`)
+    const sharesFull = colorShares(current!.quantized.indexMap, palette.length)
+    const sparseIdx = sharesFull.map((s, i) => ({ s, i })).filter((x) => x.s.share < 0.01).map((x) => x.i)
+    const detail = sparseIdx
+      .map((i) => `#${palette[i].printOrder} ${formatShare(sharesFull[i].percent)}`)
       .join(', ')
-    dropSparseBtn.title = `${tr('dropSparseHelp')} ${tr('dropSparseList', { list: detail })}`
+    // Mini-scheme: which surviving color absorbs each dropped one.
+    const targets = dropTargets(palette.map((e) => e.color), palette.map((_, i) => !sparseIdx.includes(i)))
+    const moves = sparseIdx
+      .filter((i) => targets.has(i))
+      .map((i) => {
+        const t = targets.get(i)!
+        return `#${palette[i].printOrder} → #${palette[t].printOrder} (${lang === 'ru' ? 'станет' : 'becomes'} ${formatShare(sharesFull[t].percent + sharesFull[i].percent)})`
+      })
+      .join(', ')
+    dropSparseBtn.title = `${tr('dropSparseHelp')} ${tr('dropSparseList', { list: detail })}${moves ? ` ${tr('dropSparseMoves', { list: moves })}` : ''}`
   }
   // Shopping list is meaningful once any slot has a real filament.
   shoppingListBtn.disabled = !current || filamentAssignments.every((id) => !id)
