@@ -117,6 +117,8 @@ export class Viewer3D {
   private camera: THREE.PerspectiveCamera
   private controls: OrbitControls
   private meshGroup: THREE.Group
+  /** World group: mesh + bed + axes, shifted so the print is centered at origin. */
+  private worldGroup: THREE.Group
   private container: HTMLElement
   private rafHandle = 0
   private hasMesh = false
@@ -182,7 +184,12 @@ export class Viewer3D {
     this.meshGroup = new THREE.Group()
     // Bed and axes are built per-mesh in setMesh, sized to the print.
     this.meshGroup.rotation.x = -Math.PI / 2
-    this.scene.add(this.meshGroup)
+    // Everything that represents the print (mesh, bed grid, axes) lives in
+    // one world group, offset so the print's footprint CENTER sits on the
+    // scene origin — the object reads as centered on its table from any angle.
+    this.worldGroup = new THREE.Group()
+    this.worldGroup.add(this.meshGroup)
+    this.scene.add(this.worldGroup)
 
     this.buildCube()
     this.cubeCamera.position.set(0, 0, 3.4)
@@ -238,9 +245,9 @@ export class Viewer3D {
 
   /**
    * Build the bed grid sized to the print and the axes at the print's
-   * origin corner, so the model always sits exactly on the bed (slicers
-   * place the model at X0 Y0; the old fixed 400 mm grid hung the print
-   * over the edge for any footprint other than ~200×200).
+   * origin corner, so the model always sits exactly on the bed; the whole
+   * world group is then offset so the print's CENTER sits on the scene
+   * origin — the object reads as centered on its table from any angle.
    *
    * Print coordinates map to scene space as: X → +X, Y (depth) → −Z,
    * Z (up) → +Y (meshGroup carries the −90° X rotation). The grid is
@@ -249,25 +256,29 @@ export class Viewer3D {
    */
   private rebuildBed(wMm: number, hMm: number) {
     if (this.bedGroup) {
-      this.scene.remove(this.bedGroup)
+      this.worldGroup.remove(this.bedGroup)
       disposeTree(this.bedGroup)
     }
     if (this.axesGroup) {
-      this.scene.remove(this.axesGroup)
+      this.worldGroup.remove(this.axesGroup)
       disposeTree(this.axesGroup)
     }
     this.bedDims = { w: wMm, h: hMm }
+
+    // Mesh spans scene X [0,w], Z [−h,0]; shift the whole print −w/2 on X
+    // and +h/2 on Z so its footprint center lands at (0, 0).
+    this.worldGroup.position.set(-wMm / 2, 0, hMm / 2)
 
     this.bedGroup = new THREE.Group()
     // Margin so the grid stays visible around the print (a bed exactly the
     // print's size hides under the model).
     const margin = Math.min(60, Math.max(20, 0.2 * Math.max(wMm, hMm)))
     this.bedGroup.add(this.buildBedGrid(wMm, hMm, margin))
-    this.scene.add(this.bedGroup)
+    this.worldGroup.add(this.bedGroup)
 
     // Axes at the print origin corner, scaled to the print size.
     this.axesGroup = this.buildAxes(Math.max(wMm, hMm) * 0.5, Math.max(wMm, hMm) * 0.06)
-    this.scene.add(this.axesGroup)
+    this.worldGroup.add(this.axesGroup)
   }
 
   /**
@@ -679,12 +690,14 @@ export class Viewer3D {
         }),
       )
       this.helperPlane.rotation.x = -Math.PI / 2
-      this.meshGroup.parent?.add(this.helperPlane) // scene space (unrotated)
+      this.meshGroup.parent?.add(this.helperPlane) // world group (unrotated)
     }
     this.helperPlane.scale.set(w, h, 1)
     // meshGroup children are rotated -90° about X: print (x, y, z) lands at
-    // scene (x, z, -y). The cut at print-z sits at scene y = zMm; center the
-    // cap on the bed footprint (print X [0,w], print Y [0,h] → scene Z [-h, 0]).
+    // (x, z, -y) in world-group space — footprint X [0,w], Z [−h,0]. The
+    // worldGroup POSITION then centers everything on the scene origin, but
+    // the cap is a child of worldGroup, so its local coords still match the
+    // print's: center of the footprint, cut at height zMm.
     this.helperPlane.position.set(w / 2, zMm, -h / 2)
     this.helperPlane.visible = true
   }
