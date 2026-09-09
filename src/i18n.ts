@@ -323,8 +323,8 @@ export const dict: Dict = {
   paramLayer: { en: 'Layer height', ru: 'Высота слоя' },
   unitMm: { en: 'mm', ru: 'мм' },
   sizeHint: {
-    en: 'Each of the N colors prints as a flat sheet of its own height: every pixel of a color stands at the same height, so each sheet\'s surface is level and the steps between sheets form the color relief; a color switch always happens between whole layers — one color per printed layer. By default the sheets are equal; drag the height slider in a palette row to give a color its own thickness (HueForge-style).',
-    ru: 'Каждый из N цветов печатается как плоский лист своей высоты: все пиксели одного цвета стоят на одной высоте, поэтому поверхность каждого листа ровная, а ступеньки между листами и образуют цветовой рельеф; смена цвета всегда происходит между целыми слоями — один цвет на слой. По умолчанию листы равные; ползунок высоты в строке палитры задаёт цвету собственную толщину (как в HueForge).',
+    en: 'Each of the N colors prints as a flat sheet of its own height: every pixel of a color stands at the same height, so each sheet\'s surface is level and the steps between sheets form the color relief; a color switch always happens between whole layers — one color per printed layer. By default the sheets are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom sheets thicker than the top ones — a dark base blocks light, thin light sheets blend softly.',
+    ru: 'Каждый из N цветов печатается как плоский лист своей высоты: все пиксели одного цвета стоят на одной высоте, поэтому поверхность каждого листа ровная, а ступеньки между листами и образуют цветовой рельеф; смена цвета всегда происходит между целыми слоями — один цвет на слой. По умолчанию листы равные; ползунок высоты в строке палитры задаёт цвету собственную толщину. HueForge-практика: нижние листы делайте толще верхних — тёмный низ лучше держит свет, а тонкие светлые верха мягко смешиваются.',
   },
 
   // ---- printability ----
