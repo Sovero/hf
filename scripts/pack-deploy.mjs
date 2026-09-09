@@ -16,7 +16,15 @@ const DIST = join(ROOT, 'dist')
 const VERSION = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8')).version
 const OUT = join(ROOT, `hueforge-web-deploy-v${VERSION}.zip`)
 
-const EXTRA_FILES = ['server.mjs', 'slicer-launch.mjs', 'deploy.bat', 'deploy-slicer.bat', 'DEPLOY.md']
+const EXTRA_FILES = [
+  'server.mjs',
+  'slicer-launch.mjs',
+  'deploy.bat',
+  'deploy-slicer.bat',
+  'install.bat',
+  'update.ps1',
+  'DEPLOY.md',
+]
 
 /** Collect every file under dir as absolute paths. */
 async function walk(dir) {
