@@ -962,6 +962,18 @@ export const dict: Dict = {
   },
   deltaEStats: { en: 'Mean ΔE {mean} · max {max}', ru: 'Средний ΔE {mean} · макс {max}' },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
+  helpMode3dModel: {
+    en: 'Relief of flat color sheets — exactly how the model looks in the slicer and after printing.',
+    ru: 'Рельеф из плоских цветных листов — так модель выглядит в слайсере и после печати.',
+  },
+  helpMode3dDeltaE: {
+    en: 'Error heatmap on the top surface: green matches the target image, red is a visible mismatch.',
+    ru: 'Тепловая карта ошибок на верхней поверхности: зелёный — цвет совпадает с исходником, красный — заметное расхождение.',
+  },
+  helpMode3dSlice: {
+    en: 'Cut by height: everything above the chosen layer is clipped, showing which colors are printed by that height.',
+    ru: 'Срез по высоте: всё выше выбранного слоя отрезано — видно, какие цвета напечатаны к этой высоте.',
+  },
   tourLightTitle: { en: 'Preview lighting', ru: 'Подсветка предпросмотра' },
   tourModesTitle: { en: '3D viewer modes', ru: 'Режимы 3D-вьюера' },
   tourWidthTitle: { en: 'Width', ru: 'Ширина' },
