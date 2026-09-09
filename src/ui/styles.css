@@ -980,6 +980,9 @@ body {
   font-size: 0.75rem;
   padding: 0.25rem 0.6rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .light-btn + .light-btn {
@@ -1033,10 +1036,18 @@ body {
   font-size: 0.75rem;
   padding: 0.25rem 0.6rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .seg-toggle button + button {
   border-left: 1px solid var(--border);
+}
+
+.seg-toggle button.is-active .btn-ico,
+.light-btn.is-active .btn-ico {
+  opacity: 0.9;
 }
 
 .seg-toggle button.is-active {
