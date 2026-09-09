@@ -62,6 +62,7 @@ const autoPickBtn = $<HTMLButtonElement>('#auto-pick')
 const dropSparseBtn = $<HTMLButtonElement>('#palette-drop-sparse')
 const dropSparseWrap = $<HTMLSpanElement>('#drop-sparse-wrap')
 const dropSparseThreshold = $<HTMLInputElement>('#drop-sparse-threshold')
+const dimsEl = $<HTMLParagraphElement>('#viewer3d-dims')
 const shoppingListBtn = $<HTMLButtonElement>('#btn-shopping-list')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
@@ -2280,8 +2281,15 @@ function update3d() {
       b.addEventListener('click', () => setViewer3dMode(b.dataset.mode as 'model' | 'deltae' | 'slice'))
     }
   }
+  const w = current!.settings.widthMm
+  const h = current!.settings.heightMm
   viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
-  viewer3d.setMesh(current!.mesh, { wMm: current!.settings.widthMm, hMm: current!.settings.heightMm })
+  viewer3d.setMesh(current!.mesh, { wMm: w, hMm: h })
+  // Dimensions caption: actual height = tallest band top (base + sheets),
+  // matching what the mesh and the exported file contain.
+  const z = Math.max(...current!.palette.map((e) => e.topZMm))
+  const fmt = (v: number) => String(parseFloat(v.toFixed(2)))
+  dimsEl.textContent = tr('viewer3dDims', { w: fmt(w), h: fmt(h), z: fmt(z) })
   // Re-apply the active analysis mode to the fresh geometry.
   if (viewer3dMode === 'deltae') applyDeltaETo3d()
   else if (viewer3dMode === 'slice') applySliceTo3d()

@@ -834,6 +834,12 @@ body {
   margin-bottom: 0.35rem;
 }
 
+/* Model dimensions caption under the 3D view. */
+.viewer3d-dims {
+  margin: 0.3rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .seg-toggle {
   display: inline-flex;
   border: 1px solid var(--border);

@@ -607,6 +607,10 @@ export const dict: Dict = {
   },
   viewer3dTitle: { en: '3D preview', ru: '3D-предпросмотр' },
   viewer3dHint: { en: 'Drag to rotate · scroll to zoom · click the cube to jump to a view', ru: 'Тяните, чтобы вращать · колесо — масштаб · клик по кубу — вид с грани' },
+  viewer3dDims: {
+    en: 'Model size: {w} × {h} × {z} mm (W × D × H)',
+    ru: 'Габариты модели: {w} × {h} × {z} мм (Ш × Г × В)',
+  },
   viewerHome: { en: 'Home view', ru: 'Домашний вид' },
   cubeTitle: { en: 'View cube', ru: 'Куб ориентации' },
   cubeHint: { en: 'Click a face, edge or corner to look from that side', ru: 'Кликните по грани, ребру или углу — камера встанет с этой стороны' },
