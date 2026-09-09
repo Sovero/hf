@@ -131,6 +131,8 @@ export class Viewer3D {
   /** Solid bed slab under the grid — makes the table read as a surface. */
   private bedSlab: THREE.Mesh | null = null
   private bedSlabColor = '#161d24'
+  /** Soft contact shadow under the model (blurred rounded-rect texture). */
+  private contactShadow: THREE.Mesh | null = null
 
   // ---- Per-pixel color overlays (ΔE map) and clipping (layer slice) ----
   private deTexture: THREE.DataTexture | null = null
@@ -313,6 +315,14 @@ export class Viewer3D {
       ;(this.bedSlab.material as THREE.MeshStandardMaterial).dispose()
       this.bedSlab = null
     }
+    if (this.contactShadow) {
+      this.worldGroup.remove(this.contactShadow)
+      this.contactShadow.geometry.dispose()
+      const sm = this.contactShadow.material as THREE.MeshBasicMaterial
+      sm.map?.dispose()
+      sm.dispose()
+      this.contactShadow = null
+    }
     this.bedDims = { w: wMm, h: hMm }
 
     // Mesh spans scene X [0,w], Z [−h,0]; shift the whole print −w/2 on X
@@ -333,6 +343,11 @@ export class Viewer3D {
     // worldGroup-local footprint center (w/2, −h/2); top of slab at −0.02.
     this.bedSlab.position.set(wMm / 2, -0.02 - slabT / 2, -hMm / 2)
     this.worldGroup.add(this.bedSlab)
+
+    // Soft contact shadow hugging the footprint, above the slab (−0.015)
+    // and below the printer-bed plane (−0.01) and the grid (0).
+    this.contactShadow = this.buildContactShadow(wMm, hMm)
+    this.worldGroup.add(this.contactShadow)
 
     this.bedGroup = new THREE.Group()
     // Margin so the grid stays visible around the print (a bed exactly the
@@ -411,6 +426,53 @@ export class Viewer3D {
    * coords → scene X [0,w], Z [−h,0]), extended by `margin` on all sides.
    * Minor lines every 10 mm, major every 50 mm.
    */
+  /**
+   * Soft contact shadow under the model: a blurred, rounded black rect
+   * slightly larger than the footprint, drawn to an offscreen canvas and
+   * laid flat just above the bed slab. Gives the model visual weight — it
+   * reads as sitting ON the table instead of floating over a grid.
+   */
+  private buildContactShadow(wMm: number, hMm: number): THREE.Mesh {
+    const blur = Math.max(6, Math.max(wMm, hMm) * 0.09) // feather radius, mm
+    const pad = blur * 1.6 + 2 // texture padding so the fade fits
+    const totalW = wMm + pad * 2
+    const totalH = hMm + pad * 2
+    const k = 512 / Math.max(totalW, totalH) // canvas px per mm (capped)
+    const cw = Math.max(8, Math.round(totalW * k))
+    const ch = Math.max(8, Math.round(totalH * k))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = cw
+    canvas.height = ch
+    const ctx = canvas.getContext('2d')!
+    // Rect slightly larger than the footprint, blurred: the dense core still
+    // covers the print while the feather melts into the slab.
+    const grow = blur * 0.6 * k
+    const rx = pad * k - grow
+    const ry = pad * k - grow
+    const rw = wMm * k + grow * 2
+    const rh = hMm * k + grow * 2
+    const radius = blur * 0.8 * k
+    ctx.filter = `blur(${blur * k}px)`
+    ctx.globalAlpha = 0.5
+    ctx.fillStyle = '#000'
+    ctx.beginPath()
+    ctx.roundRect(rx, ry, rw, rh, radius)
+    ctx.fill()
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(totalW, totalH),
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
+    )
+    mesh.rotation.x = -Math.PI / 2
+    mesh.position.set(wMm / 2, -0.015, -hMm / 2)
+    // Draw above the slab but below the translucent printer-bed plane.
+    mesh.renderOrder = 1
+    return mesh
+  }
+
   private buildBedGrid(wMm: number, hMm: number, margin: number): THREE.Group {
     const x0 = -margin
     const x1 = wMm + margin
@@ -991,6 +1053,13 @@ export class Viewer3D {
       this.bedSlab.geometry.dispose()
       ;(this.bedSlab.material as THREE.MeshStandardMaterial).dispose()
       this.bedSlab = null
+    }
+    if (this.contactShadow) {
+      this.contactShadow.geometry.dispose()
+      const sm = this.contactShadow.material as THREE.MeshBasicMaterial
+      sm.map?.dispose()
+      sm.dispose()
+      this.contactShadow = null
     }
     if (this.helperPlane) {
       this.helperPlane.parent?.remove(this.helperPlane)
