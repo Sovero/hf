@@ -9,7 +9,7 @@ import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
 import { DEFAULT_TAU_MM, backlitBandColors, transmittedBandColors } from '../lib/transmission'
-import type { QuantizedImage } from '../lib/types'
+import type { ColorCount, QuantizedImage } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { fitPrintSizeToAspect } from '../lib/printConsts'
@@ -109,8 +109,8 @@ const mergeInput = $<HTMLInputElement>('#merge-deltae')
 const mergeThreshWrap = $<HTMLElement>('#merge-thresh-wrap')
 
 const SLIDER_MIN = 2
-const SLIDER_MAX = 24
-const PRESET_TICKS = [2, 4, 8, 12, 16, 24]
+const SLIDER_MAX = 8
+const PRESET_TICKS = [2, 4, 6, 8]
 const widthInput = $<HTMLInputElement>('#width-mm')
 const heightInput = $<HTMLInputElement>('#height-mm')
 const baseInput = $<HTMLInputElement>('#base-mm')
@@ -278,14 +278,14 @@ function readOptions() {
   // (e.g. "1e999", "abc"), which must never reach the geometry or exports.
   const clampNum = (v: number, lo: number, hi: number, fallback: number) =>
     Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback
-  const numColors = clampNum(Math.round(Number(colorsSlider.value)), 2, 24, 4)
+  const numColors = clampNum(Math.round(Number(colorsSlider.value)), SLIDER_MIN, SLIDER_MAX, 4)
   const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
   const dither = clampNum(Number(ditherSlider.value), 0, 100, 0) / 100
   const mergeDeltaE = mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0
   const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
   const maxHeightMm = clampNum(Number(maxInput.value), baseMm + 2, 40, 8)
   return {
-    numColors: numColors as 2 | 4 | 8 | 12 | 16 | 24,
+    numColors: numColors as ColorCount,
     darkIsTall,
     dither,
     bandHeightsMm: bandHeights ?? undefined,

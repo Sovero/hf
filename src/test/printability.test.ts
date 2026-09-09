@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mapToLuminanceBands } from '../lib/quantize'
 import { finishPipeline, type PipelineResult } from '../lib/pipeline'
 import { analyzePrintability, fixFor } from '../lib/printability'
-import type { PrintSettings } from '../lib/types'
+import type { ColorCount, PrintSettings } from '../lib/types'
 
 function gradientImage(size = 64): { width: number; height: number; rgba: Uint8ClampedArray } {
   const rgba = new Uint8ClampedArray(size * size * 4)
@@ -34,7 +34,7 @@ function checkerboardImage(size = 32): { width: number; height: number; rgba: Ui
   return { width: size, height: size, rgba }
 }
 
-type TestSettings = PrintSettings & { numColors: 2 | 4 | 8 | 12 | 16 | 24 }
+type TestSettings = PrintSettings & { numColors: ColorCount }
 
 function run(
   image: { width: number; height: number; rgba: Uint8ClampedArray },
@@ -66,12 +66,13 @@ describe('printability', () => {
   })
 
   it('never flags bands at exactly one layer (float-dust safe)', () => {
-    // 24 colors squeezed into 2 mm of usable height: snappedBandTops forces
-    // every band to at least one layer (monotonicity clamp), so the only way
-    // this could read as a sub-layer band is float dust (0.2 vs 0.19999…).
-    // A one-layer band prints fine as a distinct sheet — it must not fail.
+    // 8 colors at max height 2.4 → usable 1.6 mm / 8 = exactly one 0.2 mm
+    // layer per band: snappedBandTops forces every band to at least one layer
+    // (monotonicity clamp), so the only way this could read as a sub-layer
+    // band is float dust (0.2 vs 0.19999…). A one-layer band prints fine as a
+    // distinct sheet — it must not fail.
     const report = analyzePrintability(run(gradientImage(), {
-      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 2.8, darkIsTall: true, layerMm: 0.2, numColors: 24,
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 2.4, darkIsTall: true, layerMm: 0.2, numColors: 8,
     }))
     const bands = report.checks.find((c) => c.id === 'bands')!
     expect(bands.level).not.toBe('fail')
@@ -79,9 +80,9 @@ describe('printability', () => {
   })
 
   it('warns on bands thinner than the nozzle but thicker than a layer', () => {
-    // 24 colors over 7.2 mm → 0.31 mm bands: below 0.4 mm nozzle, above 0.2 mm layer.
+    // 8 colors over 2.8 mm → 0.35 mm bands: below 0.4 mm nozzle, above 0.2 mm layer.
     const report = analyzePrintability(run(gradientImage(), {
-      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 24,
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 3.6, darkIsTall: true, layerMm: 0.2, numColors: 8,
     }))
     const bands = report.checks.find((c) => c.id === 'bands')!
     expect(bands.level).toBe('warn')
@@ -96,13 +97,15 @@ describe('printability', () => {
     expect(resolution.level).toBe('warn')
   })
 
-  it('warns on many filament changes', () => {
+  it('keeps the filament-change count manageable with few colors', () => {
+    // With the UI capped at 8 colors the max is 7 changes — well below the
+    // 12-change warning threshold.
     const report = analyzePrintability(run(gradientImage(), {
-      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 24,
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 8,
     }))
     const swaps = report.checks.find((c) => c.id === 'swaps')!
-    expect(swaps.level).toBe('warn')
-    expect(swaps.detail).toContain('23')
+    expect(swaps.level).toBe('ok')
+    expect(swaps.detail).toContain('7')
   })
 
   it('flags fragile isolated regions on a checkerboard', () => {
@@ -144,9 +147,9 @@ describe('printability', () => {
 describe('auto-fix (fixFor)', () => {
   it('raises max height so thin equal bands reach the nozzle width', () => {
     const result = run(gradientImage(), {
-      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 2.8, darkIsTall: true, layerMm: 0.2, numColors: 24,
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 2.8, darkIsTall: true, layerMm: 0.2, numColors: 8,
     })
-    // 0.2 mm bands: one layer thick (warn, not fail) but below the 0.4 nozzle.
+    // 0.25 mm bands: one layer thick (warn, not fail) but below the 0.4 nozzle.
     const before = analyzePrintability(result).checks.find((c) => c.id === 'bands')!
     expect(before.level).toBe('warn')
     const fix = fixFor('bands', result)
@@ -155,7 +158,7 @@ describe('auto-fix (fixFor)', () => {
     expect((fix as { to: number }).to).toBeGreaterThan(2.8)
     // Applying the fix must make the check pass.
     const fixed = run(gradientImage(), {
-      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: (fix as { to: number }).to, darkIsTall: true, layerMm: 0.2, numColors: 24,
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: (fix as { to: number }).to, darkIsTall: true, layerMm: 0.2, numColors: 8,
     })
     const bands = analyzePrintability(fixed).checks.find((c) => c.id === 'bands')!
     expect(bands.level).not.toBe('warn')
@@ -228,7 +231,7 @@ describe('auto-fix (fixFor)', () => {
     expect(fixFor('support', ok)).toBeNull()
     expect(fixFor('swaps', ok)).toBeNull()
     const swaps = run(gradientImage(), {
-      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 24,
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 8,
     })
     expect(fixFor('swaps', swaps)).toBeNull()
     expect(fixFor('unknown', swaps)).toBeNull()

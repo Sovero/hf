@@ -1,4 +1,4 @@
-import type { HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
+import type { ColorCount, HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
 import { loadImageForPrint } from './loadImage'
 import type { Lang } from '../i18n'
 import { mapToLuminanceBands } from './quantize'
@@ -33,7 +33,7 @@ export interface PipelineResult {
 }
 
 export interface PipelineOptions {
-  numColors: 2 | 4 | 8 | 12 | 16 | 24
+  numColors: ColorCount
   darkIsTall: boolean
   widthMm: number
   heightMm: number

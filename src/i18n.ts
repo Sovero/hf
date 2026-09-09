@@ -63,12 +63,12 @@ export const dict: Dict = {
     ru: 'Сколько цветов филамента использовать. Больше цветов — плавнее переходы, но больше ручных смен филамента.',
   },
   helpColorsSlider: {
-    en: 'Drag to change the color count; click a tick mark for a quick preset (2–24).',
-    ru: 'Потяните, чтобы изменить количество цветов; щёлкните по метке для быстрого выбора (2–24).',
+    en: 'Drag to change the color count; click a tick mark for a quick preset (2–8).',
+    ru: 'Потяните, чтобы изменить количество цветов; щёлкните по метке для быстрого выбора (2–8).',
   },
   helpColorsValue: {
-    en: 'Type an exact color count from 2 to 24 and press Enter.',
-    ru: 'Введите точное количество цветов от 2 до 24 и нажмите Enter.',
+    en: 'Type an exact color count from 2 to 8 and press Enter.',
+    ru: 'Введите точное количество цветов от 2 до 8 и нажмите Enter.',
   },
   helpDepth: {
     en: 'Which parts of the picture stand tallest: light areas or dark ones. This sets the print order of the colors.',
@@ -247,8 +247,8 @@ export const dict: Dict = {
 
   // ---- colors slider ----
   sliderHint: {
-    en: 'Drag the slider, or type a count (2–24) in the box',
-    ru: 'Потяните ползунок или введите число (2–24) в поле',
+    en: 'Drag the slider, or type a count (2–8) in the box',
+    ru: 'Потяните ползунок или введите число (2–8) в поле',
   },
   ditherHint: {
     en: 'Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.',

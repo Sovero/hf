@@ -13,7 +13,7 @@ import {
   buildSlicerBundle,
   swapSchedule,
 } from '../lib/slicerBundle'
-import type { PrintSettings } from '../lib/types'
+import type { ColorCount, PrintSettings } from '../lib/types'
 
 function gradientImage(size = 16): { width: number; height: number; rgba: Uint8ClampedArray } {
   const rgba = new Uint8ClampedArray(size * size * 4)
@@ -30,7 +30,7 @@ function gradientImage(size = 16): { width: number; height: number; rgba: Uint8C
   return { width: size, height: size, rgba }
 }
 
-function run(settings: Partial<PrintSettings> & { numColors: 2 | 4 | 8 | 12 | 16 | 24 }): PipelineResult {
+function run(settings: Partial<PrintSettings> & { numColors: ColorCount }): PipelineResult {
   const image = gradientImage()
   const q = mapToLuminanceBands(image.rgba, settings.numColors, image.width, image.height, settings.darkIsTall ?? true)
   return finishPipeline(image, q, {

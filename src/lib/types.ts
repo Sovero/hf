@@ -4,6 +4,9 @@ export interface RGB {
   b: number
 }
 
+/** Allowed filament color counts (the UI slider is capped at 8). */
+export type ColorCount = 2 | 3 | 4 | 5 | 6 | 7 | 8
+
 /** A decoded, downscaled image ready for processing. */
 export interface LoadedImage {
   width: number
