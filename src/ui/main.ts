@@ -96,6 +96,9 @@ const colorsValue = $<HTMLInputElement>('#colors-value')
 const sliderTicks = $<HTMLDivElement>('#slider-ticks')
 const ditherSlider = $<HTMLInputElement>('#dither-slider')
 const ditherValue = $<HTMLSpanElement>('#dither-value')
+const mergeCheck = $<HTMLInputElement>('#merge-deltae-check')
+const mergeInput = $<HTMLInputElement>('#merge-deltae')
+const mergeThreshWrap = $<HTMLElement>('#merge-thresh-wrap')
 
 const SLIDER_MIN = 2
 const SLIDER_MAX = 24
@@ -170,10 +173,17 @@ type Settings = {
   layerMm: number
   dither: number
   backlight: boolean
+  mergeDeltaE: number
 }
 /** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
 function clampNum(v: number, lo: number, hi: number, fb: number): number {
   return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb
+}
+
+/** Enable the ΔE-threshold input only while the merge checkbox is on. */
+function syncMergeThreshold() {
+  mergeThreshWrap.style.opacity = mergeCheck.checked ? '1' : '0.45'
+  mergeInput.disabled = !mergeCheck.checked
 }
 
 /** Read the current UI values and persist them (mirrors readOptions' clamps). */
@@ -189,6 +199,7 @@ function saveSettings() {
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
       backlight: lightBackBtn.classList.contains('is-active'),
+      mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -213,6 +224,12 @@ function restoreSettings() {
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
     ditherSlider.value = String(clampNum(Number(s.dither), 0, 100, 0))
     ditherValue.textContent = `${ditherSlider.value}%`
+    if (s.mergeDeltaE !== undefined) {
+      const on = s.mergeDeltaE > 0
+      mergeCheck.checked = on
+      if (on) mergeInput.value = String(clampNum(Math.round(Number(s.mergeDeltaE)), 1, 40, 10))
+      syncMergeThreshold()
+    }
     if (s.backlight === true) setLightMode('back')
   } catch {
     /* ignore corrupt settings */
@@ -251,6 +268,7 @@ function readOptions() {
   const numColors = clampNum(Math.round(Number(colorsSlider.value)), 2, 24, 4)
   const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
   const dither = clampNum(Number(ditherSlider.value), 0, 100, 0) / 100
+  const mergeDeltaE = mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0
   const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
   const maxHeightMm = clampNum(Number(maxInput.value), baseMm + 2, 40, 8)
   return {
@@ -263,6 +281,7 @@ function readOptions() {
     baseMm,
     maxHeightMm,
     layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
+    mergeDeltaE,
   }
 }
 
@@ -313,6 +332,25 @@ async function readFile(file: File) {
       return
     }
     current = { ...result, image }
+    // The ΔE merge can shrink the palette: remap per-slot filament
+    // assignments through the kept-slot report so ★-stars follow colors.
+    let mergedMsg = false
+    if (result.mergeKept) {
+      const kept = result.mergeKept
+      const before = filamentAssignments
+      filamentAssignments = kept.map((i) => before[i] ?? null)
+      const dropped = before.length - kept.length
+      if (dropped > 0) {
+        showStatus(
+          tr('mergeApplied', {
+            n: String(dropped),
+            a: String(before.length),
+            b: String(kept.length),
+          }),
+        )
+        mergedMsg = true
+      }
+    }
     // Custom band heights are indexed by palette slot: a color-count change
     // invalidates them, and a fresh run re-stamps the effective heights.
     if (bandHeights && bandHeights.length !== result.quantized.palette.length) bandHeights = null
@@ -322,7 +360,9 @@ async function readFile(file: File) {
     updateUI()
     if (referencePlan) updateApplyButton() // image availability changes Apply
     setProcessing(false)
-    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+    if (!mergedMsg) {
+      showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+    }
     noteSettled()
   } catch (err) {
     if (token !== runToken) return
@@ -1029,6 +1069,7 @@ function captureSnapshot(): EditorSnapshot | null {
     dither: Math.round(opts.dither * 100),
     darkIsTall: opts.darkIsTall,
     backlight: lightBackBtn.classList.contains('is-active'),
+    ...(opts.mergeDeltaE ? { mergeDeltaE: opts.mergeDeltaE } : {}),
     ...(bandHeights && bandHeights.length ? { bandHeightsMm: [...bandHeights] } : {}),
   }
   return {
@@ -2334,6 +2375,18 @@ function bindInputs() {
     flushReprocess()
     saveSettings()
   })
+
+  // ΔE merge: checkbox toggles the threshold input; both reprocess.
+  mergeCheck.addEventListener('change', () => {
+    syncMergeThreshold()
+    scheduleReprocess()
+    saveSettings()
+  })
+  mergeInput.addEventListener('change', () => {
+    if (!mergeCheck.checked) return
+    scheduleReprocess()
+    saveSettings()
+  })
 }
 
 /** Draw tick marks at the preset positions, highlighting the current value. */
@@ -2697,6 +2750,12 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   colorsValue.value = colorsSlider.value
   ditherSlider.value = String(clamp(s.dither, 0, 100, 0))
   ditherValue.textContent = `${ditherSlider.value}%`
+  if (s.mergeDeltaE !== undefined) {
+    const on = s.mergeDeltaE > 0
+    mergeCheck.checked = on
+    if (on) mergeInput.value = String(clamp(Math.round(s.mergeDeltaE), 1, 40, 10))
+    syncMergeThreshold()
+  }
   widthInput.value = String(clamp(s.widthMm, 20, 500, 150))
   heightInput.value = String(clamp(s.heightMm, 20, 500, 150))
   baseInput.value = String(baseMm)

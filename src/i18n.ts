@@ -251,6 +251,22 @@ export const dict: Dict = {
     en: 'Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.',
     ru: 'Дизеринг размывает границы полос в плавные градиенты (Флойда–Стейнберга). 0 = выкл.',
   },
+  mergeCheck: {
+    en: 'Merge near-duplicate colors',
+    ru: 'Сливать близкие цвета',
+  },
+  mergeHint: {
+    en: 'Adjacent bands whose colors are closer than the ΔE threshold become one filament — fewer swaps, same look.',
+    ru: 'Соседние полосы с цветами ближе порога ΔE печатаются одним филаментом — меньше смен, тот же вид.',
+  },
+  helpMergeDeltaE: {
+    en: 'Merges adjacent bands whose colors differ by less than the threshold (CIE76 ΔE in Lab). 2–3 is a just-noticeable difference; 10+ merges clearly similar shades. The merged band keeps the taller step; the survivor keeps its own filament color.',
+    ru: 'Сливает соседние полосы, чьи цвета отличаются меньше порога (CIE76 ΔE в Lab). 2–3 — едва заметная разница, 10+ — явно похожие оттенки. Слитая полоса сохраняет высокий уступ, выживший цвет — свой филамент.',
+  },
+  mergeApplied: {
+    en: 'Merged {n} near-duplicate color(s): {a} → {b} colors',
+    ru: 'Слито {n} близких цветов: {a} → {b}',
+  },
   helpDither: {
     en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it.',
     ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт.',

@@ -133,6 +133,11 @@
               <span id="dither-value" class="dither-value muted small">0%</span>
             </div>
             <p class="muted small slider-hint" data-i18n="ditherHint">Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.</p>
+            <div class="merge-row">
+              <label class="merge-label"><input id="merge-deltae-check" type="checkbox" data-help="helpMergeDeltaE" /> <span data-i18n="mergeCheck">Merge near-duplicate colors</span></label>
+              <label class="merge-thresh" id="merge-thresh-wrap"><input id="merge-deltae" type="number" min="1" max="40" step="1" value="10" aria-label="ΔE merge threshold" data-help="helpMergeDeltaE" /> <span class="muted small">ΔE</span></label>
+            </div>
+            <p class="muted small slider-hint" data-i18n="mergeHint">Adjacent bands whose colors are closer than the ΔE threshold become one filament — fewer swaps, same look.</p>
           </div>
           <div class="panel-head" id="depth-details" data-help="helpDepth">
             <h2 data-i18n="panelDepth">3 · Depth mode</h2>

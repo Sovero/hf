@@ -41,6 +41,12 @@ export interface PipelineOptions {
   maxHeightMm: number
   /** Print layer height in mm; defaults to 0.2 when omitted. */
   layerMm?: number
+  /**
+   * Merge adjacent palette bands whose colors sit closer than this ΔE
+   * (CIE76). 0 (default) disables the pass. Consumed by the worker's
+   * quantize step; harmless elsewhere.
+   */
+  mergeDeltaE?: number
   /** Floyd–Steinberg dithering strength 0..1 (0 = off, the default). */
   dither?: number
   /**

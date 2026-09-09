@@ -92,6 +92,7 @@ export function quantizeInWorker(
         paletteOverride: overrides?.palette,
         bandTopsOverride: overrides?.bandTops,
         nearestPalette: overrides?.nearest,
+        mergeDeltaE: opts.mergeDeltaE,
       },
       [rgba.buffer],
     )

@@ -37,6 +37,8 @@ export interface ProjectSettings {
   layerMm: number
   /** Dithering strength 0..100 (percent), 0 = off. */
   dither: number
+  /** ΔE merge threshold for adjacent near-duplicate bands; 0 = off. */
+  mergeDeltaE?: number
   darkIsTall: boolean
   backlight: boolean
   /** Per-band sheet thickness in mm (palette order); absent = equal bands. */
@@ -163,6 +165,13 @@ export function parseProjectFile(text: string): ProjectFile {
     dither: num('dither'),
     darkIsTall: bool('darkIsTall'),
     backlight: bool('backlight'),
+  }
+  // Optional ΔE merge threshold: 0..40; absent = off (older project files).
+  if (s.mergeDeltaE !== undefined) {
+    if (!isFiniteNumber(s.mergeDeltaE) || (s.mergeDeltaE as number) < 0 || (s.mergeDeltaE as number) > 40) {
+      throw new ProjectFileError('settings.mergeDeltaE must be a number in 0..40')
+    }
+    settings.mergeDeltaE = s.mergeDeltaE as number
   }
   // Optional per-band thicknesses: one positive finite number per color.
   if (s.bandHeightsMm !== undefined) {
