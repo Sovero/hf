@@ -23,6 +23,7 @@ import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
 import type { FaceName } from '../lib/viewCubeMath'
 import { autoPickFilaments } from '../lib/autoPick'
+import { colorShares, formatShare } from '../lib/colorShare'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
@@ -1684,6 +1685,9 @@ document.addEventListener('click', (e) => {
 function renderPalette() {
   const palette = current!.palette
   paletteList.innerHTML = ''
+  // Area share of each palette color (post-dither, post-cleanup — exactly
+  // what will be printed); indexMap indexes quantized.palette 1:1 with rows.
+  const shares = colorShares(current!.quantized.indexMap, palette.length)
   // Sheet thickness per print order, from the snapped band tops: a band's
   // thickness is the gap between its top and the band below it (the base for
   // the first band). Heights never change on color edits, so compute once.
@@ -1726,8 +1730,9 @@ function renderPalette() {
     const subText = () => {
       const live = current!.palette[i]
       const t = thicknessByOrder.get(live.printOrder)
+      const sharePart = ` · ${formatShare(shares[i].percent)}`
       const tauPart = ` · τ ${tauOfSlot(i).toFixed(2)} mm`
-      return t ? `${mmOf(lang, t.mm)} · ${word(lang, t.layers, 'layers')}${tauPart}` : tauPart
+      return t ? `${mmOf(lang, t.mm)} · ${word(lang, t.layers, 'layers')}${sharePart}${tauPart}` : `${sharePart}${tauPart}`
     }
     labelMain.textContent = labelText()
     labelSub.textContent = subText()
@@ -1848,6 +1853,19 @@ function renderPalette() {
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
+  // Flag spools that barely appear in the print (<1% of the area) so a
+  // wasted color change is visible before slicing.
+  const lowUse = palette
+    .map((e, i) => ({ order: e.printOrder, percent: shares[i].percent }))
+    .filter((s) => s.percent < 1)
+    .sort((a, b) => a.percent - b.percent)
+    .map((s) => `#${s.order} ${formatShare(s.percent)}`)
+  if (lowUse.length) {
+    paletteSummary.textContent += ` ${tr('paletteLowUse', { list: lowUse.join(', ') })}`
+    paletteSummary.title = tr('paletteLowUseHelp')
+  } else {
+    paletteSummary.title = ''
+  }
   updateCatalogBtn()
   // Keep assignments aligned with the (possibly changed) color count.
   filamentAssignments.length = palette.length

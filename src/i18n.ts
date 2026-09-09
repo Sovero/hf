@@ -293,6 +293,14 @@ export const dict: Dict = {
     en: '{colors} · export includes print order',
     ru: '{colors} · в файл включён порядок печати',
   },
+  paletteLowUse: {
+    en: '· barely used: {list}',
+    ru: '· почти не используются: {list}',
+  },
+  paletteLowUseHelp: {
+    en: 'Colors under 1% of the print area — each still costs a filament change; consider dropping them.',
+    ru: 'Цвета меньше 1% площади печати — каждый всё равно требует смены филамента; возможно, стоит от них отказаться.',
+  },
   paletteChange: {
     en: 'Change this color (pick a filament color)',
     ru: 'Изменить этот цвет (выберите цвет филамента)',
