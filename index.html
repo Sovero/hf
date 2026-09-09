@@ -247,19 +247,19 @@
               <button type="button" class="hint-btn" data-help="helpExport" aria-label="Help">?</button>
             </div>
           <div class="export-buttons">
-            <button id="btn-stl" disabled data-i18n="btnStl" data-help="helpBtnStl">Download STL</button>
-            <button id="btn-3mf" disabled data-i18n="btn3mf" data-help="helpBtn3mf">Download 3MF</button>
-            <button id="btn-describe" disabled data-i18n="btnDescribe" data-help="helpBtnDescribe">Download Describe.txt</button>
-            <button id="btn-slicer" disabled data-i18n="btnSlicer" data-help="helpBtnSlicer">Slicer bundle</button>
+            <button id="btn-stl" disabled data-help="helpBtnStl"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg><span data-i18n="btnStl">Download STL</span></button>
+            <button id="btn-3mf" disabled data-help="helpBtn3mf"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.8 8 2l6 2.8-6 2.8Z"/><path d="M2 8.2 8 5.4l6 2.8-6 2.8Z"/><path d="M2 11.6 8 8.8l6 2.8-6 2.8Z"/></svg><span data-i18n="btn3mf">Download 3MF</span></button>
+            <button id="btn-describe" disabled data-help="helpBtnDescribe"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.6h5.2L13 5.4v9H4Z"/><path d="M9.2 1.6v3.8H13"/><path d="M6.2 8.6h3.6M6.2 11h3.6"/></svg><span data-i18n="btnDescribe">Download Describe.txt</span></button>
+            <button id="btn-slicer" disabled data-help="helpBtnSlicer"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6V3h9v3"/><path d="M2.8 6h10.4v3.4H2.8Z"/><path d="M5.4 12.4h5.2V9.4H5.4Z"/></svg><span data-i18n="btnSlicer">Slicer bundle</span></button>
           </div>
           <div class="export-buttons">
-            <button id="btn-project-save" disabled data-i18n="btnProjectSave" data-help="helpProjectSave">Save project</button>
-            <button id="btn-project-open" data-i18n="btnProjectOpen" data-help="helpProjectOpen">Open project</button>
+            <button id="btn-project-save" disabled data-help="helpProjectSave"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.8v7.6"/><path d="M4.6 6.4 8 9.8l3.4-3.4"/><path d="M2.6 13.6h10.8"/></svg><span data-i18n="btnProjectSave">Save project</span></button>
+            <button id="btn-project-open" data-help="helpProjectOpen"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 4.2h4l1.6 2.2h6.8v6.6H1.8Z"/><path d="M5.8 4.2h2.6v1.4H4.6"/></svg><span data-i18n="btnProjectOpen">Open project</span></button>
             <input id="project-input" type="file" accept=".hueforge.json,.json,application/json" hidden />
           </div>
           <div id="open-slicer-row" class="export-buttons" hidden>
             <select id="slicer-select" class="calib-select"></select>
-            <button id="btn-open-slicer" disabled data-i18n="btnOpenSlicer" data-help="helpOpenSlicer">Open in slicer</button>
+            <button id="btn-open-slicer" disabled data-help="helpOpenSlicer"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6V3h9v3"/><path d="M2.8 6h10.4v3.4H2.8Z"/><path d="M5.4 12.4h5.2V9.4H5.4Z"/></svg><span data-i18n="btnOpenSlicer">Open in slicer</span></button>
           </div>
           <p id="export-status" class="muted small"></p>
           </div>
@@ -281,22 +281,22 @@
           <div class="palette-summary-row">
             <p id="palette-summary" class="muted small"></p>
             <span class="palette-summary-actions">
-              <button id="auto-pick" type="button" class="palette-reset-btn" data-i18n="autoPick" disabled>Auto-pick filaments</button>
-              <button id="catalog-pick" type="button" class="palette-reset-btn" data-i18n="catalogPick">Quantize by spools</button>
+              <button id="auto-pick" type="button" class="palette-reset-btn" disabled><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4.2 12.8 8.2-8.2 1.6 1.6-8.2 8.2Z"/><path d="m12.6 2.2.4 1.6 1.6.4-1.6.4-.4 1.6-.4-1.6-1.6-.4 1.6-.4Z"/></svg><span data-i18n="autoPick">Auto-pick filaments</span></button>
+              <button id="catalog-pick" type="button" class="palette-reset-btn"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.6"/><circle cx="8" cy="8" r="1.9"/></svg><span data-i18n="catalogPick">Quantize by spools</span></button>
               <span id="drop-sparse-wrap" hidden>
                 <input id="drop-sparse-threshold" type="number" min="0.1" max="10" step="0.1" value="1" />
                 <span class="threshold-unit" data-i18n="dropSparseUnit">%</span>
-                <button id="palette-drop-sparse" type="button" class="palette-reset-btn" data-i18n="dropSparse" data-help="dropSparseHelp">Drop unused</button>
+                <button id="palette-drop-sparse" type="button" class="palette-reset-btn" data-help="dropSparseHelp"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 4.4h10.8"/><path d="M6 4.4V3h4v1.4"/><path d="M4.2 4.4 5 13h6l.8-8.6"/><path d="M6.6 7v3.4M9.4 7v3.4"/></svg><span data-i18n="dropSparse">Drop unused</span></button>
               </span>
-              <button id="palette-heights-reset" type="button" class="palette-reset-btn" data-i18n="paletteHeightsReset" hidden>Equal heights</button>
-              <button id="btn-shopping-list" type="button" class="palette-reset-btn" data-i18n="btnShoppingList" data-help="helpShoppingList" disabled>Shopping list</button>
+              <button id="palette-heights-reset" type="button" class="palette-reset-btn" hidden><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 11.2V7h2.8v4.2M6.6 11.2V3.2h2.8v8M10.6 11.2V5.2h2.8v6"/></svg><span data-i18n="paletteHeightsReset">Equal heights</span></button>
+              <button id="btn-shopping-list" type="button" class="palette-reset-btn" data-help="helpShoppingList" disabled><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.6" cy="13.2" r="1.1"/><circle cx="11.2" cy="13.2" r="1.1"/><path d="M1.8 2.4h2l1.8 8.2h8l1.6-5.4H4.2"/></svg><span data-i18n="btnShoppingList">Shopping list</span></button>
             </span>
           </div>
           <div id="calib" class="calib" hidden>
             <p class="muted small" data-i18n="calibIntro">Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.</p>
             <div class="calib-row">
               <select id="calib-color" class="calib-select"></select>
-              <button id="calib-download" type="button" data-i18n="calibDownload">Swatch STL</button>
+              <button id="calib-download" type="button"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="8" width="12" height="4" rx="0.8"/><path d="M5.4 8v2.4M8 8v2.4M10.6 8v2.4"/></svg><span data-i18n="calibDownload">Swatch STL</span></button>
             </div>
             <div class="calib-row">
               <input id="calib-photo" type="file" accept="image/*" />

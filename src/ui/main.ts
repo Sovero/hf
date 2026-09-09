@@ -683,8 +683,11 @@ function renderPrintability() {
     if (fix) {
       const btn = document.createElement('button')
       btn.className = 'fix-btn'
-      btn.textContent = tr('pbFix')
       btn.title = tr('pbFixTitle')
+      btn.innerHTML =
+        `<svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
+        `<path d="m4.2 12.8 8.2-8.2 1.6 1.6-8.2 8.2Z"/><path d="m12.6 2.2.4 1.6 1.6.4-1.6.4-.4 1.6-.4-1.6-1.6-.4 1.6-.4Z"/></svg>` +
+        `<span>${tr('pbFix')}</span>`
       btn.addEventListener('click', () => applyFix(fix))
       body.append(btn)
     }
@@ -1061,7 +1064,11 @@ function catalogSpools(): { colors: RGB[]; ids: (string | null)[] } | null {
 }
 
 function updateCatalogBtn() {
-  catalogBtn.textContent = tr(catalogActive ? 'catalogReset' : 'catalogPick')
+  const label = catalogBtn.querySelector<HTMLElement>('[data-i18n]')
+  if (label) {
+    label.dataset.i18n = catalogActive ? 'catalogReset' : 'catalogPick'
+    label.textContent = tr(label.dataset.i18n)
+  }
   catalogBtn.title = tr(catalogActive ? 'catalogResetHelp' : 'catalogPickHelp')
 }
 
@@ -2324,9 +2331,12 @@ function renderPalette() {
     : 0
   dropSparseWrap.hidden = !catalogActive
   dropSparseBtn.disabled = !(catalogActive && droppable > 0 && palette.length > 2)
-  dropSparseBtn.textContent = droppable > 0
-    ? `${tr('dropSparse')} (${droppable})`
-    : tr('dropSparse')
+  const dropSparseLabel = dropSparseBtn.querySelector('[data-i18n]')
+  if (dropSparseLabel) {
+    dropSparseLabel.textContent = droppable > 0
+      ? `${tr('dropSparse')} (${droppable})`
+      : tr('dropSparse')
+  }
   if (dropSparseBtn.disabled) dropSparseBtn.title = tr('dropSparseNone')
   else {
     const sharesFull = colorShares(current!.quantized.indexMap, palette.length)

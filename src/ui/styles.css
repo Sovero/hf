@@ -436,6 +436,10 @@ body {
 }
 
 .export-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   padding: 0.55rem 0.5rem;
   border: none;
   border-radius: 6px;
@@ -741,6 +745,19 @@ body {
   min-width: 0;
 }
 
+/* Inline action-button icons: keep the glyph centered next to the label. */
+.btn-ico {
+  width: 1.05em;
+  height: 1.05em;
+  flex: none;
+}
+.export-buttons button .btn-ico,
+.calib-row button .btn-ico,
+#open-slicer-row button .btn-ico,
+.fix-btn .btn-ico {
+  opacity: 0.85;
+}
+
 /* "Barely used" threshold: number field + % unit + the drop button. */
 #drop-sparse-wrap {
   display: inline-flex;
@@ -779,6 +796,9 @@ body {
 }
 
 .palette-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   flex-shrink: 0;
   white-space: nowrap; /* wrap as a whole chip, never mid-label */
   padding: 0.2rem 0.5rem;
@@ -841,12 +861,15 @@ body {
 .check-ok { opacity: 0.8; }
 
 .fix-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   margin-top: 0.4rem;
   border: 1px solid var(--accent);
   background: transparent;
   color: var(--accent);
   border-radius: 999px;
-  padding: 0.15rem 0.7rem;
+  padding: 0.2rem 0.7rem;
   font-size: 0.75rem;
   cursor: pointer;
 }
