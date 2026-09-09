@@ -22,6 +22,7 @@ import type { Reference3mfAnalysis } from '../lib/reference3mf'
 import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
 import type { FaceName } from '../lib/viewCubeMath'
+import { autoPickFilaments } from '../lib/autoPick'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
@@ -51,6 +52,7 @@ const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
 const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
 const catalogBtn = $<HTMLButtonElement>('#catalog-pick')
+const autoPickBtn = $<HTMLButtonElement>('#auto-pick')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
 const calibDownload = $<HTMLButtonElement>('#calib-download')
@@ -363,6 +365,8 @@ function applyStaticText() {
     homeBtn.title = tr('viewerHome')
     homeBtn.ariaLabel = tr('viewerHome')
   }
+  autoPickBtn.title = tr('autoPickHelp')
+  autoPickBtn.ariaLabel = tr('autoPickHelp')
   viewer3d?.setFaceLabels(cubeFaceLabels())
   updateCatalogBtn() // the catalog toggle label depends on its active state
   renderTicks() // rebuild tick tooltips/labels in the current language
@@ -577,6 +581,7 @@ function updateUI() {
   btnSlicer.disabled = false
   btnOpenSlicer.disabled = false
   btnProjectSave.disabled = false
+  autoPickBtn.disabled = false
   imageInfo.textContent = tr('processedAt', { w: current.image.width, h: current.image.height })
 }
 
@@ -1351,6 +1356,32 @@ catalogBtn.addEventListener('click', () => {
   filamentAssignments = spools.ids
   updateCatalogBtn()
   void quantizeCatalog(spools.colors)
+})
+
+/**
+ * Auto-pick: suggest the closest real filament for every palette color
+ * (unique assignment, so N slots get N different spools), adopt each
+ * suggestion's color into the palette and record it as the slot's filament.
+ * The user can then fine-tune any slot through the ★ popover.
+ */
+autoPickBtn.addEventListener('click', () => {
+  if (!current) return
+  const palette = current.quantized.palette
+  const result = autoPickFilaments(palette)
+  if (!result.ids.some(Boolean)) {
+    showStatus(tr('autoPickNone'), true)
+    return
+  }
+  result.ids.forEach((id, i) => {
+    filamentAssignments[i] = id
+    const choice = id ? findFilament(id) : undefined
+    if (choice) setPaletteColor(i, { ...choice.color.rgb }, false)
+  })
+  rebuildNow(false)
+  renderPalette()
+  const missed = result.ids.filter((id) => !id).length
+  showStatus(missed ? tr('autoPickDoneWithGaps', { n: String(missed) }) : tr('autoPickDone'))
+  noteSettled()
 })
 
 /**

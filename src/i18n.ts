@@ -313,6 +313,26 @@ export const dict: Dict = {
     en: 'Computed from the band height sliders: base + Σ band thicknesses. Move a band slider to change it, or click «Equal heights» in the palette.',
     ru: 'Рассчитывается из ползунков высот полос: основание + Σ толщин. Измените ползунок полосы или нажмите «Равные высоты» в палитре.',
   },
+  autoPick: {
+    en: 'Auto-pick filaments',
+    ru: 'Автоподбор филаментов',
+  },
+  autoPickHelp: {
+    en: 'Suggest the closest real filament for every palette color (each spool used once), adopt their exact colors into the palette, then fine-tune any slot with ★.',
+    ru: 'Подбирает ближайший реальный филамент к каждому цвету палитры (без повторов), принимает их точные цвета в палитру — затем любой слот можно поправить вручную через ★.',
+  },
+  autoPickDone: {
+    en: 'Filaments picked for every color — fine-tune with ★ if needed',
+    ru: 'Филаменты подобраны для всех цветов — при желании поправьте через ★',
+  },
+  autoPickDoneWithGaps: {
+    en: 'Filaments picked; {n} slot(s) had no suitable match — set them manually with ★',
+    ru: 'Филаменты подобраны; для {n} слот(ов) не нашлось варианта — назначьте вручную через ★',
+  },
+  autoPickNone: {
+    en: 'No filament suggestions available',
+    ru: 'Не удалось подобрать филаменты',
+  },
   catalogPick: {
     en: 'Quantize by spools',
     ru: 'Квантовать по катушкам',
