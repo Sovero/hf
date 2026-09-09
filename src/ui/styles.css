@@ -104,8 +104,9 @@ body {
 
 .topbar {
   display: flex;
-  align-items: baseline;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  flex-wrap: wrap;
   padding: 0.8rem 1.2rem;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
@@ -138,6 +139,15 @@ body {
   white-space: nowrap;
 }
 
+/* Export actions moved up from the sidebar: one compact row that wraps
+   onto extra lines instead of overflowing when the window is narrow. */
+.topbar-export {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .picker {
   display: flex;
   align-items: center;
@@ -155,7 +165,8 @@ body {
   cursor: pointer;
 }
 
-.topbar-btn {
+.topbar-btn,
+.topbar-export button {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -163,6 +174,28 @@ body {
   padding: 0.3rem 0.6rem;
   font-size: 0.78rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.topbar-btn:disabled,
+.topbar-export button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.topbar-btn:disabled:hover,
+.topbar-export button:disabled:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.topbar-btn:hover,
+.topbar-export button:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Compact square undo/redo buttons in the top bar. */
@@ -170,21 +203,6 @@ body {
   padding: 0.3rem 0.45rem;
   line-height: 1;
   font-size: 0.9rem;
-}
-
-.topbar-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.topbar-btn:disabled:hover {
-  border-color: var(--border);
-  color: var(--text);
-}
-
-.topbar-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 .layout {
@@ -444,13 +462,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.55rem 0.5rem;
-  border: none;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--accent);
-  color: #06121d;
-  font-weight: 600;
-  font-size: 0.8rem;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.78rem;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -461,7 +478,8 @@ body {
 }
 
 .export-buttons button:not(:disabled):hover {
-  filter: brightness(1.1);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .palette-list {
