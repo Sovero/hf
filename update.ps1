@@ -13,6 +13,11 @@
 #                             Download the deploy package (hueforge-web-deploy-
 #                             <tag>.zip asset) and unpack it over this folder —
 #                             the one-command updater for deploy.bat users.
+#                             The folder's previous state is backed up to
+#                             %APPDATA%\HueForgeWeb\backup-deploy first.
+#   update.ps1 rollback       Restore the previous state from that backup
+#                             (the pre-update version before the last
+#                             download-deploy).
 #
 # Auth is resolved in order: HF_GITHUB_TOKEN environment variable, the stored
 # token file, then anonymous (works for public repositories).
@@ -24,7 +29,7 @@
 
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('check', 'save-token', 'download', 'download-deploy')]
+    [ValidateSet('check', 'save-token', 'download', 'download-deploy', 'rollback')]
     [string]$Command,
 
     [Parameter(Position = 1)]
@@ -36,6 +41,15 @@ $Repo = 'Sovero/hf'
 $ApiBase = "https://api.github.com/repos/$Repo"
 $TokenDir = Join-Path $env:APPDATA 'HueForgeWeb'
 $TokenFile = Join-Path $TokenDir 'github_token.txt'
+$BackupDir = Join-Path $TokenDir 'backup-deploy'
+
+function Save-Backup {
+    # One backup slot per machine: the state right before the last update.
+    if (Test-Path $BackupDir) { Remove-Item $BackupDir -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+    robocopy $PSScriptRoot $BackupDir /E /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw 'backup failed' }
+}
 
 function Get-AuthHeaders {
     $token = $null
@@ -140,6 +154,9 @@ switch ($Command) {
             $dest = Join-Path $env:TEMP 'hf_deploy_update'
             if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
             Expand-Archive -Path $zip -DestinationPath $dest -Force
+            # Back up the current folder (single slot — the pre-update state)
+            # before unpacking over it, so rollback can restore it.
+            Save-Backup
             # Unpack over this folder. The deploy zip is a flat tree (dist/,
             # server.mjs, *.bat, DEPLOY.md, version.txt); update.ps1 itself is
             # already loaded by PowerShell and can be replaced safely.
@@ -147,7 +164,23 @@ switch ($Command) {
             if ($LASTEXITCODE -ge 8) { throw 'robocopy failed' }
             Remove-Item $zip -Force -ErrorAction SilentlyContinue
             Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Output "Updated to $Tag. Restart deploy.bat."
+            Write-Output "Updated to $Tag. Restart deploy.bat. Previous version saved - run 'update.ps1 rollback' to restore it."
+        } catch {
+            [Console]::Error.WriteLine('ERR: ' + $_.Exception.Message)
+            exit 1
+        }
+        exit 0
+    }
+
+    'rollback' {
+        if (-not (Test-Path $BackupDir)) {
+            [Console]::Error.WriteLine('ERR: no backup found - run download-deploy first')
+            exit 1
+        }
+        try {
+            robocopy $BackupDir $PSScriptRoot /E /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw 'restore failed' }
+            Write-Output 'Restored the previous version. Restart deploy.bat.'
         } catch {
             [Console]::Error.WriteLine('ERR: ' + $_.Exception.Message)
             exit 1
