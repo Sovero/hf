@@ -294,8 +294,11 @@ export class Viewer3D {
     this.bedGroup.add(this.buildBedGrid(wMm, hMm, margin))
     this.worldGroup.add(this.bedGroup)
 
-    // Axes at the print origin corner, scaled to the print size.
+    // Axes through the footprint center (Fusion-360 style), scaled to the
+    // print size. buildAxes is centered at the origin; the group rides to
+    // the footprint's local center along with bed and printer plane.
     this.axesGroup = this.buildAxes(Math.max(wMm, hMm) * 0.5, Math.max(wMm, hMm) * 0.06)
+    this.axesGroup.position.set(wMm / 2, 0, -hMm / 2)
     this.worldGroup.add(this.axesGroup)
 
     // Real-printer bed plane follows the (possibly changed) footprint.
@@ -411,14 +414,15 @@ export class Viewer3D {
   private fitCamera() {
     const box = new THREE.Box3().setFromObject(this.meshGroup)
     const size = new THREE.Vector3()
-    const center = new THREE.Vector3()
     box.getSize(size)
-    box.getCenter(center)
 
+    // Frame the whole model, but aim at the bed center (the world-group
+    // offset puts it exactly at the scene origin) so home and every cube
+    // jump center the table in the window, not the mesh's own center.
     const maxDim = Math.max(size.x, size.y, size.z)
     const dist = (maxDim / (2 * Math.tan((this.camera.fov * Math.PI) / 360))) * 1.5
-    this.controls.target.copy(center)
-    this.camera.position.set(center.x + dist * 0.6, center.y + dist * 0.75, center.z + dist * 0.6)
+    this.controls.target.set(0, 0, 0)
+    this.camera.position.set(dist * 0.6, dist * 0.75, dist * 0.6)
     this.controls.update()
     this.homePos.copy(this.camera.position)
     this.homeTarget.copy(this.controls.target)
@@ -428,7 +432,12 @@ export class Viewer3D {
   // Axes
   // =====================================================================
 
-  /** Colored arrows + letter sprites along the print axes. */
+  /**
+   * Colored arrows + letter sprites along the print axes, crossing at the
+   * group's origin — the bed center. X/Y also get a shorter, dimmer negative
+   * half so the cross reads through the model like Fusion 360's ViewCube
+   * axes; Z only points up (the print has nothing below the bed).
+   */
   private buildAxes(length: number, spriteScale: number): THREE.Group {
     const group = new THREE.Group()
     for (const a of AXIS_DEFS) {
@@ -437,6 +446,20 @@ export class Viewer3D {
       const sprite = this.makeTextSprite(a.label, `#${a.color.toString(16).padStart(6, '0')}`, spriteScale)
       sprite.position.copy(a.dir).multiplyScalar(length * 1.09).add(new THREE.Vector3(0, 0.02, 0))
       group.add(sprite)
+      if (a.dir.y === 0) {
+        // Negative half: 60% length, 35% opacity, no arrowhead.
+        const back = new THREE.ArrowHelper(
+          a.dir.clone().negate(),
+          new THREE.Vector3(0, 0.02, 0),
+          length * 0.6,
+          a.color,
+          0.0001,
+          0.0001,
+        )
+        ;(back.line.material as THREE.LineBasicMaterial).transparent = true
+        ;(back.line.material as THREE.LineBasicMaterial).opacity = 0.35
+        group.add(back)
+      }
     }
     return group
   }
@@ -590,20 +613,24 @@ export class Viewer3D {
     })
   }
 
-  /** Fly the camera so it looks along the zone's view direction. */
+  /** Fly the camera so it looks along the zone's view direction, centered
+   *  on the bed center (scene origin) like Fusion 360's ViewCube jumps. */
   private flyToZone(faces: FaceName[]) {
     const dir = viewDirForZone(faces)
     const sph = sphericalFor(dir)
 
-    const offset = this.camera.position.clone().sub(this.controls.target)
+    // Quick transitions re-center on the table, not wherever the user was
+    // orbiting: bed center = scene origin (worldGroup centers the footprint).
+    const target = new THREE.Vector3(0, 0, 0)
+    const offset = this.camera.position.clone().sub(target)
     const cur = new THREE.Spherical().setFromVector3(offset)
     // Shortest angular path for theta.
     let dTheta = sph.theta - cur.theta
     if (dTheta > Math.PI) dTheta -= Math.PI * 2
     if (dTheta < -Math.PI) dTheta += Math.PI * 2
     const toSph = new THREE.Spherical(cur.radius, sph.phi, cur.theta + dTheta)
-    const toPos = new THREE.Vector3().setFromSpherical(toSph).add(this.controls.target)
-    this.flyTo(toPos, this.controls.target.clone())
+    const toPos = new THREE.Vector3().setFromSpherical(toSph).add(target)
+    this.flyTo(toPos, target)
   }
 
   /** Start a smooth camera flight; user grabs cancel it. */
