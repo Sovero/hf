@@ -344,6 +344,10 @@ body {
   gap: 0.5rem;
 }
 
+.export-buttons[hidden] {
+  display: none;
+}
+
 /* Two stacked export rows (downloads + open-in-slicer) need the same
    spacing the grid gap gives inside each row. */
 .export-buttons + .export-buttons {
@@ -592,6 +596,11 @@ body {
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--border);
+}
+
+/* display:flex would defeat the hidden attribute (class beats UA rule). */
+.palette-coverage[hidden] {
+  display: none;
 }
 
 .palette-coverage .coverage-seg {
@@ -1218,6 +1227,10 @@ body {
   margin-top: 0.5rem;
 }
 
+.ref-report[hidden] {
+  display: none;
+}
+
 .ref-status {
   margin: 0;
   font-weight: 600;
@@ -1611,6 +1624,10 @@ body {
   border-radius: 3px;
   border: 1px solid var(--border);
   flex: none;
+}
+
+.layer-swatch[hidden] {
+  display: none;
 }
 
 .layer-ticks {
