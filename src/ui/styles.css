@@ -1595,6 +1595,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  /* Shown only in the 3D slice mode — the class beats the UA [hidden] rule. */
+}
+
+.layer-controls[hidden] {
+  display: none;
   padding: 0.4rem 0.15rem 0.15rem;
 }
 
