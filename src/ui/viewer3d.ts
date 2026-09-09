@@ -128,6 +128,9 @@ export class Viewer3D {
   private bedGroup: THREE.Group | null = null
   private axesGroup: THREE.Group | null = null
   private bedDims: { w: number; h: number } | null = null
+  /** Solid bed slab under the grid — makes the table read as a surface. */
+  private bedSlab: THREE.Mesh | null = null
+  private bedSlabColor = '#161d24'
 
   // ---- Per-pixel color overlays (ΔE map) and clipping (layer slice) ----
   private deTexture: THREE.DataTexture | null = null
@@ -281,16 +284,36 @@ export class Viewer3D {
       this.worldGroup.remove(this.axesGroup)
       disposeTree(this.axesGroup)
     }
+    if (this.bedSlab) {
+      this.worldGroup.remove(this.bedSlab)
+      this.bedSlab.geometry.dispose()
+      ;(this.bedSlab.material as THREE.MeshStandardMaterial).dispose()
+      this.bedSlab = null
+    }
     this.bedDims = { w: wMm, h: hMm }
 
     // Mesh spans scene X [0,w], Z [−h,0]; shift the whole print −w/2 on X
     // and +h/2 on Z so its footprint center lands at (0, 0).
     this.worldGroup.position.set(-wMm / 2, 0, hMm / 2)
 
+    // Solid slab under the grid: the table reads as a surface, not floating
+    // lines. A thin box (not a plane) so edges catch the light; its top sits
+    // just below the grid at y = −0.02.
+    const margin = Math.min(60, Math.max(20, 0.2 * Math.max(wMm, hMm)))
+    const slabW = wMm + margin * 2
+    const slabH = hMm + margin * 2
+    const slabT = Math.max(2, Math.min(10, 0.04 * Math.max(wMm, hMm)))
+    this.bedSlab = new THREE.Mesh(
+      new THREE.BoxGeometry(slabW, slabT, slabH),
+      new THREE.MeshStandardMaterial({ color: this.bedSlabColor, roughness: 0.95, metalness: 0 }),
+    )
+    // worldGroup-local footprint center (w/2, −h/2); top of slab at −0.02.
+    this.bedSlab.position.set(wMm / 2, -0.02 - slabT / 2, -hMm / 2)
+    this.worldGroup.add(this.bedSlab)
+
     this.bedGroup = new THREE.Group()
     // Margin so the grid stays visible around the print (a bed exactly the
     // print's size hides under the model).
-    const margin = Math.min(60, Math.max(20, 0.2 * Math.max(wMm, hMm)))
     this.bedGroup.add(this.buildBedGrid(wMm, hMm, margin))
     this.worldGroup.add(this.bedGroup)
 
@@ -395,6 +418,16 @@ export class Viewer3D {
   /** Update the scene background (used when the UI theme changes). */
   setBackground(color: string) {
     this.scene.background = new THREE.Color(color)
+    // The bed slab reads as part of the environment: a slightly darker,
+    // desaturated take on the theme background so it stays visible against
+    // it while looking intentional in every theme.
+    const bg = new THREE.Color(color)
+    const slab = bg.clone().multiplyScalar(0.82)
+    slab.lerp(new THREE.Color(color), 0.35)
+    this.bedSlabColor = `#${slab.getHexString()}`
+    if (this.bedSlab) {
+      ;(this.bedSlab.material as THREE.MeshStandardMaterial).color.set(this.bedSlabColor)
+    }
     this.applyCubeTheme(color)
     this.requestRender()
   }
@@ -856,6 +889,11 @@ export class Viewer3D {
     if (this.rafHandle) cancelAnimationFrame(this.rafHandle)
     this.clearMesh()
     this.clearDeltaEOverlay()
+    if (this.bedSlab) {
+      this.bedSlab.geometry.dispose()
+      ;(this.bedSlab.material as THREE.MeshStandardMaterial).dispose()
+      this.bedSlab = null
+    }
     if (this.helperPlane) {
       this.helperPlane.parent?.remove(this.helperPlane)
       this.helperPlane.geometry.dispose()
