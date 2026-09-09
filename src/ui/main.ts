@@ -12,6 +12,7 @@ import { DEFAULT_TAU_MM, backlitBandColors, transmittedBandColors } from '../lib
 import type { QuantizedImage } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
+import { fitPrintSizeToAspect } from '../lib/printConsts'
 import { deltaE2000Rgb } from '../lib/deltae'
 import { analyzePrintability } from '../lib/printability'
 import { createPerfStats } from '../lib/perfStats'
@@ -302,7 +303,7 @@ function showStatus(msg: string, isError = false) {
   exportStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'
 }
 
-async function readFile(file: File) {
+async function readFile(file: File, fresh = false) {
   currentFile = file
   const token = ++runToken
   showStatus(tr('processing'))
@@ -324,7 +325,20 @@ async function readFile(file: File) {
         updateCatalogBtn()
       }
     }
-    const { image } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
+    const { image, sourceWidth, sourceHeight } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
+    // Only a freshly loaded image sets the print size to its aspect ratio
+    // (the larger print side is kept). Rebinds pass fresh=false so settings
+    // edits, palette work, and project loads keep the explicit size.
+    if (fresh) {
+      const fitted = fitPrintSizeToAspect(sourceWidth, sourceHeight, opts.widthMm, opts.heightMm)
+      if (fitted.widthMm !== opts.widthMm || fitted.heightMm !== opts.heightMm) {
+        opts.widthMm = fitted.widthMm
+        opts.heightMm = fitted.heightMm
+        widthInput.value = String(fitted.widthMm)
+        heightInput.value = String(fitted.heightMm)
+        saveSettings()
+      }
+    }
     const t0 = performance.now()
     const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, overrides)
     perf.recordQuantize(performance.now() - t0)
@@ -2506,7 +2520,8 @@ function setupDropZone() {
   dropZone.addEventListener('click', () => fileInput.click())
   fileInput.addEventListener('change', () => {
     const f = fileInput.files?.[0]
-    if (f) void readFile(f)
+    // A new image is a fresh load: print size refits to its aspect ratio.
+    if (f) void readFile(f, true)
   })
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault()
@@ -2517,7 +2532,7 @@ function setupDropZone() {
     e.preventDefault()
     dropZone.classList.remove('dragover')
     const f = e.dataTransfer?.files?.[0]
-    if (f) void readFile(f)
+    if (f) void readFile(f, true)
   })
 }
 
