@@ -339,6 +339,13 @@
           <p class="muted small" data-i18n="layerTransNote">Colors blend like real translucent filament: thin top sheets let the layers below shine through.</p>
         </div>
         <div class="viewer-card viewer-3d" id="viewer-3d" data-help="helpViewer3d">
+          <div class="viewer3d-head">
+            <div id="viewer3d-modes" class="seg-toggle" role="group" data-help="helpViewer3dModes">
+              <button type="button" data-mode="model" class="is-active" data-i18n="mode3dModel">Model</button>
+              <button type="button" data-mode="deltae" data-i18n="mode3dDeltaE">ΔE map</button>
+              <button type="button" data-mode="slice" data-i18n="mode3dSlice">Layer cut</button>
+            </div>
+          </div>
           <div id="viewer3d" class="viewer3d-wrap">
             <div id="cube-overlay" class="cube-overlay" title=""></div>
             <button id="viewer-home" class="viewer-home" type="button" data-i18n-title="viewerHome" aria-label="">

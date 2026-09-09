@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { easeInOutCubic, sphericalFor, viewDirForZone, zoneForLocalPoint, type FaceName } from '../lib/viewCubeMath'
-import type { Mesh } from '../lib/types'
+import type { Mesh, RGB } from '../lib/types'
 
 /** Size of the ViewCube corner viewport in CSS pixels. */
 const CUBE_VIEW_PX = 96
@@ -30,6 +30,34 @@ function disposeTree(root: THREE.Object3D) {
       m.dispose()
     }
   })
+}
+
+/** Heat color for a normalized ΔE (same ramp as the 2D map: green→yellow→red). */
+function deltaeHeatColor(t: number, out: [number, number, number]) {
+  const G: [number, number, number] = [0x2e, 0xcc, 0x71]
+  const Y: [number, number, number] = [0xf1, 0xc4, 0x0f]
+  const R: [number, number, number] = [0xe7, 0x4c, 0x3c]
+  const lerp = (a: [number, number, number], b: [number, number, number], k: number) => {
+    out[0] = a[0] + (b[0] - a[0]) * k
+    out[1] = a[1] + (b[1] - a[1]) * k
+    out[2] = a[2] + (b[2] - a[2]) * k
+  }
+  if (t <= 0.5) lerp(G, Y, t * 2)
+  else lerp(Y, R, (t - 0.5) * 2)
+}
+
+/** Model X extent in mm from the mesh geometry's position bounds. */
+function footprintW(geo: THREE.BufferGeometry): number {
+  geo.computeBoundingBox()
+  const bb = geo.boundingBox!
+  return Math.max(1e-6, bb.max.x - bb.min.x)
+}
+
+/** Model print-Z extent in mm (scene Y span) from the mesh bounds. */
+function footprintH(geo: THREE.BufferGeometry): number {
+  geo.computeBoundingBox()
+  const bb = geo.boundingBox!
+  return Math.max(1e-6, bb.max.y - bb.min.y)
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -96,6 +124,14 @@ export class Viewer3D {
   private axesGroup: THREE.Group | null = null
   private bedDims: { w: number; h: number } | null = null
 
+  // ---- Per-pixel color overlays (ΔE map) and clipping (layer slice) ----
+  private deTexture: THREE.DataTexture | null = null
+  private deMaterial: THREE.MeshStandardMaterial | null = null
+  private standardMaterial: THREE.MeshStandardMaterial | null = null
+  private clipPlane: THREE.Plane | null = null
+  private helperPlane: THREE.Mesh | null = null
+  private currentView: 'model' | 'deltae' | 'slice' = 'model'
+
   // ---- ViewCube (separate mini-scene drawn in a corner viewport) ----
   private cubeScene = new THREE.Scene()
   private cubeCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 20)
@@ -125,6 +161,7 @@ export class Viewer3D {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.setSize(container.clientWidth, container.clientHeight)
+    this.renderer.localClippingEnabled = true
     container.appendChild(this.renderer.domElement)
 
     this.scene = new THREE.Scene()
@@ -179,8 +216,12 @@ export class Viewer3D {
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(mesh.colors, 3))
-    const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 })
-    this.meshGroup.add(new THREE.Mesh(geometry, material))
+    this.standardMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 })
+    if (this.clipPlane) this.standardMaterial.clippingPlanes = [this.clipPlane]
+    this.meshGroup.add(new THREE.Mesh(geometry, this.standardMaterial))
+    // A stale ΔE overlay belongs to the previous geometry.
+    this.clearDeltaEOverlay()
+    if (this.currentView === 'deltae') this.currentView = 'model'
 
     // Rebuild the bed grid and axes to match the print footprint exactly.
     const w = footprint?.wMm ?? 150
@@ -511,6 +552,151 @@ export class Viewer3D {
   }
 
   // =====================================================================
+  // Analysis overlays (ΔE map, layer slice)
+  // =====================================================================
+
+  /** Current overlay mode: plain model, ΔE heatmap, or layer slice. */
+  get viewMode(): 'model' | 'deltae' | 'slice' {
+    return this.currentView
+  }
+
+  /**
+   * Paint the top surface with the ΔE error heatmap. `de` maps every cell
+   * of the (unmirrored) quantized image to 0..25+ ΔE2000; `cellColors`
+   * carries the per-cell palette index for wall coloring. Rows mirror like
+   * the mesh itself (row 0 = far edge in scene Z).
+   */
+  setDeltaEMap(de: Float32Array, width: number, height: number, cellColors: Uint8Array, palette: RGB[]) {
+    if (!this.standardMaterial) return
+    this.currentView = 'deltae'
+    void cellColors
+    void palette
+
+    // DataTexture: one heat pixel per cell, sampled nearest so cell squares
+    // stay crisp. Row 0 of the arrays is the image's top; the mesh mirrors
+    // rows (row r ↔ row H-1-r), so flip here to match.
+    const data = new Uint8Array(width * height * 4)
+    const heat: [number, number, number] = [0, 0, 0]
+    for (let r = 0; r < height; r++) {
+      for (let x = 0; x < width; x++) {
+        const src = r * width + x
+        const dst = (height - 1 - r) * width + x
+        deltaeHeatColor(Math.min(1, de[src] / 25), heat)
+        data[dst * 4] = heat[0]
+        data[dst * 4 + 1] = heat[1]
+        data[dst * 4 + 2] = heat[2]
+        data[dst * 4 + 3] = 255
+      }
+    }
+    if (this.deTexture) this.deTexture.dispose()
+    this.deTexture = new THREE.DataTexture(data, width, height)
+    this.deTexture.colorSpace = THREE.SRGBColorSpace
+    this.deTexture.magFilter = THREE.NearestFilter
+    this.deTexture.minFilter = THREE.NearestFilter
+    this.deTexture.needsUpdate = true
+
+    // UVs: one cell = one heat pixel, cell corners at (i/W, j/H).
+    const geo = (this.meshGroup.children[0] as THREE.Mesh).geometry as THREE.BufferGeometry
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute
+    const W = width
+    const H = height
+    const uvs = new Float32Array(pos.count * 2)
+    for (let v = 0; v < pos.count; v++) {
+      // Top-face vertices have z = their band top and span the whole grid;
+      // wall/bottom vertices get clamped to the edge so they sample the
+      // nearest cell's heat — walls read as the taller cell's error.
+      const vx = pos.getX(v)
+      const vy = pos.getY(v) // scene Y = print Z; vy≈0 on walls/bottom
+      uvs[v * 2] = Math.min(0.9999, Math.max(0, vx / (footprintW(geo))))
+      uvs[v * 2 + 1] = Math.min(0.9999, Math.max(0, vy / (footprintH(geo))))
+    }
+    void W
+    void H
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+
+    // Wall/bottom vertices (scene y ≈ 0..band tops) collapse onto the bottom
+    // heat row — acceptable: the top face is the analysis surface. Walls keep
+    // the filament color so the solid still reads as plastic.
+    this.deMaterial = new THREE.MeshStandardMaterial({
+      map: this.deTexture,
+      roughness: 0.85,
+      metalness: 0,
+      clippingPlanes: this.clipPlane ? [this.clipPlane] : [],
+    })
+    this.applyMaterials()
+  }
+
+  /** Drop the ΔE overlay and return to filament colors. */
+  clearDeltaEOverlay() {
+    if (this.deTexture) {
+      this.deTexture.dispose()
+      this.deTexture = null
+    }
+    this.deMaterial = null
+    if (this.currentView === 'deltae') this.currentView = 'model'
+    this.applyMaterials()
+  }
+
+  /**
+   * Slice mode: hide everything above zMm (print height) with a clipping
+   * plane and show a thin translucent cap plane at the cut.
+   */
+  setSlice(zMm: number | null) {
+    if (zMm === null) {
+      this.currentView = 'model'
+      this.clipPlane = null
+      if (this.standardMaterial) this.standardMaterial.clippingPlanes = []
+      if (this.deMaterial) this.deMaterial.clippingPlanes = []
+      if (this.helperPlane) {
+        this.helperPlane.visible = false
+      }
+      this.applyMaterials()
+      return
+    }
+    this.currentView = 'slice'
+    // Scene Y = print Z (meshGroup carries the -90° X rotation). The plane
+    // normal points down so the part ABOVE the cut is clipped away.
+    if (!this.clipPlane) this.clipPlane = new THREE.Plane()
+    this.clipPlane.set(new THREE.Vector3(0, -1, 0), zMm)
+    if (this.standardMaterial) this.standardMaterial.clippingPlanes = [this.clipPlane]
+    if (this.deMaterial) this.deMaterial.clippingPlanes = [this.clipPlane]
+    this.updateSliceCap(zMm)
+  }
+
+  /** Translucent cap at the cut so the cross-section reads as a surface. */
+  private updateSliceCap(zMm: number) {
+    const w = this.bedDims?.w ?? 150
+    const h = this.bedDims?.h ?? 150
+    if (!this.helperPlane) {
+      this.helperPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({
+          color: 0x4fb8ff,
+          transparent: true,
+          opacity: 0.18,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      )
+      this.helperPlane.rotation.x = -Math.PI / 2
+      this.meshGroup.parent?.add(this.helperPlane) // scene space (unrotated)
+    }
+    this.helperPlane.scale.set(w, h, 1)
+    // meshGroup children are rotated -90° about X: print (x, y, z) lands at
+    // scene (x, z, -y). The cut at print-z sits at scene y = zMm; center the
+    // cap on the bed footprint (print X [0,w], print Y [0,h] → scene Z [-h, 0]).
+    this.helperPlane.position.set(w / 2, zMm, -h / 2)
+    this.helperPlane.visible = true
+  }
+
+  /** Switch which material renders the mesh (plain vs ΔE overlay). */
+  private applyMaterials() {
+    const mesh = this.meshGroup.children[0] as THREE.Mesh | undefined
+    if (!mesh) return
+    mesh.material = this.currentView === 'deltae' && this.deMaterial ? this.deMaterial : (this.standardMaterial as THREE.Material)
+  }
+
+  // =====================================================================
   // Lifecycle
   // =====================================================================
 
@@ -522,6 +708,8 @@ export class Viewer3D {
       const mat = mesh.material as THREE.Material | undefined
       mat?.dispose()
     }
+    this.standardMaterial = null
+    this.deMaterial = null
   }
 
   private resize() {
@@ -543,6 +731,13 @@ export class Viewer3D {
   dispose() {
     if (this.rafHandle) cancelAnimationFrame(this.rafHandle)
     this.clearMesh()
+    this.clearDeltaEOverlay()
+    if (this.helperPlane) {
+      this.helperPlane.parent?.remove(this.helperPlane)
+      this.helperPlane.geometry.dispose()
+      ;(this.helperPlane.material as THREE.Material).dispose()
+      this.helperPlane = null
+    }
     this.controls.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()
