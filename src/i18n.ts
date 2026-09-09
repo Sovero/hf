@@ -307,12 +307,12 @@ export const dict: Dict = {
 
   // ---- depth mode ----
   depthDark: {
-    en: 'Dark image areas stand tallest (printed last, on top)',
-    ru: 'Тёмные участки изображения — самые высокие (печатаются последними, сверху)',
+    en: 'Dark areas stand tallest (on top)',
+    ru: 'Тёмные — самые высокие (сверху)',
   },
   depthLight: {
-    en: 'Bright image areas stand tallest (highlights printed last, on top)',
-    ru: 'Светлые участки изображения — самые высокие (печатаются последними, сверху)',
+    en: 'Bright areas stand tallest (on top)',
+    ru: 'Светлые — самые высокие (сверху)',
   },
 
   // ---- size & layers ----
