@@ -427,6 +427,26 @@ export const dict: Dict = {
     ru: 'Подберите реальный филамент российского производителя для этой полосы — бренд, материал, цвет.',
   },
   filamBrandLabel: { en: 'Brand', ru: 'Бренд' },
+  catdlgTitle: {
+    en: 'Build from catalog',
+    ru: 'Собрать из каталога',
+  },
+  catdlgHint: {
+    en: 'Pick any set of spools — the palette and quantization are built from them in one step. Darker spools print first.',
+    ru: 'Отметьте любые катушки — палитра и квантование соберутся за один шаг. Тёмные печатаются первыми.',
+  },
+  catdlgCount: {
+    en: '{n} selected',
+    ru: 'Выбрано: {n}',
+  },
+  catdlgApply: {
+    en: 'Build palette',
+    ru: 'Собрать палитру',
+  },
+  catdlgCancel: {
+    en: 'Cancel',
+    ru: 'Отмена',
+  },
   filamMaterialLabel: { en: 'Material', ru: 'Материал' },
   filamColorLabel: { en: 'Color', ru: 'Цвет' },
   filamPick: { en: 'Pick filament', ru: 'Выбрать филамент' },

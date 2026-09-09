@@ -24,6 +24,7 @@ import { Viewer3D } from './viewer3d'
 import type { FaceName } from '../lib/viewCubeMath'
 import { autoPickFilaments } from '../lib/autoPick'
 import { colorShares, formatShare } from '../lib/colorShare'
+import { orderSpools } from '../lib/spoolOrder'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
@@ -1348,6 +1349,13 @@ catalogBtn.addEventListener('click', () => {
     if (currentFile) void readFile(currentFile)
     return
   }
+  // No per-slot assignments yet → open the one-step catalog dialog instead
+  // of demanding N manual ★ picks.
+  const assigned = filamentAssignments.filter((id) => id !== null).length
+  if (assigned === 0) {
+    openCatalogDialog()
+    return
+  }
   const spools = catalogSpools()
   if (!spools) {
     showStatus(tr('catalogNeedAll'), true)
@@ -1358,6 +1366,133 @@ catalogBtn.addEventListener('click', () => {
   updateCatalogBtn()
   void quantizeCatalog(spools.colors)
 })
+
+/**
+ * Single dialog "Build from catalog": pick N spools across brands/materials
+ * in one modal, confirm, and the palette + quantization are assembled in one
+ * step — no per-slot ★ needed.
+ */
+function openCatalogDialog() {
+  closeLibraryPopover()
+  const back = document.createElement('div')
+  back.className = 'catalog-dlg-back'
+  back.id = 'catalog-dlg'
+
+  const dlg = document.createElement('div')
+  dlg.className = 'catalog-dlg'
+
+  const title = document.createElement('div')
+  title.className = 'filam-pop-title'
+  title.textContent = tr('catdlgTitle')
+  const hint = document.createElement('div')
+  hint.className = 'filam-pop-hint'
+  hint.textContent = tr('catdlgHint')
+
+  // Brand / material selectors + a live counter, mirroring the ★ popover.
+  let brandId = BRANDS[0].id
+  let materialId: MaterialId = 'pla'
+  const selected = new Map<string, { hex: string; rgb: RGB; label: string }>()
+
+  const controls = document.createElement('div')
+  controls.className = 'catdlg-controls'
+  const counter = document.createElement('span')
+  counter.className = 'catdlg-counter'
+
+  const updateCounter = () => {
+    counter.textContent = tr('catdlgCount', { n: String(selected.size) })
+    counter.classList.toggle('is-full', selected.size >= SLIDER_MAX)
+    okBtn.disabled = selected.size < 2
+  }
+
+  const brandSel = librarySelect(
+    tr('filamBrandLabel'),
+    BRANDS.map((b) => ({ value: b.id, label: b.name })),
+    brandId,
+    (v) => {
+      brandId = v
+      renderGrid()
+    },
+  )
+  const materialSel = librarySelect(
+    tr('filamMaterialLabel'),
+    MATERIALS.map((m) => ({ value: m, label: materialName(m) })),
+    materialId,
+    (v) => {
+      materialId = v as MaterialId
+      renderGrid()
+    },
+  )
+  controls.append(brandSel, materialSel, counter)
+
+  const grid = document.createElement('div')
+  grid.className = 'catdlg-grid'
+
+  const okBtn = document.createElement('button')
+  okBtn.type = 'button'
+  okBtn.className = 'catdlg-ok'
+  okBtn.textContent = tr('catdlgApply')
+  const cancelBtn = document.createElement('button')
+  cancelBtn.type = 'button'
+  cancelBtn.className = 'catdlg-cancel'
+  cancelBtn.textContent = tr('catdlgCancel')
+
+  const renderGrid = () => {
+    grid.replaceChildren()
+    for (const c of LIBRARY[brandId][materialId].colors) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'catdlg-cell'
+      btn.title = lang === 'ru' ? c.nameRu : c.nameEn
+      const sw = document.createElement('span')
+      sw.className = 'catdlg-swatch'
+      sw.style.background = c.hex
+      btn.append(sw)
+      if (selected.has(c.id)) btn.classList.add('is-selected')
+      btn.addEventListener('click', () => {
+        if (selected.has(c.id)) {
+          selected.delete(c.id)
+          btn.classList.remove('is-selected')
+        } else {
+          if (selected.size >= SLIDER_MAX) return
+          selected.set(c.id, {
+            hex: c.hex,
+            rgb: { ...c.rgb },
+            label: `${BRANDS.find((b) => b.id === brandId)?.name ?? brandId} · ${materialName(materialId)} · ${lang === 'ru' ? c.nameRu : c.nameEn}`,
+          })
+          btn.classList.add('is-selected')
+        }
+        updateCounter()
+      })
+      grid.appendChild(btn)
+    }
+  }
+  renderGrid()
+  updateCounter()
+
+  cancelBtn.addEventListener('click', () => back.remove())
+  back.addEventListener('click', (e) => {
+    if (e.target === back) back.remove()
+  })
+  okBtn.addEventListener('click', () => {
+    if (selected.size < 2) return
+    const picks = [...selected.entries()].map(([id, v]) => ({ id, rgb: v.rgb }))
+    const ordered = orderSpools(picks)
+    // ★ assignments follow their spools so the rows show the real plastic.
+    filamentAssignments = [...ordered.ids]
+    catalogActive = true
+    updateCatalogBtn()
+    back.remove()
+    void quantizeCatalog(ordered.colors)
+  })
+
+  const footer = document.createElement('div')
+  footer.className = 'catdlg-footer'
+  footer.append(okBtn, cancelBtn)
+
+  dlg.append(title, hint, controls, grid, footer)
+  back.appendChild(dlg)
+  document.body.appendChild(back)
+}
 
 /**
  * Auto-pick: suggest the closest real filament for every palette color
