@@ -35,7 +35,9 @@ html[data-theme="nord"] {
   --panel-2: #434c5e;
   --border: #4c566a;
   --text: #eceff4;
-  --muted: #9aa5b6;
+  /* Slightly lighter than the stock palette so muted text/icons keep
+     >= 4.5:1 contrast on the panel background. */
+  --muted: #a4aec2;
   --accent: #88c0d0;
   --accent-2: #a3be8c;
   --danger: #bf616a;
@@ -50,7 +52,9 @@ html[data-theme="solar"] {
   --panel-2: #f1e6c8;
   --border: #ddceac;
   --text: #43524a;
-  --muted: #7a8a7f;
+  /* Darker than the stock palette so muted text/icons keep
+     >= 4.5:1 contrast on the panel background. */
+  --muted: #627066;
   --accent: #268bd2;
   --accent-2: #859900;
   --danger: #dc322f;
