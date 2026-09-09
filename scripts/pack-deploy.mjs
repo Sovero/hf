@@ -45,6 +45,12 @@ for (const abs of files) {
   const compressed = deflateRawSync(data, { level: 9 })
   entries.push({ rel, data, compressed, crc: crc32(data) >>> 0 })
 }
+// A tiny version marker so update.ps1 can tell how old a deployed folder is
+// (the deploy package has no package.json to read it from).
+{
+  const data = Buffer.from(`${VERSION}\n`, 'utf8')
+  entries.push({ rel: 'version.txt', data, compressed: deflateRawSync(data, { level: 9 }), crc: crc32(data) >>> 0 })
+}
 
 // Central directory + local headers (little-endian, deflate method 8).
 const chunks = []

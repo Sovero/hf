@@ -9,15 +9,22 @@
 #                             %APPDATA%\HueForgeWeb\github_token.txt.
 #   update.ps1 download <tag> Download and extract that release, then print the
 #                             path of the extracted source tree.
+#   update.ps1 download-deploy <tag>
+#                             Download the deploy package (hueforge-web-deploy-
+#                             <tag>.zip asset) and unpack it over this folder —
+#                             the one-command updater for deploy.bat users.
 #
 # Auth is resolved in order: HF_GITHUB_TOKEN environment variable, the stored
 # token file, then anonymous (works for public repositories).
 # Token scope needed for a private repository: fine-grained PAT with
 # Contents: Read and Metadata: Read on the repository.
+#
+# The local version is read from $env:HF_LOCAL (install.bat), then from the
+# version.txt marker shipped in deploy packages, else treated as 0.0.0.
 
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('check', 'save-token', 'download')]
+    [ValidateSet('check', 'save-token', 'download', 'download-deploy')]
     [string]$Command,
 
     [Parameter(Position = 1)]
@@ -66,7 +73,10 @@ switch ($Command) {
             # Any other failure (offline, etc.): stay silent, install.bat proceeds locally.
             exit 0
         }
-        $local = if ($env:HF_LOCAL) { $env:HF_LOCAL } else { '0.0.0' }
+        $marker = Join-Path $PSScriptRoot 'version.txt'
+        $local = if ($env:HF_LOCAL) { $env:HF_LOCAL }
+        elseif (Test-Path $marker) { (Get-Content $marker -Raw).Trim() }
+        else { '0.0.0' }
         if (Test-NewerVersion $local $latest.tag_name) { Write-Output $latest.tag_name }
         exit 0
     }
@@ -104,6 +114,41 @@ switch ($Command) {
         } catch {
             # Errors go to stderr so install.bat's stdout capture stays empty
             # (it then reports the failure with its own message).
+            [Console]::Error.WriteLine('ERR: ' + $_.Exception.Message)
+            exit 1
+        }
+        exit 0
+    }
+
+    'download-deploy' {
+        if (-not $Tag) { Write-Output 'ERR: no tag given'; exit 1 }
+        $headers = Get-AuthHeaders
+        try {
+            # Resolve the deploy asset of the requested release. The API asset
+            # endpoint redirects to a signed CDN URL (no auth needed there), so
+            # the same pattern as the source zipball works for private repos.
+            $release = Invoke-Api "/releases/tags/$Tag" $headers
+            $asset = $release.assets | Where-Object { $_.name -like 'hueforge-web-deploy-*.zip' } | Select-Object -First 1
+            if (-not $asset) {
+                throw "no deploy asset in release $Tag (found: $((@($release.assets) | ForEach-Object { $_.name }) -join ', '))"
+            }
+            $zip = Join-Path $env:TEMP 'hf_deploy_update.zip'
+            if (Test-Path $zip) { Remove-Item $zip -Force }
+            Invoke-WebRequest -Uri "$ApiBase/releases/assets/$($asset.id)" `
+                -Headers ($headers + @{ 'Accept' = 'application/octet-stream' }) `
+                -OutFile $zip -UseBasicParsing
+            $dest = Join-Path $env:TEMP 'hf_deploy_update'
+            if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+            Expand-Archive -Path $zip -DestinationPath $dest -Force
+            # Unpack over this folder. The deploy zip is a flat tree (dist/,
+            # server.mjs, *.bat, DEPLOY.md, version.txt); update.ps1 itself is
+            # already loaded by PowerShell and can be replaced safely.
+            robocopy $dest $PSScriptRoot /E /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw 'robocopy failed' }
+            Remove-Item $zip -Force -ErrorAction SilentlyContinue
+            Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Output "Updated to $Tag. Restart deploy.bat."
+        } catch {
             [Console]::Error.WriteLine('ERR: ' + $_.Exception.Message)
             exit 1
         }
