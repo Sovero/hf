@@ -18,6 +18,20 @@ const AXIS_DEFS = [
   { dir: new THREE.Vector3(0, 1, 0), color: 0x3b82f6, label: 'Z' },
 ]
 
+/** Dispose geometries, materials and sprite textures under `root`. */
+function disposeTree(root: THREE.Object3D) {
+  root.traverse((obj) => {
+    const o = obj as THREE.Mesh
+    o.geometry?.dispose()
+    const m = o.material as THREE.Material | THREE.Material[] | undefined
+    if (Array.isArray(m)) m.forEach((mm) => mm.dispose())
+    else if (m) {
+      ;(m as THREE.SpriteMaterial).map?.dispose()
+      m.dispose()
+    }
+  })
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
@@ -78,6 +92,9 @@ export class Viewer3D {
   private container: HTMLElement
   private rafHandle = 0
   private hasMesh = false
+  private bedGroup: THREE.Group | null = null
+  private axesGroup: THREE.Group | null = null
+  private bedDims: { w: number; h: number } | null = null
 
   // ---- ViewCube (separate mini-scene drawn in a corner viewport) ----
   private cubeScene = new THREE.Scene()
@@ -125,15 +142,8 @@ export class Viewer3D {
     dir.position.set(100, 200, 100)
     this.scene.add(dir)
 
-    // Print-bed grid (Y-up after rotating the model group).
-    const grid = new THREE.GridHelper(400, 40, 0x2c3843, 0x212a33)
-    grid.position.y = -0.02
-    this.scene.add(grid)
-
-    // Colored print-coordinate axes (X right, Y depth, Z up).
-    this.scene.add(this.buildAxes(160, 11))
-
     this.meshGroup = new THREE.Group()
+    // Bed and axes are built per-mesh in setMesh, sized to the print.
     this.meshGroup.rotation.x = -Math.PI / 2
     this.scene.add(this.meshGroup)
 
@@ -163,7 +173,7 @@ export class Viewer3D {
   // =====================================================================
 
   /** Replace the displayed mesh; re-frames the camera on the first mesh. */
-  setMesh(mesh: Mesh) {
+  setMesh(mesh: Mesh, footprint?: { wMm: number; hMm: number }) {
     this.clearMesh()
 
     const geometry = new THREE.BufferGeometry()
@@ -172,10 +182,86 @@ export class Viewer3D {
     const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 })
     this.meshGroup.add(new THREE.Mesh(geometry, material))
 
+    // Rebuild the bed grid and axes to match the print footprint exactly.
+    const w = footprint?.wMm ?? 150
+    const h = footprint?.hMm ?? 150
+    if (!this.bedDims || this.bedDims.w !== w || this.bedDims.h !== h) {
+      this.rebuildBed(w, h)
+    }
+
     if (!this.hasMesh) {
       this.hasMesh = true
       this.fitCamera()
     }
+  }
+
+  /**
+   * Build the bed grid sized to the print and the axes at the print's
+   * origin corner, so the model always sits exactly on the bed (slicers
+   * place the model at X0 Y0; the old fixed 400 mm grid hung the print
+   * over the edge for any footprint other than ~200×200).
+   *
+   * Print coordinates map to scene space as: X → +X, Y (depth) → −Z,
+   * Z (up) → +Y (meshGroup carries the −90° X rotation). The grid is
+   * built from unit lines instead of GridHelper so non-square footprints
+   * fit exactly.
+   */
+  private rebuildBed(wMm: number, hMm: number) {
+    if (this.bedGroup) {
+      this.scene.remove(this.bedGroup)
+      disposeTree(this.bedGroup)
+    }
+    if (this.axesGroup) {
+      this.scene.remove(this.axesGroup)
+      disposeTree(this.axesGroup)
+    }
+    this.bedDims = { w: wMm, h: hMm }
+
+    this.bedGroup = new THREE.Group()
+    // Margin so the grid stays visible around the print (a bed exactly the
+    // print's size hides under the model).
+    const margin = Math.min(60, Math.max(20, 0.2 * Math.max(wMm, hMm)))
+    this.bedGroup.add(this.buildBedGrid(wMm, hMm, margin))
+    this.scene.add(this.bedGroup)
+
+    // Axes at the print origin corner, scaled to the print size.
+    this.axesGroup = this.buildAxes(Math.max(wMm, hMm) * 0.5, Math.max(wMm, hMm) * 0.06)
+    this.scene.add(this.axesGroup)
+  }
+
+  /**
+   * Rectangular bed grid around the print footprint [0,w]×[0,h] (print
+   * coords → scene X [0,w], Z [−h,0]), extended by `margin` on all sides.
+   * Minor lines every 10 mm, major every 50 mm.
+   */
+  private buildBedGrid(wMm: number, hMm: number, margin: number): THREE.Group {
+    const x0 = -margin
+    const x1 = wMm + margin
+    const z0 = -hMm - margin
+    const z1 = margin
+    const minor: number[] = []
+    const major: number[] = []
+    const push = (arr: number[], x1: number, z1: number, x2: number, z2: number) => {
+      arr.push(x1, 0, z1, x2, 0, z2)
+    }
+    for (let x = Math.ceil(x0 / 10) * 10; x <= x1 + 1e-6; x += 10) {
+      const arr = Math.round(x) % 50 === 0 ? major : minor
+      push(arr, x, z0, x, z1)
+    }
+    for (let z = Math.ceil(z0 / 10) * 10; z <= z1 + 1e-6; z += 10) {
+      const arr = Math.round(z) % 50 === 0 ? major : minor
+      push(arr, x0, z, x1, z)
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(minor, 3))
+    const minorLines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x212a33 }))
+    const geo2 = new THREE.BufferGeometry()
+    geo2.setAttribute('position', new THREE.Float32BufferAttribute(major, 3))
+    const majorLines = new THREE.LineSegments(geo2, new THREE.LineBasicMaterial({ color: 0x2c3843 }))
+    const group = new THREE.Group()
+    group.add(minorLines, majorLines)
+    group.position.y = -0.02
+    return group
   }
 
   /** Update the scene background (used when the UI theme changes). */

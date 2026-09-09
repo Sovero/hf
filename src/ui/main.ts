@@ -2076,7 +2076,7 @@ function update3d() {
     homeBtn?.addEventListener('click', () => viewer3d?.goHome())
   }
   viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
-  viewer3d.setMesh(current!.mesh)
+  viewer3d.setMesh(current!.mesh, { wMm: current!.settings.widthMm, hMm: current!.settings.heightMm })
 }
 
 // ---- Per-filament opacity calibration (swatch print + photo fit) ---------
