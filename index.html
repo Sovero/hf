@@ -322,27 +322,6 @@
           <div class="canvas-wrap canvas-wrap-backlit"><canvas id="canvas-quantized"></canvas></div>
           <p class="muted small light-note" id="light-note" data-i18n="lightNoteFront" hidden>Front-lit: opaque base behind, thin top sheets let lower colors shine through.</p>
         </div>
-        <div class="viewer-card" id="viewer-deltae" data-help="helpViewerDeltaE">
-          <div class="viewer-head">
-            <h3 data-i18n="deltaETitle">ΔE error map</h3>
-            <span class="deltae-legend"><span class="deltae-bar"></span><span data-i18n="deltaELegend">0 — 2 — 10 — 25+ ΔE</span></span>
-          </div>
-          <div class="canvas-wrap"><canvas id="canvas-deltae"></canvas></div>
-          <p class="muted small" id="deltae-stats"></p>
-        </div>
-        <div class="viewer-card viewer-layers" id="viewer-layers" data-help="helpViewerLayers">
-          <div class="canvas-wrap"><canvas id="canvas-layer"></canvas></div>
-          <div class="layer-controls">
-            <div class="layer-readout">
-              <span id="layer-readout"></span>
-              <span id="layer-swatch" class="layer-swatch" hidden></span>
-              <span id="layer-band"></span>
-            </div>
-            <input id="layer-slider" type="range" min="1" max="40" step="1" value="40" aria-label="Print layer" data-help="helpLayerSlider" />
-            <div id="layer-ticks" class="slider-ticks layer-ticks"></div>
-          </div>
-          <p class="muted small" data-i18n="layerTransNote">Colors blend like real translucent filament: thin top sheets let the layers below shine through.</p>
-        </div>
         <div class="viewer-card viewer-3d" id="viewer-3d" data-help="helpViewer3d">
           <div class="viewer3d-head">
             <div id="viewer3d-modes" class="seg-toggle" role="group" data-help="helpViewer3dModes">
@@ -352,6 +331,16 @@
             </div>
             <select id="printer-select" class="printer-select" data-help="printerHelp"></select>
           </div>
+          <div class="layer-controls">
+            <div class="layer-readout">
+              <span id="layer-readout"></span>
+              <span id="layer-swatch" class="layer-swatch" hidden></span>
+              <span id="layer-band"></span>
+            </div>
+            <input id="layer-slider" type="range" min="1" max="40" step="1" value="40" aria-label="Print layer" data-help="helpLayerSlider" />
+            <div id="layer-ticks" class="slider-ticks layer-ticks"></div>
+          </div>
+          <p class="muted small" id="deltae-stats" hidden></p>
           <div id="viewer3d" class="viewer3d-wrap">
             <div id="cube-overlay" class="cube-overlay" title=""></div>
             <button id="viewer-home" class="viewer-home" type="button" data-i18n-title="viewerHome" aria-label="">

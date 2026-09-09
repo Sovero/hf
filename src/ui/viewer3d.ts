@@ -205,14 +205,28 @@ export class Viewer3D {
 
     new ResizeObserver(() => this.resize()).observe(container)
 
+    // On-demand rendering: draw only when something actually changed
+    // (camera move, flight, geometry/material/size change). A continuous
+    // requestAnimationFrame loop burned CPU re-rendering identical frames
+    // and made the viewer feel sluggish next to the rest of the UI.
+    this.controls.addEventListener('change', () => this.requestRender())
     const loop = () => {
       this.rafHandle = requestAnimationFrame(loop)
       this.stepFlight()
-      if (!this.flight) this.controls.update()
-      this.syncCube()
-      this.renderFrame()
+      if (this.flight) {
+        this.renderFrame()
+        return
+      }
+      // damping still settling → keep updating (update() fires change)
+      if (this.controls.update()) this.renderFrame()
     }
     loop()
+  }
+
+  /** Explicit redraw request (geometry/material/bed/mode changed). */
+  requestRender() {
+    this.syncCube()
+    this.renderFrame()
   }
 
   // =====================================================================
@@ -244,6 +258,7 @@ export class Viewer3D {
       this.hasMesh = true
       this.fitCamera()
     }
+    this.requestRender()
   }
 
   /**
@@ -295,6 +310,7 @@ export class Viewer3D {
   setPrinterBed(size: { x: number; y: number } | null) {
     this.printerBedSize = size
     this.rebuildPrinterBed()
+    this.requestRender()
   }
 
   private rebuildPrinterBed() {
@@ -377,12 +393,14 @@ export class Viewer3D {
   setBackground(color: string) {
     this.scene.background = new THREE.Color(color)
     this.applyCubeTheme(color)
+    this.requestRender()
   }
 
   /** Localized face labels for the ViewCube; redraws the face textures. */
   setFaceLabels(labels: Record<FaceName, string>) {
     this.faceLabels = { ...labels }
     this.redrawCubeFaces()
+    this.requestRender()
   }
 
   /** Fly the camera back to the fitted home view. */
@@ -480,6 +498,7 @@ export class Viewer3D {
     if (this.cubeEdges) {
       this.cubeEdges.material = new THREE.LineBasicMaterial({ color: this.cubeEdge })
     }
+    this.requestRender()
   }
 
   /** Derive cube colors from the viewer background (theme change). */
@@ -692,6 +711,7 @@ export class Viewer3D {
       clippingPlanes: this.clipPlane ? [this.clipPlane] : [],
     })
     this.applyMaterials()
+    this.requestRender()
   }
 
   /** Drop the ΔE overlay and return to filament colors. */
@@ -719,6 +739,7 @@ export class Viewer3D {
         this.helperPlane.visible = false
       }
       this.applyMaterials()
+      this.requestRender()
       return
     }
     this.currentView = 'slice'
@@ -729,6 +750,7 @@ export class Viewer3D {
     if (this.standardMaterial) this.standardMaterial.clippingPlanes = [this.clipPlane]
     if (this.deMaterial) this.deMaterial.clippingPlanes = [this.clipPlane]
     this.updateSliceCap(zMm)
+    this.requestRender()
   }
 
   /** Translucent cap at the cut so the cross-section reads as a surface. */
@@ -789,6 +811,7 @@ export class Viewer3D {
     this.camera.aspect = w / h
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(w, h)
+    this.requestRender()
   }
 
   /** Test/debug probe: current camera position and orbit target. */

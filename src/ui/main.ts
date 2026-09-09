@@ -88,13 +88,11 @@ const btnProjectOpen = $<HTMLButtonElement>('#btn-project-open')
 const projectInput = $<HTMLInputElement>('#project-input')
 const canvasSource = $<HTMLCanvasElement>('#canvas-source')
 const canvasQuantized = $<HTMLCanvasElement>('#canvas-quantized')
-const canvasDeltaE = $<HTMLCanvasElement>('#canvas-deltae')
 const deltaeStats = $<HTMLParagraphElement>('#deltae-stats')
 const lightFrontBtn = $<HTMLButtonElement>('#light-front')
 const lightBackBtn = $<HTMLButtonElement>('#light-back')
 const lightNote = $<HTMLParagraphElement>('#light-note')
 const quantizedCard = $<HTMLDivElement>('#viewer-quantized')
-const canvasLayer = $<HTMLCanvasElement>('#canvas-layer')
 const layerSlider = $<HTMLInputElement>('#layer-slider')
 const layerTicks = $<HTMLDivElement>('#layer-ticks')
 const layerReadout = $<HTMLSpanElement>('#layer-readout')
@@ -732,20 +730,6 @@ function drawQuantized() {
 
 // ---- ΔE error map: target image vs predicted print appearance -------------
 
-/** Heat color for a ΔE value: green (invisible) → yellow → red (large). */
-function deltaeHeat(t: number, out: [number, number, number]) {
-  const G: [number, number, number] = [0x2e, 0xcc, 0x71]
-  const Y: [number, number, number] = [0xf1, 0xc4, 0x0f]
-  const R: [number, number, number] = [0xe7, 0x4c, 0x3c]
-  const lerp = (a: [number, number, number], b: [number, number, number], k: number) => {
-    out[0] = a[0] + (b[0] - a[0]) * k
-    out[1] = a[1] + (b[1] - a[1]) * k
-    out[2] = a[2] + (b[2] - a[2]) * k
-  }
-  if (t <= 0.5) lerp(G, Y, t * 2)
-  else lerp(Y, R, (t - 0.5) * 2)
-}
-
 /**
  * Per-pixel ΔE2000 between the target image and the predicted front-lit
  * print (the same transmitted blends the quantized preview shows). Pixels
@@ -754,48 +738,52 @@ function deltaeHeat(t: number, out: [number, number, number]) {
  * The prediction is front-lit by design — the map is the same in both light
  * modes.
  */
-function drawDeltaE() {
+/**
+ * Per-pixel ΔE between the source image and the predicted print
+ * appearance — the shared data for the 3D ΔE overlay and its stats
+ * readout. Computed once per reprocess, cached until the inputs change.
+ */
+let deltaECache: { version: number; de: Float32Array } | null = null
+
+function computeDeltaE(): Float32Array {
   const { width, height, indexMap, palette } = current!.quantized
   const n = palette.length
   const blends = transmittedBandColors(current!)
   const src = current!.image.rgba
   const darkIsTall = current!.settings.darkIsTall
+  const de = new Float32Array(width * height)
+  for (let i = 0; i < width * height; i++) {
+    const si = i * 4
+    const slice = darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
+    const c = blends[slice] ?? palette[indexMap[i]]
+    de[i] = deltaE2000Rgb(src[si], src[si + 1], src[si + 2], c.r, c.g, c.b)
+  }
+  return de
+}
 
-  const w2 = Math.max(1, Math.ceil(width / 2))
-  const h2 = Math.max(1, Math.ceil(height / 2))
-  const small = document.createElement('canvas')
-  small.width = w2
-  small.height = h2
-  const sctx = small.getContext('2d')!
-  const img = sctx.createImageData(w2, h2)
-  const heat: [number, number, number] = [0, 0, 0]
+/** Cached ΔE array, recomputed only when the reprocess version changes. */
+function deltaEField(): Float32Array {
+  const version = stateVersion
+  if (!deltaECache || deltaECache.version !== version) {
+    deltaECache = { version, de: computeDeltaE() }
+  }
+  return deltaECache.de
+}
+
+/** Update the mean/max ΔE readout under the 3D view (cheap, from cache). */
+function drawDeltaE() {
+  const de = deltaEField()
   let sum = 0
   let max = 0
-  const count = w2 * h2
-  for (let y = 0; y < h2; y++) {
-    for (let x = 0; x < w2; x++) {
-      const si = (y * 2 * width + x * 2) * 4
-      const slice = darkIsTall ? n - 1 - indexMap[y * 2 * width + x * 2] : indexMap[y * 2 * width + x * 2]
-      const c = blends[slice] ?? palette[indexMap[y * 2 * width + x * 2]]
-      const dE = deltaE2000Rgb(src[si], src[si + 1], src[si + 2], c.r, c.g, c.b)
-      sum += dE
-      if (dE > max) max = dE
-      deltaeHeat(Math.min(1, dE / 25), heat)
-      const o = (y * w2 + x) * 4
-      img.data[o] = heat[0] * 0.72 + src[si] * 0.28 * 0.45
-      img.data[o + 1] = heat[1] * 0.72 + src[si + 1] * 0.28 * 0.45
-      img.data[o + 2] = heat[2] * 0.72 + src[si + 2] * 0.28 * 0.45
-      img.data[o + 3] = 255
-    }
+  for (let i = 0; i < de.length; i++) {
+    sum += de[i]
+    if (de[i] > max) max = de[i]
   }
-  sctx.putImageData(img, 0, 0)
-  canvasDeltaE.width = width
-  canvasDeltaE.height = height
-  canvasDeltaE.getContext('2d')!.drawImage(small, 0, 0, width, height)
   deltaeStats.textContent = tr('deltaEStats', {
-    mean: (sum / count).toFixed(1),
+    mean: (sum / de.length).toFixed(1),
     max: max.toFixed(1),
   })
+  deltaeStats.hidden = false
 }
 
 // ---- Layer-by-layer view -------------------------------------------------
@@ -842,7 +830,10 @@ function renderLayerTicks(result: PipelineResult, currentLayer: number) {
   }
 }
 
-/** Redraw the layer-view canvas and readout from the current layerPos. */
+/**
+ * Update the layer slider readout and push the cut height into the 3D
+ * viewer (the 2D layer canvas is gone — the 3D slice mode shows it).
+ */
 function drawLayerView() {
   if (!current) return
   const total = Math.max(1, Math.round(current.settings.maxHeightMm / current.settings.layerMm))
@@ -851,11 +842,6 @@ function drawLayerView() {
   layerSlider.value = String(l)
   const z = l * current.settings.layerMm
   const view = layerView(current, z)
-
-  const { width, height } = current.image
-  canvasLayer.width = width
-  canvasLayer.height = height
-  canvasLayer.getContext('2d')!.putImageData(new ImageData(view.rgba, width, height), 0, 0)
 
   // Readout: layer position + the filament being printed at this height.
   layerReadout.textContent = tr('layerOfTotal', { n: view.layer, total: view.totalLayers, z: z.toFixed(2) })
@@ -2336,18 +2322,7 @@ let viewer3dMode: 'model' | 'deltae' | 'slice' = 'model'
 function applyDeltaETo3d() {
   if (!viewer3d || !current) return
   const { width, height, indexMap, palette } = current.quantized
-  const n = palette.length
-  const blends = transmittedBandColors(current)
-  const src = current.image.rgba
-  const darkIsTall = current.settings.darkIsTall
-  const de = new Float32Array(width * height)
-  for (let i = 0; i < width * height; i++) {
-    const si = i * 4
-    const slice = darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
-    const c = blends[slice] ?? palette[indexMap[i]]
-    de[i] = deltaE2000Rgb(src[si], src[si + 1], src[si + 2], c.r, c.g, c.b)
-  }
-  viewer3d.setDeltaEMap(de, width, height, indexMap, palette)
+  viewer3d.setDeltaEMap(deltaEField(), width, height, indexMap, palette)
 }
 
 /** Push the current layer-view position into the 3D slice mode. */

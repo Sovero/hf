@@ -1589,12 +1589,7 @@ body {
   font-size: 0.85rem;
 }
 
-/* ---- Layer-by-layer view ------------------------------------------------ */
-
-.viewer-layers .canvas-wrap {
-  /* Leave room so the controls never push the canvas layout around. */
-  margin-bottom: 0.35rem;
-}
+/* ---- Layer slider (on the 3D card; the 3D slice mode renders the cut) --- */
 
 .layer-controls {
   display: flex;
@@ -1641,13 +1636,10 @@ body {
 
 .layer-tick::after {
   display: none; /* no numeric labels — the readout carries the info */
-}
-
-.viewer-layers input[type='range'] {
+}.viewer-3d input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
-  /* UA default horizontal margin shifts the slider 2px right of the ticks row
-     (the colors slider resets it via .slider-main); align them. */
+  /* UA default horizontal margin shifts the slider 2px right of the ticks row     (the colors slider resets it via .slider-main); align them. */
   margin: 0;
 }
 
