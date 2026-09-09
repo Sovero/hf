@@ -470,7 +470,16 @@ export const dict: Dict = {
     ru: 'Переключает освещение предпросмотра. «Со стороны света» — вид на стене (позади непрозрачная подложка). «На просвет» — печать, подсвеченная сзади, как классическая настенная картина HueForge у лампы или окна: тонкие тёмные участки светятся, потому что свет сквозь них проходит. Оба режима используют ваши значения τ для каждого филамента.',
   },
   viewer3dTitle: { en: '3D preview', ru: '3D-предпросмотр' },
-  viewer3dHint: { en: 'Drag to rotate · scroll to zoom', ru: 'Тяните, чтобы вращать · колесо — масштаб' },
+  viewer3dHint: { en: 'Drag to rotate · scroll to zoom · click the cube to jump to a view', ru: 'Тяните, чтобы вращать · колесо — масштаб · клик по кубу — вид с грани' },
+  viewerHome: { en: 'Home view', ru: 'Домашний вид' },
+  cubeTitle: { en: 'View cube', ru: 'Куб ориентации' },
+  cubeHint: { en: 'Click a face, edge or corner to look from that side', ru: 'Кликните по грани, ребру или углу — камера встанет с этой стороны' },
+  faceTop: { en: 'TOP', ru: 'ВЕРХ' },
+  faceBottom: { en: 'BOTTOM', ru: 'НИЗ' },
+  faceFront: { en: 'FRONT', ru: 'ПЕРЕД' },
+  faceBack: { en: 'BACK', ru: 'ЗАД' },
+  faceRight: { en: 'RIGHT', ru: 'ПРАВО' },
+  faceLeft: { en: 'LEFT', ru: 'ЛЕВО' },
 
   // ---- layer view ----
   viewerLayers: { en: 'Layer-by-layer view', ru: 'Просмотр по слоям' },

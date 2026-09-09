@@ -807,10 +807,43 @@ body {
   border-radius: 6px;
   overflow: hidden;
   background: var(--bg);
+  position: relative;
 }
 
 .viewer3d-wrap canvas {
   display: block;
+}
+
+/* Fusion-style ViewCube pick layer + home button (top-right). */
+.cube-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 96px;
+  height: 96px;
+  z-index: 5;
+}
+
+.viewer-home {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.viewer-home:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ---- first-run language banner ---- */

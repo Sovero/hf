@@ -331,8 +331,13 @@
           <p class="muted small" data-i18n="layerTransNote">Colors blend like real translucent filament: thin top sheets let the layers below shine through.</p>
         </div>
         <div class="viewer-card viewer-3d" id="viewer-3d" data-help="helpViewer3d">
-          <div id="viewer3d" class="viewer3d-wrap"></div>
-          <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom</p>
+          <div id="viewer3d" class="viewer3d-wrap">
+            <div id="cube-overlay" class="cube-overlay" title=""></div>
+            <button id="viewer-home" class="viewer-home" type="button" data-i18n-title="viewerHome" aria-label="">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 3 3 11h2v9h6v-6h2v6h6v-9h2z"/></svg>
+            </button>
+          </div>
+          <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom · click the cube to jump to a view</p>
         </div>
       </section>
     </main>

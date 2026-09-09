@@ -21,6 +21,7 @@ import { planReferenceApply, type ReferenceApplyPlan } from '../lib/referenceApp
 import type { Reference3mfAnalysis } from '../lib/reference3mf'
 import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
+import type { FaceName } from '../lib/viewCubeMath'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
@@ -352,6 +353,17 @@ function applyStaticText() {
   }
   colorsSlider.ariaLabel = tr('sliderAria')
   colorsValue.ariaLabel = tr('sliderValueAria')
+  const cubeOverlay = document.getElementById('cube-overlay')
+  if (cubeOverlay) {
+    cubeOverlay.title = tr('cubeHint')
+    cubeOverlay.ariaLabel = tr('cubeTitle')
+  }
+  const homeBtn = document.getElementById('viewer-home')
+  if (homeBtn) {
+    homeBtn.title = tr('viewerHome')
+    homeBtn.ariaLabel = tr('viewerHome')
+  }
+  viewer3d?.setFaceLabels(cubeFaceLabels())
   updateCatalogBtn() // the catalog toggle label depends on its active state
   renderTicks() // rebuild tick tooltips/labels in the current language
 }
@@ -1821,8 +1833,25 @@ function renderPalette() {
   if ([...calibColor.options].some((o) => o.value === prevCalib)) calibColor.value = prevCalib
 }
 
+function cubeFaceLabels(): Record<FaceName, string> {
+  return {
+    top: tr('faceTop'),
+    bottom: tr('faceBottom'),
+    front: tr('faceFront'),
+    back: tr('faceBack'),
+    right: tr('faceRight'),
+    left: tr('faceLeft'),
+  }
+}
+
 function update3d() {
-  viewer3d ??= new Viewer3D(viewerEl)
+  if (!viewer3d) {
+    viewer3d = new Viewer3D(viewerEl, document.getElementById('cube-overlay') ?? undefined)
+    ;(window as unknown as { __viewer3d?: Viewer3D }).__viewer3d = viewer3d
+    viewer3d.setFaceLabels(cubeFaceLabels())
+    const homeBtn = document.getElementById('viewer-home')
+    homeBtn?.addEventListener('click', () => viewer3d?.goHome())
+  }
   viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
   viewer3d.setMesh(current!.mesh)
 }
