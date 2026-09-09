@@ -269,8 +269,13 @@
           <div class="panel-section" id="palette-details">
             <div class="panel-head" data-help="helpPalette">
               <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
+              <span id="palette-collapsed-note" class="muted small palette-collapsed-note" hidden></span>
               <button type="button" class="hint-btn" data-help="helpPalette" aria-label="Help">?</button>
+              <button id="palette-collapse" type="button" class="palette-collapse" data-i18n-title="paletteCollapse" aria-expanded="true" aria-controls="palette-body">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>
+              </button>
             </div>
+          <div id="palette-body">
           <div id="palette-list" class="palette-list"></div>
           <div id="palette-coverage" class="palette-coverage" role="img" data-help="coverageHelp" hidden></div>
           <div class="palette-summary-row">
@@ -298,6 +303,7 @@
             </div>
             <canvas id="calib-canvas" class="calib-canvas" hidden></canvas>
             <p id="calib-status" class="muted small"></p>
+          </div>
           </div>
           </div>
         </section>

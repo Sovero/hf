@@ -234,6 +234,9 @@ export const dict: Dict = {
 
   panelExport: { en: '6 · Export', ru: '6 · Экспорт' },
   panelPalette: { en: 'Palette & print order', ru: 'Палитра и порядок печати' },
+  paletteCollapse: { en: 'Collapse to the coverage bar', ru: 'Свернуть до полосы покрытия' },
+  paletteCollapsedNote: { en: '{n} · expand', ru: '{n} · развернуть' },
+  paletteExpand: { en: 'Expand palette', ru: 'Развернуть палитру' },
 
   // ---- drop zone / image ----
   dropTitle: { en: 'Drop an image here', ru: 'Перетащите изображение сюда' },

@@ -440,6 +440,7 @@ function applyStaticText() {
     topBtn.title = tr('viewerTop')
     topBtn.ariaLabel = tr('viewerTop')
   }
+  syncPaletteCollapsedNote()
   autoPickBtn.title = tr('autoPickHelp')
   autoPickBtn.ariaLabel = tr('autoPickHelp')
   viewer3d?.setFaceLabels(cubeFaceLabels())
@@ -2028,6 +2029,38 @@ document.addEventListener('click', (e) => {
   closeLibraryPopover()
 })
 
+/** Collapse the palette panel to just the coverage bar (saved across sessions). */
+const PALETTE_COLLAPSED_KEY = 'hf-palette-collapsed'
+
+/** Update the «N colors» note shown in the head while collapsed. */
+function syncPaletteCollapsedNote() {
+  const note = document.getElementById('palette-collapsed-note')
+  const body = document.getElementById('palette-body')
+  const btn = document.getElementById('palette-collapse')
+  if (!note || !body || !btn) return
+  const collapsed = body.classList.contains('is-collapsed')
+  btn.title = tr(collapsed ? 'paletteExpand' : 'paletteCollapse') // follows language switches
+  note.hidden = !collapsed || !current
+  if (note.hidden) return
+  note.textContent = tr('paletteCollapsedNote', {
+    n: word(lang, current!.quantized.palette.length, 'colors'),
+  })
+}
+
+function setPaletteCollapsed(collapsed: boolean, persist = true) {
+  const body = document.getElementById('palette-body')
+  const btn = document.getElementById('palette-collapse')
+  if (!body || !btn) return
+  body.classList.toggle('is-collapsed', collapsed)
+  btn.classList.toggle('is-collapsed', collapsed)
+  btn.ariaExpanded = String(!collapsed)
+  btn.title = tr(collapsed ? 'paletteExpand' : 'paletteCollapse')
+  if (persist) {
+    try { localStorage.setItem(PALETTE_COLLAPSED_KEY, collapsed ? '1' : '0') } catch { /* private mode */ }
+  }
+  syncPaletteCollapsedNote()
+}
+
 function renderPalette() {
   const palette = current!.palette
   paletteList.innerHTML = ''
@@ -2035,6 +2068,7 @@ function renderPalette() {
   // what will be printed); indexMap indexes quantized.palette 1:1 with rows.
   const shares = colorShares(current!.quantized.indexMap, palette.length)
   renderCoverage(shares, palette)
+  syncPaletteCollapsedNote() // collapsed note tracks the live color count
   // Sheet thickness per print order, from the snapped band tops: a band's
   // thickness is the gap between its top and the band below it (the base for
   // the first band). Heights never change on color edits, so compute once.
@@ -3232,6 +3266,18 @@ versionBadge.textContent = `v${__APP_VERSION__}`
 restoreSettings()
 fillPrinterSelect()
 void setupOpenInSlicer()
+
+// Palette panel collapse: restore the saved state and bind the chevron.
+{
+  const collapseBtn = document.getElementById('palette-collapse')
+  let saved = false
+  try { saved = localStorage.getItem(PALETTE_COLLAPSED_KEY) === '1' } catch { /* private mode */ }
+  if (saved) setPaletteCollapsed(true, false)
+  collapseBtn?.addEventListener('click', () => {
+    const body = document.getElementById('palette-body')
+    setPaletteCollapsed(!(body?.classList.contains('is-collapsed') ?? false))
+  })
+}
 
 // Language: apply immediately (before first paint), bind the switcher.
 langSelect.value = lang

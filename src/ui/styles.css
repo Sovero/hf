@@ -1248,6 +1248,51 @@ body {
   border-color: var(--accent);
 }
 
+/* Collapse toggle: chevron left of the help button, flips when collapsed. */
+.palette-collapse {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.palette-collapse:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.palette-collapse svg {
+  transition: transform 0.15s ease;
+}
+
+.palette-collapse.is-collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.palette-collapsed-note {
+  margin: 0 0.35rem 0 auto;
+  white-space: nowrap;
+}
+
+/* Collapsed state: hide everything except the head and the coverage bar.
+   Explicit display overrides because several children set display via class. */
+#palette-body.is-collapsed > div,
+#palette-body.is-collapsed > p {
+  display: none;
+}
+
+#palette-body.is-collapsed > .palette-coverage:not([hidden]) {
+  display: flex;
+  margin-top: 0.1rem;
+}
+
 .ref-badge {
   flex: none;
   margin-left: auto; /* stay pinned to the row's right edge */
