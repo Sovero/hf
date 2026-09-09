@@ -303,7 +303,7 @@ function showStatus(msg: string, isError = false) {
   exportStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'
 }
 
-async function readFile(file: File, fresh = false) {
+async function readFile(file: File, fresh = false): Promise<boolean> {
   currentFile = file
   const token = ++runToken
   showStatus(tr('processing'))
@@ -355,7 +355,7 @@ async function readFile(file: File, fresh = false) {
       // A newer run superseded this one; the delivered result was discarded.
       perf.recordDiscarded('quantize')
       renderPerf()
-      return
+      return false
     }
     current = { ...result, image }
     // The ΔE merge can shrink the palette: remap per-slot filament
@@ -390,8 +390,9 @@ async function readFile(file: File, fresh = false) {
       showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
     }
     noteSettled()
+    return true
   } catch (err) {
-    if (token !== runToken) return
+    if (token !== runToken) return false
     setProcessing(false)
     current = null
     btnStl.disabled = true
@@ -405,6 +406,7 @@ async function readFile(file: File, fresh = false) {
     printabilitySummary.textContent = tr('pbDefault')
     pbBadge.hidden = true
     showStatus(err instanceof Error ? err.message : String(err), true)
+    return false
   }
 }
 
@@ -715,7 +717,7 @@ function fixLabel(fix: PrintabilityFix): string {
 }
 
 /** Apply an auto-fix: set the recommended inputs and reprocess in one step. */
-function applyFix(fix: PrintabilityFix) {
+async function applyFix(fix: PrintabilityFix) {
   switch (fix.kind) {
     case 'maxHeight':
       maxInput.value = String(fix.to)
@@ -735,8 +737,13 @@ function applyFix(fix: PrintabilityFix) {
       break
   }
   saveSettings()
-  showStatus(tr('pbFixApplied', { what: fixLabel(fix) }))
-  if (currentFile) void readFile(currentFile)
+  // The reprocess overwrites the status with its own «Ready» message, so the
+  // fix feedback is shown again once it has completed (and only on success).
+  if (currentFile) {
+    if (await readFile(currentFile)) showStatus(tr('pbFixApplied', { what: fixLabel(fix) }))
+  } else {
+    showStatus(tr('pbFixApplied', { what: fixLabel(fix) }))
+  }
 }
 
 /** Collapsed-summary badge: worst finding at a glance without expanding. */
@@ -1486,7 +1493,7 @@ async function quantizeCatalog(spools: RGB[]) {
     showStatus(tr('catalogDone', { colors: word(lang, spools.length, 'colors') }))
     noteSettled()
   } catch (err) {
-    if (token !== runToken) return
+    if (token !== runToken) return false
     setProcessing(false)
     showStatus(err instanceof Error ? err.message : String(err), true)
   }
@@ -3009,7 +3016,7 @@ async function applyReference() {
     showStatus(tr('refAppliedDone', { colors: word(lang, current.quantized.palette.length, 'colors') }))
     noteSettled()
   } catch (err) {
-    if (token !== runToken) return
+    if (token !== runToken) return false
     setProcessing(false)
     showStatus(err instanceof Error ? err.message : String(err), true)
   }
@@ -3244,7 +3251,7 @@ async function openProjectFile(file: File) {
     showStatus(tr('projectLoaded', { name: project.image.name }))
     noteSettled()
   } catch (err) {
-    if (token !== runToken) return
+    if (token !== runToken) return false
     setProcessing(false)
     current = null
     btnStl.disabled = true
