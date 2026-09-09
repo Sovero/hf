@@ -117,8 +117,12 @@ const baseInput = $<HTMLInputElement>('#base-mm')
 const maxInput = $<HTMLInputElement>('#max-mm')
 const layerInput = $<HTMLInputElement>('#layer-mm')
 const viewerEl = $<HTMLDivElement>('#viewer3d')
-const themeSelect = $<HTMLSelectElement>('#theme-select')
-const langSelect = $<HTMLSelectElement>('#lang-select')
+const langBtn = $<HTMLButtonElement>('#lang-btn')
+const langCode = $<HTMLSpanElement>('#lang-code')
+const langMenu = $<HTMLDivElement>('#lang-menu')
+const themeBtn = $<HTMLButtonElement>('#theme-btn')
+const themeIco = $<HTMLElement>('#theme-ico')
+const themeMenu = $<HTMLDivElement>('#theme-menu')
 const langBanner = $<HTMLDivElement>('#lang-banner')
 const bannerStart = $<HTMLButtonElement>('#banner-start')
 const langBannerSkip = $<HTMLButtonElement>('#lang-banner-skip')
@@ -460,7 +464,7 @@ function setLang(next: Lang, persist = true) {
   if (next === lang) return
   lang = next
   if (persist) saveLang(lang)
-  langSelect.value = lang
+  langCode.textContent = lang.toUpperCase()
   applyStaticText()
   if (current) {
     updateUI()
@@ -2620,21 +2624,53 @@ const THEME_VIEWER_BG: Record<string, string> = {
  * Apply a theme. With `persist` false (hover peek) the look changes but
  * nothing is written to localStorage, so a glance never commits a theme.
  */
+/** Moon for dark themes, sun for light ones — the button reflects the pick. */
+const THEME_ICON_SVG = {
+  dark: '<path d="M13.4 9.4A5.8 5.8 0 1 1 6.6 2.6a4.7 4.7 0 0 0 6.8 6.8Z"/>',
+  nord: '<path d="M13.4 9.4A5.8 5.8 0 1 1 6.6 2.6a4.7 4.7 0 0 0 6.8 6.8Z"/>',
+  light: '<circle cx="8" cy="8" r="2.6"/><path d="M8 1.8v1.5M8 12.7v1.5M1.8 8h1.5M12.7 8h1.5M3.7 3.7l1 1M11.3 11.3l1 1M12.3 3.7l-1 1M4.7 11.3l-1 1"/>',
+  solar: '<circle cx="8" cy="8" r="2.6"/><path d="M8 1.8v1.5M8 12.7v1.5M1.8 8h1.5M12.7 8h1.5M3.7 3.7l1 1M11.3 11.3l1 1M12.3 3.7l-1 1M4.7 11.3l-1 1"/>',
+} as const
+
 function applyTheme(theme: string, persist = true) {
   document.documentElement.dataset.theme = theme
   if (persist) {
     try { localStorage.setItem('hf-theme', theme) } catch { /* private mode */ }
   }
-  themeSelect.value = theme
+  themeIco.innerHTML = THEME_ICON_SVG[theme as keyof typeof THEME_ICON_SVG] ?? THEME_ICON_SVG.dark
+  for (const item of themeMenu.querySelectorAll<HTMLButtonElement>('[data-theme]')) {
+    item.classList.toggle('is-active', item.dataset.theme === theme)
+  }
   viewer3d?.setBackground(THEME_VIEWER_BG[theme] ?? THEME_VIEWER_BG.dark)
+}
+
+/** Open/close one topbar popover menu; the rest close automatically. */
+function toggleMenu(menu: HTMLElement, btn: HTMLElement, force?: boolean) {
+  const show = force ?? menu.hidden
+  for (const m of [langMenu, themeMenu]) {
+    m.hidden = m !== menu || !show
+  }
+  langBtn.setAttribute('aria-expanded', String(langMenu === menu && show))
+  themeBtn.setAttribute('aria-expanded', String(themeMenu === menu && show))
+  if (show) btn.classList.add('is-open')
+  else btn.classList.remove('is-open')
+}
+
+function closeMenu(menu: HTMLElement, btn: HTMLElement) {
+  toggleMenu(menu, btn, false)
 }
 
 function setupTheme() {
   const saved = (() => { try { return localStorage.getItem('hf-theme') } catch { return null } })()
   const initial = saved && THEME_VIEWER_BG[saved] ? saved : 'dark'
-  themeSelect.value = initial
   applyTheme(initial)
-  themeSelect.addEventListener('change', () => applyTheme(themeSelect.value))
+  themeBtn.addEventListener('click', () => toggleMenu(themeMenu, themeBtn))
+  themeMenu.addEventListener('click', (e) => {
+    const item = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-theme]')
+    if (!item) return
+    applyTheme(item.dataset.theme ?? 'dark')
+    closeMenu(themeMenu, themeBtn)
+  })
 }
 
 function setupDropZone() {
@@ -3344,13 +3380,31 @@ void setupOpenInSlicer()
 }
 
 // Language: apply immediately (before first paint), bind the switcher.
-langSelect.value = lang
-langSelect.addEventListener('change', () => setLang(langSelect.value as Lang))
+langCode.textContent = lang.toUpperCase()
+langBtn.addEventListener('click', () => toggleMenu(langMenu, langBtn))
+langMenu.addEventListener('click', (e) => {
+  const item = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-lang]')
+  if (!item) return
+  setLang(item.dataset.lang as Lang)
+  closeMenu(langMenu, langBtn)
+})
 applyStaticText()
 setupLangPrompt()
 setupWelcome()
 
 setupTheme()
+document.addEventListener('click', (e) => {
+  if (!(e.target as HTMLElement).closest('.topbar-menu')) {
+    closeMenu(langMenu, langBtn)
+    closeMenu(themeMenu, themeBtn)
+  }
+})
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeMenu(langMenu, langBtn)
+    closeMenu(themeMenu, themeBtn)
+  }
+})
 setupDropZone()
 bindInputs()
 setupExports()

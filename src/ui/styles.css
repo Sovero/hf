@@ -139,13 +139,54 @@ body {
   white-space: nowrap;
 }
 
-/* Export actions moved up from the sidebar: one compact row that wraps
-   onto extra lines instead of overflowing when the window is narrow. */
-.topbar-export {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+/* Icon-button dropdowns for language and theme in the top bar. */
+.topbar-menu {
+  position: relative;
+}
+
+.topbar-popover {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  min-width: 9.5rem;
+  padding: 0.25rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 80;
+}
+
+.topbar-popover[hidden] {
+  display: none;
+}
+
+.topbar-popover button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.topbar-popover button:hover {
+  background: var(--panel-2);
+}
+
+.topbar-popover button.is-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.topbar-btn.is-open {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .picker {
@@ -165,8 +206,7 @@ body {
   cursor: pointer;
 }
 
-.topbar-btn,
-.topbar-export button {
+.topbar-btn {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -180,20 +220,17 @@ body {
   white-space: nowrap;
 }
 
-.topbar-btn:disabled,
-.topbar-export button:disabled {
+.topbar-btn:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-.topbar-btn:disabled:hover,
-.topbar-export button:disabled:hover {
+.topbar-btn:disabled:hover {
   border-color: var(--border);
   color: var(--text);
 }
 
-.topbar-btn:hover,
-.topbar-export button:not(:disabled):hover {
+.topbar-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
 }

@@ -68,30 +68,23 @@
       <div class="topbar-right">
         <button type="button" id="btn-undo" class="topbar-btn icon-btn" aria-label="Undo" disabled>↶</button>
         <button type="button" id="btn-redo" class="topbar-btn icon-btn" aria-label="Redo" disabled>↷</button>
-        <div class="topbar-export" role="group" aria-label="Export">
-          <button id="btn-stl" disabled data-help="helpBtnStl"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg><span data-i18n="btnStl">Download STL</span></button>
-          <button id="btn-3mf" disabled data-help="helpBtn3mf"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.8 8 2l6 2.8-6 2.8Z"/><path d="M2 8.2 8 5.4l6 2.8-6 2.8Z"/><path d="M2 11.6 8 8.8l6 2.8-6 2.8Z"/></svg><span data-i18n="btn3mf">Download 3MF</span></button>
-          <button id="btn-describe" disabled data-help="helpBtnDescribe"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.6h5.2L13 5.4v9H4Z"/><path d="M9.2 1.6v3.8H13"/><path d="M6.2 8.6h3.6M6.2 11h3.6"/></svg><span data-i18n="btnDescribe">Download Describe.txt</span></button>
-          <button id="btn-slicer" disabled data-help="helpBtnSlicer"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6V3h9v3"/><path d="M2.8 6h10.4v3.4H2.8Z"/><path d="M5.4 12.4h5.2V9.4H5.4Z"/></svg><span data-i18n="btnSlicer">Slicer bundle</span></button>
-          <button id="btn-project-save" disabled data-help="helpProjectSave"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.8v7.6"/><path d="M4.6 6.4 8 9.8l3.4-3.4"/><path d="M2.6 13.6h10.8"/></svg><span data-i18n="btnProjectSave">Save project</span></button>
-          <button id="btn-project-open" data-help="helpProjectOpen"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 4.2h4l1.6 2.2h6.8v6.6H1.8Z"/><path d="M5.8 4.2h2.6v1.4H4.6"/></svg><span data-i18n="btnProjectOpen">Open project</span></button>
-          <input id="project-input" type="file" accept=".hueforge.json,.json,application/json" hidden />
-        </div>
         <button type="button" id="btn-tour" class="topbar-btn" data-help="helpTour" data-i18n="tourBtn">Tour</button>
-        <label class="picker"><span data-i18n="languageLabel">Language</span>
-          <select id="lang-select" data-help="helpLangSelect">
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
-          </select>
-        </label>
-        <label class="picker"><span data-i18n="themeLabel">Theme</span>
-          <select id="theme-select" data-help="helpThemeSelect">
-            <option value="dark" data-i18n="themeDark">Dark</option>
-            <option value="light" data-i18n="themeLight">Light</option>
-            <option value="nord">Nord</option>
-            <option value="solar">Solar</option>
-          </select>
-        </label>
+        <div class="topbar-menu">
+          <button type="button" id="lang-btn" class="topbar-btn" aria-haspopup="menu" aria-expanded="false" data-help="helpLangSelect"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M1.8 8h12.4M8 1.8c-1.9 1.9-1.9 10.4 0 12.4M8 1.8c1.9 1.9 1.9 10.4 0 12.4"/></svg><span id="lang-code">EN</span></button>
+          <div class="topbar-popover" id="lang-menu" role="menu" aria-label="Language" hidden>
+            <button type="button" role="menuitem" data-lang="en">English</button>
+            <button type="button" role="menuitem" data-lang="ru">Русский</button>
+          </div>
+        </div>
+        <div class="topbar-menu">
+          <button type="button" id="theme-btn" class="topbar-btn icon-btn" aria-haspopup="menu" aria-expanded="false" data-help="helpThemeSelect" aria-label="Theme"><svg id="theme-ico" class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 9.4A5.8 5.8 0 1 1 6.6 2.6a4.7 4.7 0 0 0 6.8 6.8Z"/></svg></button>
+          <div class="topbar-popover" id="theme-menu" role="menu" aria-label="Theme" hidden>
+            <button type="button" role="menuitem" data-theme="dark" data-i18n="themeDark">Dark</button>
+            <button type="button" role="menuitem" data-theme="light" data-i18n="themeLight">Light</button>
+            <button type="button" role="menuitem" data-theme="nord">Nord</button>
+            <button type="button" role="menuitem" data-theme="solar">Solar</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -255,6 +248,17 @@
               <h2 data-i18n="panelExport">6 · Export</h2>
               <button type="button" class="hint-btn" data-help="helpExport" aria-label="Help">?</button>
             </div>
+          <div class="export-buttons">
+            <button id="btn-stl" disabled data-help="helpBtnStl"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg><span data-i18n="btnStl">Download STL</span></button>
+            <button id="btn-3mf" disabled data-help="helpBtn3mf"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.8 8 2l6 2.8-6 2.8Z"/><path d="M2 8.2 8 5.4l6 2.8-6 2.8Z"/><path d="M2 11.6 8 8.8l6 2.8-6 2.8Z"/></svg><span data-i18n="btn3mf">Download 3MF</span></button>
+            <button id="btn-describe" disabled data-help="helpBtnDescribe"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.6h5.2L13 5.4v9H4Z"/><path d="M9.2 1.6v3.8H13"/><path d="M6.2 8.6h3.6M6.2 11h3.6"/></svg><span data-i18n="btnDescribe">Download Describe.txt</span></button>
+            <button id="btn-slicer" disabled data-help="helpBtnSlicer"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6V3h9v3"/><path d="M2.8 6h10.4v3.4H2.8Z"/><path d="M5.4 12.4h5.2V9.4H5.4Z"/></svg><span data-i18n="btnSlicer">Slicer bundle</span></button>
+          </div>
+          <div class="export-buttons">
+            <button id="btn-project-save" disabled data-help="helpProjectSave"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.8v7.6"/><path d="M4.6 6.4 8 9.8l3.4-3.4"/><path d="M2.6 13.6h10.8"/></svg><span data-i18n="btnProjectSave">Save project</span></button>
+            <button id="btn-project-open" data-help="helpProjectOpen"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 4.2h4l1.6 2.2h6.8v6.6H1.8Z"/><path d="M5.8 4.2h2.6v1.4H4.6"/></svg><span data-i18n="btnProjectOpen">Open project</span></button>
+            <input id="project-input" type="file" accept=".hueforge.json,.json,application/json" hidden />
+          </div>
           <div id="open-slicer-row" class="export-buttons" hidden>
             <select id="slicer-select" class="calib-select"></select>
             <button id="btn-open-slicer" disabled data-help="helpOpenSlicer"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6V3h9v3"/><path d="M2.8 6h10.4v3.4H2.8Z"/><path d="M5.4 12.4h5.2V9.4H5.4Z"/></svg><span data-i18n="btnOpenSlicer">Open in slicer</span></button>
