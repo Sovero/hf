@@ -97,15 +97,23 @@ describe('printability', () => {
     expect(resolution.level).toBe('warn')
   })
 
-  it('keeps the filament-change count manageable with few colors', () => {
-    // With the UI capped at 8 colors the max is 7 changes — well below the
-    // 12-change warning threshold.
+  it('warns on many filament changes with a full palette', () => {
+    // 8 colors = 7 changes, at or above the 6-change warning threshold.
     const report = analyzePrintability(run(gradientImage(), {
       widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 8,
     }))
     const swaps = report.checks.find((c) => c.id === 'swaps')!
-    expect(swaps.level).toBe('ok')
+    expect(swaps.level).toBe('warn')
     expect(swaps.detail).toContain('7')
+  })
+
+  it('keeps the change count below the threshold with few colors', () => {
+    const report = analyzePrintability(run(gradientImage(), {
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 6,
+    }))
+    const swaps = report.checks.find((c) => c.id === 'swaps')!
+    expect(swaps.level).toBe('ok')
+    expect(swaps.detail).toContain('5')
   })
 
   it('flags fragile isolated regions on a checkerboard', () => {
@@ -222,6 +230,23 @@ describe('auto-fix (fixFor)', () => {
     expect((fix as { width: number }).width).toBeCloseTo(25.6, 1)
   })
 
+  it('reduces the color count on a many-changes warning', () => {
+    const result = run(gradientImage(), {
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 8,
+    })
+    expect(analyzePrintability(result).checks.find((c) => c.id === 'swaps')!.level).toBe('warn')
+    const fix = fixFor('swaps', result)
+    expect(fix).not.toBeNull()
+    expect(fix!.kind).toBe('colors')
+    expect((fix as { to: number }).to).toBe(6)
+    // Applying the fix drops the change count below the threshold.
+    const fixed = run(gradientImage(), {
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: (fix as { to: number }).to as ColorCount,
+    })
+    const swaps = analyzePrintability(fixed).checks.find((c) => c.id === 'swaps')!
+    expect(swaps.level).toBe('ok')
+  })
+
   it('returns null for passing checks and non-fixable warnings', () => {
     const ok = run(gradientImage(), {
       widthMm: 40, heightMm: 40, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 4,
@@ -230,10 +255,10 @@ describe('auto-fix (fixFor)', () => {
     expect(fixFor('resolution', ok)).toBeNull()
     expect(fixFor('support', ok)).toBeNull()
     expect(fixFor('swaps', ok)).toBeNull()
-    const swaps = run(gradientImage(), {
-      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 8,
+    const swapsOk = run(gradientImage(), {
+      widthMm: 150, heightMm: 150, baseMm: 0.8, maxHeightMm: 8, darkIsTall: true, layerMm: 0.2, numColors: 6,
     })
-    expect(fixFor('swaps', swaps)).toBeNull()
-    expect(fixFor('unknown', swaps)).toBeNull()
+    expect(fixFor('swaps', swapsOk)).toBeNull()
+    expect(fixFor('unknown', swapsOk)).toBeNull()
   })
 })

@@ -65,6 +65,8 @@ const round1 = (v: number) => Math.round(v * 10) / 10
  *   per-band ceilings block that, the color count is reduced.
  * - 'resolution' fail/warn: enlarge the print so each image cell maps to at
  *   least a layer (fail) or the nozzle width (warn).
+ * - 'swaps' warn: reduce the color count just enough to drop below the
+ *   change-warning threshold (keeps as many colors as possible).
  * - Everything else: no automatic fix (warnings are inherent to the artwork).
  */
 export function fixFor(checkId: string, result: PipelineResult): PrintabilityFix | null {
@@ -153,6 +155,13 @@ export function fixFor(checkId: string, result: PipelineResult): PrintabilityFix
     return { kind: 'size', width: round1(w * s), height: round1(h * s) }
   }
 
+  if (checkId === 'swaps') {
+    // Reduce the color count just enough to drop below the change-warning
+    // threshold — the least destructive fix, quality-wise.
+    if (n - 1 >= MIN_SWAPS_WARN) return { kind: 'colors', to: Math.max(2, MIN_SWAPS_WARN) }
+    return null
+  }
+
   return null
 }
 
@@ -163,7 +172,7 @@ const MIN_SPECKS = 5
 /** ...or when specks cover this fraction of the image. */
 const MIN_SPECK_FRACTION = 0.005
 /** Warn when the print needs this many filament changes. */
-const MIN_SWAPS_WARN = 12
+const MIN_SWAPS_WARN = 6
 
 /**
  * Analyze a finished pipeline result for 3D-printability concerns.
