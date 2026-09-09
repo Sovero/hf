@@ -267,6 +267,14 @@ export const dict: Dict = {
     en: 'Merged {n} near-duplicate color(s): {a} → {b} colors',
     ru: 'Слито {n} близких цветов: {a} → {b}',
   },
+  coverageSegTitle: {
+    en: 'Color {order} ({hex}) covers {pct} of the print area',
+    ru: 'Цвет {order} ({hex}) занимает {pct} площади печати',
+  },
+  coverageHelp: {
+    en: 'Area coverage: each segment is one palette color, its width is that color’s share of the printed area. A hairline segment is a color that barely appears — it still costs a filament swap.',
+    ru: 'Покрытие площади: каждый сегмент — один цвет палитры, ширина — его доля напечатанной площади. Волосный сегмент — цвет, которого почти нет, но он всё равно требует смены филамента.',
+  },
   helpDither: {
     en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it.',
     ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт.',

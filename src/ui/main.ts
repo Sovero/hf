@@ -53,6 +53,7 @@ const fileInput = $<HTMLInputElement>('#file-input')
 const imageInfo = $<HTMLParagraphElement>('#image-info')
 const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
+const paletteCoverage = $<HTMLDivElement>('#palette-coverage')
 const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
 const catalogBtn = $<HTMLButtonElement>('#catalog-pick')
 const autoPickBtn = $<HTMLButtonElement>('#auto-pick')
@@ -1338,6 +1339,37 @@ perfResetBtn.addEventListener('click', () => {
 
 renderPerf()
 
+/**
+ * Horizontal stacked-bar coverage chart: one segment per palette color, its
+ * width = its share of the printed area, so color balance reads at a glance
+ * (a fat segment = a heavy color; a sliver = a barely-used spool).
+ */
+function renderCoverage(
+  shares: ReturnType<typeof colorShares>,
+  palette: { color: RGB }[],
+) {
+  paletteCoverage.replaceChildren()
+  if (!palette.length) {
+    paletteCoverage.hidden = true
+    return
+  }
+  paletteCoverage.hidden = false
+  for (let i = 0; i < palette.length; i++) {
+    const seg = document.createElement('span')
+    seg.className = 'coverage-seg'
+    seg.style.background = rgbToHex(palette[i].color)
+    // Flex-grow proportional to share (a percent floor keeps 0-share slots
+    // visible as hairlines instead of vanishing).
+    seg.style.flexGrow = String(Math.max(shares[i].percent, 0.5))
+    seg.title = tr('coverageSegTitle', {
+      order: String(i + 1),
+      hex: rgbToHex(palette[i].color),
+      pct: formatShare(shares[i].percent),
+    })
+    paletteCoverage.appendChild(seg)
+  }
+}
+
 /** Re-quantize the image against the chosen spool colors (nearest-color). */
 async function quantizeCatalog(spools: RGB[]) {
   if (!current || !currentFile) return
@@ -1897,6 +1929,7 @@ function renderPalette() {
   // Area share of each palette color (post-dither, post-cleanup — exactly
   // what will be printed); indexMap indexes quantized.palette 1:1 with rows.
   const shares = colorShares(current!.quantized.indexMap, palette.length)
+  renderCoverage(shares, palette)
   // Sheet thickness per print order, from the snapped band tops: a band's
   // thickness is the gap between its top and the band below it (the base for
   // the first band). Heights never change on color edits, so compute once.

@@ -583,6 +583,23 @@ body {
   font-size: 0.75rem;
 }
 
+/* Stacked coverage bar: one segment per palette color, width = area share. */
+.palette-coverage {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  margin: 0.35rem 0 0.1rem;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.palette-coverage .coverage-seg {
+  display: block;
+  min-width: 2px;
+  height: 100%;
+}
+
 .palette-summary-row {
   display: flex;
   align-items: center;
