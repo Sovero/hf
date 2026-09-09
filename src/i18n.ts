@@ -962,6 +962,8 @@ export const dict: Dict = {
   },
   deltaEStats: { en: 'Mean ΔE {mean} · max {max}', ru: 'Средний ΔE {mean} · макс {max}' },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
+  tourLightTitle: { en: 'Preview lighting', ru: 'Подсветка предпросмотра' },
+  tourModesTitle: { en: '3D viewer modes', ru: 'Режимы 3D-вьюера' },
   tourWidthTitle: { en: 'Width', ru: 'Ширина' },
   tourHeightTitle: { en: 'Height', ru: 'Высота' },
   tourBaseTitle: { en: 'Base', ru: 'Основание' },

@@ -17,10 +17,35 @@ export interface TourStep {
   titleKey: string
   textKey: string
   /**
+   * Icon chips shown above the card title — the same pictograms the
+   * spotlighted buttons carry. Keys resolve against TOUR_ICONS.
+   */
+  icons?: TourIconKey[]
+  /**
    * Hands-on step: Next stays disabled until the user actually uses the
    * control (e.g. drags the colors slider). Only meaningful with a target.
    */
   interactive?: boolean
+}
+
+/** Icon keys shared with the viewer mode / light toggle buttons. */
+export type TourIconKey = 'model' | 'deltae' | 'slice' | 'front' | 'back'
+
+/**
+ * The same stroke pictograms the buttons render (see index.html), so the
+ * tour card shows exactly what the user will find on the control.
+ */
+export const TOUR_ICONS: Record<TourIconKey, string> = {
+  model:
+    '<svg class="tour-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg>',
+  deltae:
+    '<svg class="tour-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 2h5v5H2Z"/><path d="M9 2h5v5H9Z"/><path d="M2 9h5v5H2Z"/><path d="M9 9h5v5H9Z"/><path fill="currentColor" stroke="none" d="M9.5 9.5h4v4h-4Z"/></svg>',
+  slice:
+    '<svg class="tour-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/><path d="M2 9.6h12"/></svg>',
+  front:
+    '<svg class="tour-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.4"/><path d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1"/></svg>',
+  back:
+    '<svg class="tour-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="8" r="1.8"/><path d="M4 3.4V1.8M4 12.6v1.6M.8 8h1.6M7.2 8h1.6M1.7 3.7l1 1M6.3 11.3l1 1M6.3 3.7l-1 1M1.7 11.3l1 1"/><path d="M10 2.5v11M12.2 2.5v11M14.4 2.5v11"/></svg>',
 }
 
 export interface TourCallbacks {
@@ -54,6 +79,18 @@ export const TOUR_STEPS: TourStep[] = [
   { target: '#palette-details', titleKey: 'panelPalette', textKey: 'helpPalette' },
   { target: '#pb-details', titleKey: 'panelPrintability', textKey: 'helpPrintability' },
   { target: '#export-details', titleKey: 'panelExport', textKey: 'helpExport' },
+  {
+    target: '.light-toggle',
+    titleKey: 'tourLightTitle',
+    textKey: 'helpLightToggle',
+    icons: ['front', 'back'],
+  },
+  {
+    target: '#viewer3d-modes',
+    titleKey: 'tourModesTitle',
+    textKey: 'helpViewer3dModes',
+    icons: ['model', 'deltae', 'slice'],
+  },
   { titleKey: 'tourDoneTitle', textKey: 'tourDone' },
 ]
 
@@ -194,6 +231,21 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
     const text = document.createElement('p')
     text.textContent = cb.tr(step.textKey)
 
+    // Icon chips mirroring the spotlighted control's button pictograms.
+    const icons = document.createElement('div')
+    icons.className = 'tour-icons'
+    if (step.icons) {
+      for (const key of step.icons) {
+        const chip = document.createElement('span')
+        chip.className = 'tour-icon-chip'
+        chip.innerHTML = TOUR_ICONS[key]
+        chip.setAttribute('role', 'img')
+        icons.appendChild(chip)
+      }
+    } else {
+      icons.hidden = true
+    }
+
     const actions = document.createElement('div')
     actions.className = 'tour-actions'
     const progress = document.createElement('span')
@@ -280,7 +332,7 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
       dots.appendChild(dot)
     }
 
-    card.replaceChildren(title, text, dots, ...(hint ? [hint] : []), ...(live ? [live] : []), actions)
+    card.replaceChildren(icons, title, text, dots, ...(hint ? [hint] : []), ...(live ? [live] : []), actions)
 
     // Center horizontally; below the spotlight when there is room, else above.
     card.style.left = '50%'
