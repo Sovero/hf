@@ -15,9 +15,12 @@
 #                             the one-command updater for deploy.bat users.
 #                             The folder's previous state is backed up to
 #                             %APPDATA%\HueForgeWeb\backup-deploy first.
+#                             dist\ is mirrored (/MIR): stale build bundles from
+#                             the old version are removed, not kept.
 #   update.ps1 rollback       Restore the previous state from that backup
 #                             (the pre-update version before the last
-#                             download-deploy).
+#                             download-deploy). Restores exactly: files added
+#                             since the update are removed.
 #
 # Auth is resolved in order: HF_GITHUB_TOKEN environment variable, the stored
 # token file, then anonymous (works for public repositories).
@@ -154,13 +157,17 @@ switch ($Command) {
             $dest = Join-Path $env:TEMP 'hf_deploy_update'
             if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
             Expand-Archive -Path $zip -DestinationPath $dest -Force
-            # Back up the current folder (single slot — the pre-update state)
+            # Back up the current folder (single slot - the pre-update state)
             # before unpacking over it, so rollback can restore it.
             Save-Backup
-            # Unpack over this folder. The deploy zip is a flat tree (dist/,
-            # server.mjs, *.bat, DEPLOY.md, version.txt); update.ps1 itself is
-            # already loaded by PowerShell and can be replaced safely.
-            robocopy $dest $PSScriptRoot /E /NFL /NDL /NJH /NJS /NP | Out-Null
+            # Mirror dist\ so stale bundles of the old build are removed instead
+            # of piling up (index.html always points at the new hashed files).
+            robocopy (Join-Path $dest 'dist') (Join-Path $PSScriptRoot 'dist') /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw 'dist mirror failed' }
+            # Unpack the rest over this folder. The deploy zip is a flat tree
+            # (dist/, server.mjs, *.bat, DEPLOY.md, version.txt); update.ps1
+            # itself is already loaded by PowerShell and can be replaced safely.
+            robocopy $dest $PSScriptRoot /E /XD dist /NFL /NDL /NJH /NJS /NP | Out-Null
             if ($LASTEXITCODE -ge 8) { throw 'robocopy failed' }
             Remove-Item $zip -Force -ErrorAction SilentlyContinue
             Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
@@ -178,7 +185,10 @@ switch ($Command) {
             exit 1
         }
         try {
-            robocopy $BackupDir $PSScriptRoot /E /NFL /NDL /NJH /NJS /NP | Out-Null
+            # Mirror from the backup: files the update added (e.g. new dist
+            # bundles) are removed, so the folder is exactly the pre-update
+            # state again.
+            robocopy $BackupDir $PSScriptRoot /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
             if ($LASTEXITCODE -ge 8) { throw 'restore failed' }
             Write-Output 'Restored the previous version. Restart deploy.bat.'
         } catch {
