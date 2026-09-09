@@ -400,6 +400,14 @@ export const dict: Dict = {
     en: 'Equal heights',
     ru: 'Равные высоты',
   },
+  paletteTauHeights: {
+    en: 'By transparency (τ)',
+    ru: 'По прозрачности (τ)',
+  },
+  paletteTauHeightsHelp: {
+    en: 'Sets each sheet\'s thickness from the filament\'s τ (like HueForge uses TD): transparent filaments get thick sheets so lower colors stop showing through, opaque ones stay thin. The sheets are scaled to keep the current max height; per-sheet sliders still let you fine-tune afterwards.',
+    ru: 'Задаёт толщину каждого листа из прозрачности τ филамента (как HueForge использует TD): прозрачные филаменты получают толстые листы, чтобы нижние цвета не просвечивали, непрозрачные — тонкие. Сумма нормируется на текущую макс. высоту; после можно уточнить ползунками.',
+  },
   maxDerived: {
     en: 'Computed from the band height sliders: base + Σ band thicknesses. Move a band slider to change it, or click «Equal heights» in the palette.',
     ru: 'Рассчитывается из ползунков высот полос: основание + Σ толщин. Измените ползунок полосы или нажмите «Равные высоты» в палитре.',

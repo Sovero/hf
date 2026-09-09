@@ -8,7 +8,7 @@ import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION
 import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
-import { DEFAULT_TAU_MM, backlitBandColors, transmittedBandColors } from '../lib/transmission'
+import { DEFAULT_TAU_MM, backlitBandColors, tauBandHeights, transmittedBandColors } from '../lib/transmission'
 import type { ColorCount, QuantizedImage } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
@@ -59,6 +59,7 @@ const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
 const paletteCoverage = $<HTMLDivElement>('#palette-coverage')
 const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
+const paletteTauHeights = $<HTMLButtonElement>('#palette-tau-heights')
 const catalogBtn = $<HTMLButtonElement>('#catalog-pick')
 const autoPickBtn = $<HTMLButtonElement>('#auto-pick')
 const dropSparseBtn = $<HTMLButtonElement>('#palette-drop-sparse')
@@ -1049,6 +1050,21 @@ function syncMaxInput() {
 
 paletteHeightsReset.addEventListener('click', () => {
   bandHeights = null
+  syncMaxInput()
+  rebuildNow(true)
+  saveSettings()
+})
+
+paletteTauHeights.addEventListener('click', () => {
+  if (!current) return
+  const n = current.quantized.palette.length
+  const taus = current.quantized.tauMm
+  const base = Number(baseInput.value) || 0.8
+  const max = Number(maxInput.value) || 10
+  bandHeights = tauBandHeights(
+    Array.from({ length: n }, (_, i) => (taus?.[i] && taus[i] > 0 ? taus[i] : DEFAULT_TAU_MM)),
+    { usableMm: Math.max(0, max - base) },
+  )
   syncMaxInput()
   rebuildNow(true)
   saveSettings()

@@ -1,8 +1,48 @@
 import { describe, it, expect } from 'vitest'
-import { transmission, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, DEFAULT_TAU_MM } from '../lib/transmission'
+import { transmission, tauBandHeights, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, DEFAULT_TAU_MM } from '../lib/transmission'
 import { finishPipeline } from '../lib/pipeline'
 import type { PipelineResult } from '../lib/pipeline'
 import type { LoadedImage, QuantizedImage, RGB } from '../lib/types'
+
+describe('tauBandHeights', () => {
+  it('transparent filaments get thicker sheets than opaque ones', () => {
+    // 90% coverage needs t = −ln(0.1)·τ ≈ 2.303·τ; all above the 0.4 min.
+    const h = tauBandHeights([0.5, 3, 8], { usableMm: 12 })
+    expect(h[2]).toBeGreaterThan(h[1])
+    expect(h[1]).toBeGreaterThan(h[0])
+    expect(h.reduce((a, c) => a + c, 0)).toBeCloseTo(12, 5)
+    // Ratio tracks τ when nothing hits the floor: h_i / h_j ≈ τ_i / τ_j
+    expect(h[2] / h[1]).toBeCloseTo(8 / 3, 2)
+  })
+
+  it('pins sheets below minMm and redistributes the leftover', () => {
+    const h = tauBandHeights([0.1, 0.1, 10], { usableMm: 3, minMm: 0.4 })
+    expect(h[0]).toBe(0.4)
+    expect(h[1]).toBe(0.4)
+    expect(h[2]).toBeGreaterThan(0.4)
+    expect(h.reduce((a, c) => a + c, 0)).toBeCloseTo(3, 5)
+  })
+
+  it('scales the whole stack when the max height is tight', () => {
+    // Even an opaque stack (raw ≈ 2.3 each) must fit into 1.5 mm usable.
+    const h = tauBandHeights([0.5, 0.5], { usableMm: 1.5, minMm: 0.4 })
+    expect(h.reduce((a, c) => a + c, 0)).toBeCloseTo(1.5, 5)
+    expect(Math.min(...h)).toBeGreaterThanOrEqual(0.4)
+  })
+
+  it('splits usable evenly when even minMm per sheet does not fit', () => {
+    const h = tauBandHeights([1, 1, 1, 1], { usableMm: 1, minMm: 0.4 })
+    expect(h.reduce((a, c) => a + c, 0)).toBeCloseTo(1, 5)
+  })
+
+  it('falls back to the default τ for missing or invalid values', () => {
+    const h = tauBandHeights([NaN, 0, -2], { usableMm: 6 })
+    // All three map to DEFAULT_TAU_MM → equal sheets.
+    expect(h[0]).toBeCloseTo(h[1], 5)
+    expect(h[1]).toBeCloseTo(h[2], 5)
+    expect(h.reduce((a, c) => a + c, 0)).toBeCloseTo(6, 5)
+  })
+})
 
 describe('transmission model', () => {
   it('T(z) is 0 for zero thickness and saturates toward 1', () => {

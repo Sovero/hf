@@ -30,6 +30,56 @@ import { snappedBandTops } from './heightmap'
 /** Default per-filament opacity length τ (mm): thickness at which T(z) ≈ 63%. */
 export const DEFAULT_TAU_MM = 1.2
 
+/**
+ * Sheet thicknesses from each filament's τ, HueForge-TD-style.
+ *
+ * A sheet must be thick enough that what's below no longer shows through:
+ * covering fraction is T(t) = 1 − e^(−t/τ), so reaching `opacity` needs
+ * t = −ln(1−opacity)·τ — transparent filaments (high τ) get thick sheets,
+ * opaque ones get thin ones. The raw needs are scaled so the sheets sum to
+ * `usableMm` exactly (the model still tops out at max-height), and any sheet
+ * that would fall below `minMm` is pinned there while the leftover is
+ * redistributed among the rest.
+ */
+export function tauBandHeights(
+  taus: number[],
+  opts: { usableMm: number; minMm?: number; opacity?: number } = { usableMm: 0 },
+): number[] {
+  const n = taus.length
+  if (n === 0) return []
+  const usable = Math.max(0, opts.usableMm)
+  const minMm = opts.minMm ?? 0.4
+  if (usable < n * minMm) {
+    // Not enough room to keep even minMm per sheet: split what's left evenly.
+    const share = usable / n
+    return new Array<number>(n).fill(share)
+  }
+  const target = opts.opacity ?? 0.9
+  const k = -Math.log(1 - target) // ≈ 2.303 for 90%
+  const raw = taus.map((tau) =>
+    Math.max(minMm, k * (Number.isFinite(tau) && tau > 0 ? tau : DEFAULT_TAU_MM)),
+  )
+  const out = new Array<number>(n).fill(0)
+  let remaining = usable
+  let active = raw.map((_, i) => i)
+  while (active.length > 0) {
+    const total = active.reduce((a, i) => a + raw[i], 0)
+    if (total <= 0) break
+    const scale = remaining / total
+    const violators = active.filter((i) => raw[i] * scale < minMm)
+    if (violators.length === 0) {
+      for (const i of active) out[i] = raw[i] * scale
+      break
+    }
+    for (const i of violators) {
+      out[i] = minMm
+      remaining -= minMm
+    }
+    active = active.filter((i) => !violators.includes(i))
+  }
+  return out
+}
+
 /** Transmission of a sheet of thickness zMm (0..1 of what it hides). */
 export function transmission(zMm: number, tauMm: number = DEFAULT_TAU_MM): number {
   if (zMm <= 0) return 0
