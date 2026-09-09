@@ -2,12 +2,14 @@ import type { RGB } from './types'
 import { hexToRgb } from './palette'
 
 /**
- * Filament library of Russian manufacturers — the 8 most prolific brands,
+ * Filament library of Russian manufacturers — the 8 most prolific brands
  * ranked by the 3dtoday.ru survey of RF FDM filament producers (U3Print →
- * CyberFiber). Every brand offers the common colors; per-brand palettes
- * reflect what each one actually sells. Hex values are close approximations
- * of the catalog color names — printers and monitor gamuts vary, so treat
- * them as a starting point, then fine-tune with the palette color picker.
+ * CyberFiber), plus НИТ (PK NIT, Volgograd, since 2014; PLA/PETG/ABS/HIPS/TPU
+ * with BASIC/MATTE/SILK/PASTEL lines). Every brand offers the common colors;
+ * per-brand palettes reflect what each one actually sells. Hex values are
+ * close approximations of the catalog color names — printers and monitor
+ * gamuts vary, so treat them as a starting point, then fine-tune with the
+ * palette color picker.
  *
  * Users can also add their own filaments ("My filaments"); those are stored
  * in localStorage and merged into the library at lookup time.
@@ -64,6 +66,7 @@ export const BRANDS: FilamentBrand[] = [
   { id: '3dclub', name: '3D Club', city: 'Москва', site: 'https://3dclub.ru' },
   { id: 'printproduct', name: 'Print Product', city: 'Санкт-Петербург', site: 'https://printproduct3d.ru' },
   { id: 'cyberfiber', name: 'CyberFiber', city: 'Москва', site: 'https://cyberfiber.ru' },
+  { id: 'nit', name: 'НИТ', city: 'Волгоград', site: 'https://plastik-nit.ru' },
 ]
 
 /** Pseudo-brand id for user-added filaments. */
@@ -129,6 +132,13 @@ const FA_EXTRA: ColorSpec[] = [
   { id: 'granite', ru: 'Гранит', en: 'Granite', hex: '#3c3e40' },
 ]
 
+/** НИТ extras (signature colors from the plastik-nit.ru catalog). */
+const NIT_EXTRA: ColorSpec[] = [
+  { id: 'beige', ru: 'Бежевый', en: 'Beige', hex: '#e6d5b8' },
+  { id: 'bluemetallic', ru: 'Синий металлик', en: 'Blue metallic', hex: '#2e5f8a' },
+  { id: 'silvernit', ru: 'Серебристый металлик', en: 'Silver metallic', hex: '#b8bcc0' },
+]
+
 function colorOf(brand: string, material: string, spec: ColorSpec): FilamentColor {
   return {
     id: `${brand}:${material}:${spec.id}`,
@@ -159,6 +169,7 @@ export const LIBRARY: Record<string, Record<MaterialId, FilamentMaterial>> = {
   '3dclub': materialsFor('3dclub', []),
   printproduct: materialsFor('printproduct', PP_EXTRA),
   cyberfiber: materialsFor('cyberfiber', []),
+  nit: materialsFor('nit', NIT_EXTRA),
 }
 
 // ---- Custom filaments ("My filaments") -----------------------------------

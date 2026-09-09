@@ -6,9 +6,9 @@ import {
 import { hexToRgb } from '../lib/palette'
 
 describe('filament library', () => {
-  it('carries the top-8 Russian brands from the 3dtoday survey, in rank order', () => {
+  it('carries the top-8 Russian brands from the 3dtoday survey, plus НИТ', () => {
     expect(BRANDS.map((b) => b.id)).toEqual([
-      'u3print', 'filamentarno', 'rec', 'lider3d', 'bestfilament', '3dclub', 'printproduct', 'cyberfiber',
+      'u3print', 'filamentarno', 'rec', 'lider3d', 'bestfilament', '3dclub', 'printproduct', 'cyberfiber', 'nit',
     ])
     for (const b of BRANDS) expect(b.site).toMatch(/^https:\//)
   })
@@ -25,6 +25,21 @@ describe('filament library', () => {
         }
       }
     }
+  })
+
+  it('exposes НИТ with its signature catalog colors', () => {
+    const beige = findFilament('nit:pla:beige')!
+    expect(beige.brandName).toBe('НИТ')
+    expect(beige.color.hex).toBe('#e6d5b8')
+    expect(findFilament('nit:petg:bluemetallic')!.color.hex).toBe('#2e5f8a')
+    expect(findFilament('nit:abs:silvernit')!.color.rgb).toEqual(hexToRgb('#b8bcc0'))
+  })
+
+  it('exposes НИТ with its signature catalog colors', () => {
+    expect(findFilament('nit:pla:beige')!.brandName).toBe('НИТ')
+    expect(findFilament('nit:pla:beige')!.color.hex).toBe('#e6d5b8')
+    expect(findFilament('nit:petg:bluemetallic')!.color.hex).toBe('#2e5f8a')
+    expect(findFilament('nit:abs:silvernit')!.color.rgb).toEqual(hexToRgb('#b8bcc0'))
   })
 
   it('round-trips findFilament on every composite id', () => {
