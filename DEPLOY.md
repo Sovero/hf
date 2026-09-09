@@ -116,6 +116,43 @@ npm run pack-deploy    # собирает hueforge-web-deploy-v<версия>.zi
 номер версии определяется из исходников, которых в пакете ещё нет — примите
 его, и папка станет актуальной установкой.
 
+### update.ps1 вручную
+
+Тот же помощник можно вызывать напрямую из PowerShell (из распакованной
+папки). Команды:
+
+- `powershell -ExecutionPolicy Bypass -File update.ps1 check` — печатает
+  номер новой версии (например `v0.7.9`), если она вышла, `NEED_TOKEN` —
+  если репозиторий требует токен, или ничего — если обновлений нет.
+- `powershell -ExecutionPolicy Bypass -File update.ps1 save-token` —
+  попросит ввести токен (ввод маскируется) и сохранит его в
+  `%APPDATA%\HueForgeWeb\github_token.txt`.
+- `powershell -ExecutionPolicy Bypass -File update.ps1 download v0.7.9` —
+  скачает исходники версии `v0.7.9` с GitHub во временную папку и напечатает
+  путь к распакованному дереву (его можно скопировать поверх текущей папки).
+
+Токен вместо сохранения можно задать и переменной окружения
+`HF_GITHUB_TOKEN` — она имеет приоритет над файлом.
+
+### GitHub-токен: как создать
+
+Репозиторий `Sovero/hf` приватный, поэтому проверка обновлений и скачивание
+без токена невозможны. Один раз:
+
+1. Откройте [GitHub Settings → Fine-grained tokens](https://github.com/settings/personal-access-tokens)
+   и нажмите **Generate new token**.
+2. В **Repository access** выберите **Only select repositories** → `Sovero/hf`.
+3. В **Permissions** → **Repository permissions** поставьте:
+   - **Contents**: **Read-only**
+   - **Metadata**: **Read-only** (GitHub требует его автоматически)
+4. Создайте токен и скопируйте его (показывается один раз).
+5. Введите его в `update.ps1 save-token` — или запустите `install.bat` и
+   согласитесь на ввод токена при первом запуске.
+
+Токен хранится только на этом ПК, в `%APPDATA%\HueForgeWeb\github_token.txt`,
+и даёт доступ только на чтение этого репозитория. Если токен засветился или
+больше не нужен — отзовите его на той же странице GitHub (Revoke).
+
 ## Для разработчиков
 
 - `npm run serve` — тот же сервер для локальной проверки сборки (`node server.mjs`).
