@@ -25,6 +25,7 @@ import type { FaceName } from '../lib/viewCubeMath'
 import { autoPickFilaments } from '../lib/autoPick'
 import { colorShares, formatShare } from '../lib/colorShare'
 import { orderSpools } from '../lib/spoolOrder'
+import { dropSparseColors } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 
@@ -55,6 +56,7 @@ const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
 const paletteHeightsReset = $<HTMLButtonElement>('#palette-heights-reset')
 const catalogBtn = $<HTMLButtonElement>('#catalog-pick')
 const autoPickBtn = $<HTMLButtonElement>('#auto-pick')
+const dropSparseBtn = $<HTMLButtonElement>('#palette-drop-sparse')
 const calibBlock = $<HTMLDivElement>('#calib')
 const calibColor = $<HTMLSelectElement>('#calib-color')
 const calibDownload = $<HTMLButtonElement>('#calib-download')
@@ -1368,6 +1370,37 @@ catalogBtn.addEventListener('click', () => {
 })
 
 /**
+ * One-click cleanup: re-quantize against the spools that actually carry
+ * area (≥1%), dropping the rest — each dropped spool saves a filament swap
+ * on the printer. Only offered in catalog mode where spools define colors.
+ */
+dropSparseBtn.addEventListener('click', () => {
+  if (!current || !catalogActive) return
+  const spools = catalogSpools()
+  if (!spools) return
+  const result = dropSparseColors(current.quantized.indexMap, spools.colors, 0.01)
+  if (!result) {
+    showStatus(tr('dropSparseNone'), true)
+    return
+  }
+  // Keep assignments of the surviving spools (dark → light order is
+  // preserved by dropSparseColors, so ids follow their colors).
+  const survivors = new Set(result.palette.map((c) => `${c.r},${c.g},${c.b}`))
+  const keptIds: (string | null)[] = []
+  const keptColors: RGB[] = []
+  for (let i = 0; i < spools.colors.length; i++) {
+    const c = spools.colors[i]
+    if (survivors.has(`${c.r},${c.g},${c.b}`)) {
+      keptColors.push(c)
+      keptIds.push(spools.ids[i])
+    }
+  }
+  filamentAssignments = keptIds
+  void quantizeCatalog(keptColors)
+  showStatus(tr('dropSparseDone', { n: String(result.dropped) }))
+})
+
+/**
  * Single dialog "Build from catalog": pick N spools across brands/materials
  * in one modal, confirm, and the palette + quantization are assembled in one
  * step — no per-slot ★ needed.
@@ -2001,6 +2034,12 @@ function renderPalette() {
   } else {
     paletteSummary.title = ''
   }
+  // The one-click cleanup is only meaningful in catalog mode (dropping a
+  // spool means re-quantizing against the remaining ones) and only when
+  // there is something to drop.
+  dropSparseBtn.hidden = !(catalogActive && lowUse.length > 0 && palette.length > 2)
+  if (dropSparseBtn.hidden) dropSparseBtn.title = ''
+  else dropSparseBtn.title = tr('dropSparseHelp')
   updateCatalogBtn()
   // Keep assignments aligned with the (possibly changed) color count.
   filamentAssignments.length = palette.length

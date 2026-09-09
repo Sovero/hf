@@ -297,6 +297,22 @@ export const dict: Dict = {
     en: '· barely used: {list}',
     ru: '· почти не используются: {list}',
   },
+  dropSparse: {
+    en: 'Drop unused',
+    ru: 'Убрать неиспользуемые',
+  },
+  dropSparseHelp: {
+    en: 'Remove colors under 1% of the print area and requantize — saves their filament swaps.',
+    ru: 'Убирает цвета меньше 1% площади печати и пересчитывает квантование — экономит их смены филамента.',
+  },
+  dropSparseDone: {
+    en: 'Dropped {n} barely-used color(s)',
+    ru: 'Убрано редко используемых цветов: {n}',
+  },
+  dropSparseNone: {
+    en: 'No barely-used colors to drop',
+    ru: 'Нет редко используемых цветов для удаления',
+  },
   paletteLowUseHelp: {
     en: 'Colors under 1% of the print area — each still costs a filament change; consider dropping them.',
     ru: 'Цвета меньше 1% площади печати — каждый всё равно требует смены филамента; возможно, стоит от них отказаться.',
