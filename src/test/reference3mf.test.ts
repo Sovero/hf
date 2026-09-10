@@ -120,6 +120,14 @@ describe('parseReference3mf', () => {
     })
   })
 
+  it('rejects an archive with no model part through a typed error', async () => {
+    const zip = zipSync({ 'Metadata/extra.config': strToU8('{}') })
+    await expect(parseReference3mf(zip)).rejects.toMatchObject({
+      name: 'Reference3mfParseError',
+      code: 'missing-model',
+    })
+  })
+
   it('does not expose unrecognized package entries as data', async () => {
     const files = unzipSync(appExport())
     files['Metadata/secret.txt'] = strToU8('must not be read')

@@ -2846,6 +2846,8 @@ function renderTicks() {
 
 let referenceAnalysis: Reference3mfAnalysis | null = null
 let referencePlan: ReferenceApplyPlan | null = null
+/** Guards against overlapping analyses: a newer selection supersedes an older one. */
+let refRun = 0
 
 function currentEditorOptions() {
   const o = readOptions()
@@ -2861,7 +2863,9 @@ function currentEditorOptions() {
 }
 
 function showRefError(code: string, fallback: string) {
-  const key = `refErr${code.charAt(0).toUpperCase()}${code.slice(1)}`
+  // Error codes are kebab-case ('missing-model', 'entry-size'); the i18n
+  // keys are camelCase ('refErrMissingModel', 'refErrEntrySize').
+  const key = `refErr${code.split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('')}`
   let message: string
   try {
     message = tr(key)
@@ -2980,16 +2984,20 @@ function updateApplyButton() {
 }
 
 async function analyzeReference(file: File) {
+  const token = ++refRun
   resetReferenceUI()
   refStatus.className = 'ref-status'
   refStatus.textContent = tr('refAnalyzing')
   refReport.hidden = false
   setRefBadge('analyzing')
   try {
-    referenceAnalysis = await parseReference3mf(file)
+    const analysis = await parseReference3mf(file)
+    if (token !== refRun) return // a newer selection superseded this one
+    referenceAnalysis = analysis
     referencePlan = planReferenceApply(referenceAnalysis, currentEditorOptions())
     renderReferenceReport()
   } catch (err) {
+    if (token !== refRun) return
     referenceAnalysis = null
     referencePlan = null
     refReport.hidden = true
@@ -3020,6 +3028,15 @@ async function applyReference() {
   baseInput.value = String(o.baseMm)
   maxInput.value = String(o.maxHeightMm)
   layerInput.value = String(o.layerMm)
+  // The reference supplies the band schedule as normalized band tops, so any
+  // custom per-band thicknesses active in the editor no longer apply — clear
+  // them or the next rebuild would silently revert to the stale heights.
+  bandHeights = null
+  // Palette colors were replaced wholesale; per-slot filament picks from the
+  // previous palette are wrong for the reference colors, so fall back to the
+  // nearest-suggestion labels for the new palette.
+  filamentAssignments = []
+  syncMaxInput()
   saveSettings()
 
   const token = ++runToken
@@ -3078,6 +3095,7 @@ function setupReference() {
   refDrop.addEventListener('click', () => refInput.click())
   refInput.addEventListener('change', () => {
     const f = refInput.files?.[0]
+    refInput.value = '' // allow re-selecting the same file to re-analyze
     if (f) void analyzeReference(f)
   })
   refDrop.addEventListener('dragover', (e) => {
