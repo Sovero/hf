@@ -17,7 +17,8 @@ import { deltaE2000Rgb } from '../lib/deltae'
 import { analyzePrintability, fixFor, type PrintabilityFix } from '../lib/printability'
 import { createPerfStats } from '../lib/perfStats'
 import { rgbToHex, hexToRgb, nearestFilament, luminance } from '../lib/palette'
-import { parseReference3mf, Reference3mfParseError } from '../lib/reference3mf'
+import { Reference3mfParseError } from '../lib/reference3mf'
+import { parseReference3mfInWorker } from './referenceWorkerClient'
 import { planReferenceApply, type ReferenceApplyPlan } from '../lib/referenceApply'
 import type { Reference3mfAnalysis } from '../lib/reference3mf'
 import type { RGB } from '../lib/types'
@@ -2991,7 +2992,7 @@ async function analyzeReference(file: File) {
   refReport.hidden = false
   setRefBadge('analyzing')
   try {
-    const analysis = await parseReference3mf(file)
+    const analysis = await parseReference3mfInWorker(file)
     if (token !== refRun) return // a newer selection superseded this one
     referenceAnalysis = analysis
     referencePlan = planReferenceApply(referenceAnalysis, currentEditorOptions())

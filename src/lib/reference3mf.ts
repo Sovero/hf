@@ -183,7 +183,15 @@ function parseModel(xml: string): Reference3mfModel {
   const modelTag = /<model\b([^>]*)>/i.exec(xml)?.[1] ?? ''
   const modelAttrs = attrs(modelTag)
   const unit = unitFactor(modelAttrs.unit)
-  const vertices: number[][] = []
+  // Bounds are aggregated in one pass and the per-vertex coordinates are
+  // never stored — a large mesh then costs O(1) memory for this scan.
+  let vertexCount = 0
+  let minX = Infinity
+  let minY = Infinity
+  let minZ = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  let maxZ = -Infinity
   const vertexRe = /<vertex\b([^>]*)>/gi
   let vertex: RegExpExecArray | null
   while ((vertex = vertexRe.exec(xml))) {
@@ -194,30 +202,24 @@ function parseModel(xml: string): Reference3mfModel {
     if (x === undefined || y === undefined || z === undefined) {
       throw new Reference3mfParseError('xml', 'A 3MF vertex is missing numeric coordinates.')
     }
-    vertices.push([x * unit.factor, y * unit.factor, z * unit.factor])
+    const mx = x * unit.factor
+    const my = y * unit.factor
+    const mz = z * unit.factor
+    vertexCount++
+    minX = Math.min(minX, mx)
+    minY = Math.min(minY, my)
+    minZ = Math.min(minZ, mz)
+    maxX = Math.max(maxX, mx)
+    maxY = Math.max(maxY, my)
+    maxZ = Math.max(maxZ, mz)
   }
-  if (vertices.length === 0) throw new Reference3mfParseError('xml', 'The 3MF model contains no vertices.')
-
-  let minX = Infinity
-  let minY = Infinity
-  let minZ = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  let maxZ = -Infinity
-  for (const [x, y, z] of vertices) {
-    minX = Math.min(minX, x)
-    minY = Math.min(minY, y)
-    minZ = Math.min(minZ, z)
-    maxX = Math.max(maxX, x)
-    maxY = Math.max(maxY, y)
-    maxZ = Math.max(maxZ, z)
-  }
+  if (vertexCount === 0) throw new Reference3mfParseError('xml', 'The 3MF model contains no vertices.')
 
   return {
     unit: unit.name,
     objectCount: [...xml.matchAll(/<object\b/gi)].length,
     triangleCount: [...xml.matchAll(/<triangle\b/gi)].length,
-    vertexCount: vertices.length,
+    vertexCount,
     minX,
     minY,
     minZ,
