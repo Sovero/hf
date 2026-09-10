@@ -311,10 +311,11 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
     })
   }
 
-  // ---- 4. Support & overhang risk (isolated fragile regions) ----
-  // Judge the pre-dither map when dithering ran: FS dots at band boundaries
-  // are intentional gradient texture, not fragile specks — counting them on
-  // the dithered map would warn about the very feature the user turned on.
+// ---- 4. Support & overhang risk (isolated fragile regions) ----
+  // Fragile specks are flattened by the quantizer (removeIsolatedRegions),
+  // but a few can survive on complex images — they are inherent to the
+  // artwork, so the auto-fixer never touches them (no settings change is
+  // meaningful). The warning simply explains what is happening.
   const dithered = result.quantized.cleanIndexMap !== undefined
   const { specks, speckCells } = findIsolatedRegions(
     result.quantized.cleanIndexMap ?? result.quantized.indexMap,
@@ -351,6 +352,19 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
   const errors = checks.filter((c) => c.level === 'fail').length
   const warnings = checks.filter((c) => c.level === 'warn').length
   return { checks, errors, warnings }
+}
+
+/**
+ * Auto-fix map for the printability check ids. Only checks that have a
+ * concrete settings change (bands, resolution, swaps) are listed here.
+ * Fragile isolated regions ('support') are inherently artwork — no settings
+ * tweak meaningfully removes them; fixFor('support') returns null.
+ */
+export const FIXER: Record<string, (result: PipelineResult) => PrintabilityFix | null> = {
+  bands: (r) => fixFor('bands', r),
+  resolution: (r) => fixFor('resolution', r),
+  swaps: (r) => fixFor('swaps', r),
+  support: () => null,
 }
 
 /**

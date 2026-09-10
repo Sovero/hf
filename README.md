@@ -68,6 +68,33 @@ shown in the app's top bar next to the title.
    at the Z heights shown in the palette panel) or **3MF** (same geometry,
    plus palette and print order embedded as metadata).
 
+## Desktop app (Electron)
+
+The same app ships as a native **Windows desktop app** — a window, a taskbar
+icon and a Start-menu shortcut, no browser or Node.js needed:
+
+- **Install:** grab `hueforge-web-setup-<version>.exe` from the
+  [Releases page](https://github.com/Sovero/hf/releases) and run it
+  (NSIS installer, x64; you can pick the install folder).
+- **Auto-update:** built in. The app checks GitHub Releases at startup
+  (15 s after launch) and then every 4 hours; a small indicator appears in
+  the top bar (⟳ checking, ↑ update available, % while downloading, ↓ ready
+  to install — click it to act). Updates install on quit or immediately
+  after a confirmation.
+- **Private repository:** the update check needs a one-time GitHub token
+  (fine-grained, `Contents: Read` + `Metadata: Read` on this repo — same
+  token as `install.bat` uses). Click the update indicator, paste the token
+  in the dialog, and it is stored encrypted on this PC (Electron
+  safeStorage / DPAPI). `HF_GITHUB_TOKEN`-style env vars are not used by the
+  desktop app.
+- **Exports:** «Download STL/3MF/…» opens the native Windows "Save as…"
+  dialog in the desktop app; in the browser build it downloads as before.
+
+Build it from sources with `npm run dist` (needs `npm install` first); the
+installer and its auto-update manifests (`latest.yml`, blockmap) land in
+`release/` and are attached to GitHub Releases automatically by the release
+workflow.
+
 ## Themes
 
 Dark / Light / Nord / Solar — picker in the top bar, saved automatically.

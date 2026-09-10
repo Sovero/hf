@@ -54,6 +54,15 @@ jobs:
       - name: Build source archive
         run: git archive --format=zip -o "hueforge-web-${GITHUB_REF_NAME}.zip" HEAD
 
+      # Windows installer (NSIS, x64) with electron-updater auto-update support.
+      # Publishes latest.yml + the .exe blockmap to the release, which
+      # electron-updater in the installed app polls for updates.
+      - name: Build Windows installer (Electron)
+        run: npx electron-builder --win --x64 --publish always
+        env:
+          # electron-builder needs the repo to publish to; GH_TOKEN grants it.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

@@ -17,3 +17,6 @@ npm-debug.log*
 
 # Deploy packages (build artifacts)
 hueforge-web-deploy-*.zip
+
+# Electron-builder output
+release/

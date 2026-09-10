@@ -581,6 +581,7 @@ export const dict: Dict = {
   btnSlicer: { en: 'Slicer bundle', ru: 'Набор для слайсера' },
   btnOpenSlicer: { en: 'Open in slicer', ru: 'Открыть в слайсере' },
   exportStlDone: { en: 'STL exported — {filename}', ru: 'STL экспортирован — {filename}' },
+  desktopSaveCanceled: { en: 'Export canceled', ru: 'Экспорт отменён' },
   describeDone: { en: 'Describe.txt exported — {filename}', ru: 'Describe.txt экспортирован — {filename}' },
   slicerDone: {
     en: 'Slicer bundle exported — {filename} (PrusaSlicer: File → Import → Import Config…).',

@@ -4,6 +4,7 @@
   "version": "0.7.9",
   "type": "module",
   "description": "Turn any image into a multi-layer 3D-printable filament painting (STL/3MF)",
+  "main": "electron-main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -11,17 +12,61 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "serve": "node server.mjs",
-    "pack-deploy": "node scripts/pack-deploy.mjs"
+    "pack-deploy": "node scripts/pack-deploy.mjs",
+    "electron:dev": "electron .",
+    "electron:start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win --x64",
+    "dist:dir": "npm run build && electron-builder --win --x64 --dir"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "fflate": "^0.8.3",
     "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
     "@types/three": "^0.185.4",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
+  },
+  "build": {
+    "appId": "com.sovero.hueforge",
+    "productName": "HueForge Web",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.cjs",
+      "electron-preload.cjs",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HueForge Web",
+      "artifactName": "hueforge-web-setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Sovero",
+        "repo": "hf"
+      }
+    ]
   }
 }

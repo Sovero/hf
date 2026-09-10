@@ -33,6 +33,7 @@ import { PRINTERS, PRINTER_NONE, bedSizeFor } from '../lib/printers'
 import { dropSparseColors, dropTargets } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
+import { isDesktop, desktopSaveFile, initDesktopShell, setDesktopLang } from './desktop'
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector(sel)
@@ -468,6 +469,7 @@ function setLang(next: Lang, persist = true) {
   if (persist) saveLang(lang)
   langCode.textContent = lang.toUpperCase()
   applyStaticText()
+  setDesktopLang(lang)
   if (current) {
     updateUI()
     showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
@@ -2622,6 +2624,15 @@ calibCanvas.addEventListener('click', (e) => {
 })
 
 function triggerDownload(data: BlobPart, filename: string, type: string) {
+  // Внутри Electron экспорт идёт через нативный диалог «Сохранить как…»;
+  // в браузере остаётся обычное скачивание. Если пользователь отменил выбор,
+  // desktopSaveFile возвращает false — тогда не показываем статус об успехе.
+  if (isDesktop) {
+    void desktopSaveFile(data, filename, type).then((saved) => {
+      if (!saved) showStatus(tr('desktopSaveCanceled'), true)
+    })
+    return
+  }
   const url = URL.createObjectURL(new Blob([data], { type }))
   const a = document.createElement('a')
   a.href = url
@@ -3445,3 +3456,4 @@ bindInputs()
 setupExports()
 setupReference()
 renderTicks()
+initDesktopShell(lang)
