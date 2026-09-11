@@ -1606,8 +1606,9 @@ shoppingListBtn.addEventListener('click', () => {
     ? `HueForge Web — список покупок (${word(lang, items.length, 'spools')})`
     : `HueForge Web — shopping list (${word(lang, items.length, 'spools')})`
   const text = formatShoppingList(items, { unassigned, lang, header })
-  triggerDownload(text, filename, 'text/plain;charset=utf-8')
-  showStatus(tr('shoppingListDone', { filename }))
+  void triggerDownload(text, filename, 'text/plain;charset=utf-8').then((outcome) =>
+    reportDownload(outcome, tr('shoppingListDone', { filename })),
+  )
 })
 
 /**
@@ -2558,9 +2559,15 @@ calibDownload.addEventListener('click', () => {
   const base = current.quantized.palette[baseSlotIndex()]
   const sw = buildCalibrationSwatch(color, rgbToHex(base), current.settings.layerMm)
   const name = `hueforge-calib-${rgbToHex(color).slice(1)}`
-  triggerDownload(sw.stl as unknown as BlobPart, `${name}.stl`, 'model/stl')
-  triggerDownload(sw.info, `${name}.txt`, 'text/plain;charset=utf-8')
-  showStatus(tr('calibDownloadDone', { filename: `${name}.stl` }))
+  void (async () => {
+    const stlOutcome = await triggerDownload(sw.stl as unknown as BlobPart, `${name}.stl`, 'model/stl')
+    if (stlOutcome !== 'saved') {
+      reportDownload(stlOutcome, tr('calibDownloadDone', { filename: `${name}.stl` }))
+      return
+    }
+    const infoOutcome = await triggerDownload(sw.info, `${name}.txt`, 'text/plain;charset=utf-8')
+    reportDownload(infoOutcome, tr('calibDownloadDone', { filename: `${name}.stl` }))
+  })()
 })
 
 calibPhoto.addEventListener('change', () => {
@@ -2623,22 +2630,28 @@ calibCanvas.addEventListener('click', (e) => {
   scheduleSettle()
 })
 
-function triggerDownload(data: BlobPart, filename: string, type: string) {
-  // Внутри Electron экспорт идёт через нативный диалог «Сохранить как…»;
-  // в браузере остаётся обычное скачивание. Если пользователь отменил выбор,
-  // desktopSaveFile возвращает false — тогда не показываем статус об успехе.
-  if (isDesktop) {
-    void desktopSaveFile(data, filename, type).then((saved) => {
-      if (!saved) showStatus(tr('desktopSaveCanceled'), true)
-    })
-    return
+type DownloadOutcome = 'saved' | 'canceled' | 'error'
+
+/** Save an export and report the actual result, rather than assuming success before the dialog closes. */
+async function triggerDownload(data: BlobPart, filename: string, type: string): Promise<DownloadOutcome> {
+  try {
+    if (isDesktop) return await desktopSaveFile(data, filename, type)
+    const url = URL.createObjectURL(new Blob([data], { type }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+    return 'saved'
+  } catch {
+    return 'error'
   }
-  const url = URL.createObjectURL(new Blob([data], { type }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+}
+
+function reportDownload(outcome: DownloadOutcome, successMessage: string) {
+  if (outcome === 'saved') showStatus(successMessage)
+  else if (outcome === 'canceled') showStatus(tr('desktopSaveCanceled'), true)
+  else showStatus(tr('desktopSaveError'), true)
 }
 
 const THEME_VIEWER_BG: Record<string, string> = {
@@ -3128,26 +3141,30 @@ function setupExports() {
   btnStl.addEventListener('click', () => {
     if (!current) return
     const filename = exportFilename(current, 'stl')
-    triggerDownload(exportStl(current) as unknown as BlobPart, filename, 'model/stl')
-    showStatus(tr('exportStlDone', { filename }))
+    void triggerDownload(exportStl(current) as unknown as BlobPart, filename, 'model/stl').then((outcome) =>
+      reportDownload(outcome, tr('exportStlDone', { filename })),
+    )
   })
   btn3mf.addEventListener('click', () => {
     if (!current) return
     const filename = exportFilename(current, '3mf')
-    triggerDownload(export3mfFile(current, filename.slice(0, -4)) as unknown as BlobPart, filename, 'model/3mf')
-    showStatus(tr('export3mfDone', { filename }))
+    void triggerDownload(export3mfFile(current, filename.slice(0, -4)) as unknown as BlobPart, filename, 'model/3mf').then((outcome) =>
+      reportDownload(outcome, tr('export3mfDone', { filename })),
+    )
   })
   btnDescribe.addEventListener('click', () => {
     if (!current) return
     const filename = exportFilename(current, 'txt')
-    triggerDownload(describeExport(current, filename), filename, 'text/plain;charset=utf-8')
-    showStatus(tr('describeDone', { filename }))
+    void triggerDownload(describeExport(current, filename), filename, 'text/plain;charset=utf-8').then((outcome) =>
+      reportDownload(outcome, tr('describeDone', { filename })),
+    )
   })
   btnSlicer.addEventListener('click', () => {
     if (!current) return
     const filename = exportFilename(current, 'zip').replace(/\.zip$/, '-prusaslicer.zip')
-    triggerDownload(buildSlicerBundle(current, filename.replace(/-prusaslicer\.zip$/, '.3mf')) as unknown as BlobPart, filename, 'application/zip')
-    showStatus(tr('slicerDone', { filename }))
+    void triggerDownload(buildSlicerBundle(current, filename.replace(/-prusaslicer\.zip$/, '.3mf')) as unknown as BlobPart, filename, 'application/zip').then((outcome) =>
+      reportDownload(outcome, tr('slicerDone', { filename })),
+    )
   })
 
   // ---- Project save/load (.hueforge.json) --------------------------------
@@ -3194,8 +3211,9 @@ function saveProject() {
       palette,
     })
     const filename = `${exportFilename(current!, '3mf').slice(0, -4)}${PROJECT_EXTENSION}`
-    triggerDownload(JSON.stringify(project, null, 2), filename, 'application/json')
-    showStatus(tr('projectSaved', { name: filename }))
+    void triggerDownload(JSON.stringify(project, null, 2), filename, 'application/json').then((outcome) =>
+      reportDownload(outcome, tr('projectSaved', { name: filename })),
+    )
   }
   reader.readAsDataURL(currentFile)
 }

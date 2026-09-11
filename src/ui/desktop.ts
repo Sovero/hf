@@ -62,15 +62,22 @@ function updateTexts(l: Lang) {
 
 /**
  * Скачать файл в Electron через нативный диалог. Возвращает false, если
- * пользователь отменил или мост недоступен (тогда вызывающий код делает
- * обычный браузерный triggerDownload).
+ * пользователь отменил или сохранение завершилось ошибкой; вызывающий код
+ * показывает соответствующий статус.
  */
-export async function desktopSaveFile(data: BlobPart, filename: string, mime: string): Promise<boolean> {
-  if (!bridge) return false
-  const result = await bridge.saveFile(data as ArrayBuffer, filename, mime)
-  if (result.ok) return true
-  // canceled — не ошибка; просто вернём false, чтобы не показывать статус.
-  return false
+export type DesktopSaveOutcome = 'saved' | 'canceled' | 'error'
+
+export async function desktopSaveFile(data: BlobPart, filename: string, mime: string): Promise<DesktopSaveOutcome> {
+  if (!bridge) return 'error'
+  try {
+    const result = await bridge.saveFile(data as ArrayBuffer, filename, mime)
+    if (result.ok) return 'saved'
+    return result.canceled ? 'canceled' : 'error'
+  } catch {
+    // IPC or filesystem failures must not become unhandled rejections in the
+    // renderer; the caller presents an export error instead of false success.
+    return 'error'
+  }
 }
 
 /**
@@ -107,10 +114,6 @@ function setupUpdateUi() {
   bridge!.onUpdateStatus((payload) => {
     lastStatus = payload
     renderStatus(payload)
-  })
-  // Есть ли токен — попробуем сразу проверить обновления молча.
-  void bridge!.hasUpdateToken().then((has) => {
-    if (has) return // main сам проверяет по расписанию
   })
 }
 
@@ -195,14 +198,16 @@ async function promptForToken(): Promise<void> {
   input.focus()
   const close = () => overlay.remove()
   const save = async () => {
-    await bridge!.setUpdateToken(input.value.trim())
-    close()
+    const result = await bridge!.setUpdateToken(input.value.trim())
+    if (result.ok) {
+      close()
+      await bridge!.checkForUpdates()
+    }
   }
   card.querySelector('#hf-token-save')!.addEventListener('click', () => void save())
   card.querySelector('#hf-token-cancel')!.addEventListener('click', close)
   card.querySelector('#hf-token-remove')!.addEventListener('click', () => {
-    void bridge!.setUpdateToken('')
-    close()
+    void bridge!.setUpdateToken('').then(() => close())
   })
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') void save()

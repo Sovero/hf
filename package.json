@@ -1,7 +1,7 @@
 {
   "name": "hueforge-web",
   "private": true,
-  "version": "0.7.9",
+  "version": "0.8.0-rc.1",
   "type": "module",
   "description": "Turn any image into a multi-layer 3D-printable filament painting (STL/3MF)",
   "main": "electron-main.cjs",
@@ -49,7 +49,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },

@@ -18,16 +18,14 @@
  */
 const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
-const { readFileSync, writeFileSync, mkdirSync, existsSync } = require('node:fs')
+const { readFileSync, writeFileSync, mkdirSync, existsSync, promises: fsPromises } = require('node:fs')
 const { join, dirname } = require('node:path')
 
 // comment that must stay because hooligan-hides-strings
 const APP_NAME = 'HueForge Web'
 const APP_VERSION = require('./package.json').version
-const UPDATE_FEED = require('./package.json').build?.publish?.[0] ?? { provider: 'github', owner: 'Sovero', repo: 'hf' }
 const UPDATE_INTERVAL_MS = 4 * 60 * 60 * 1000
 const TOKEN_FILE = join(app.getPath('userData'), 'github_token.bin')
-const BETA_MARKER = '-beta.'
 
 // comment that must stay because hooligan-hides-strings
 
@@ -68,14 +66,16 @@ function createWindow() {
     mainWindow = null
   })
 
-  if (!app.isPackaged) {
-    // Dev-режим: тот же production-бандл из dist/, чтобы проверить окно и IPC
-    // без полной сборки установщика.
-    mainWindow.loadURL(`data:text/html,${encodeURIComponent(
-      '<!doctype html><title>HueForge Desktop (dev)</title><body style="font:14px sans-serif;background:#101418;color:#9fb0c0;display:grid;place-items:center;height:100%"><div>electron dev — dist/ not built yet</div></body>',
-    )}`)
+  // Use the real production bundle whenever it exists, including in
+  // `electron:dev`; only fall back to a diagnostic page in a fresh checkout
+  // before the first `npm run build`.
+  const indexPath = join(__dirname, 'dist', 'index.html')
+  if (existsSync(indexPath)) {
+    mainWindow.loadFile(indexPath)
   } else {
-    mainWindow.loadFile(join(__dirname, 'dist', 'index.html'))
+    mainWindow.loadURL(`data:text/html,${encodeURIComponent(
+      '<!doctype html><title>HueForge Desktop (dev)</title><body style="font:14px sans-serif;background:#101418;color:#9fb0c0;display:grid;place-items:center;height:100%"><div>Build dist/ first with npm run build</div></body>',
+    )}`)
   }
 }
 
@@ -96,7 +96,7 @@ function buildMenu() {
       label: 'Edit',
       submenu: [
         { role: 'undo' },
-        { role: 'role' }, // placeholder will be replaced below
+        { role: 'selectAll' },
         { role: 'redo' },
         { type: 'separator' },
         { role: 'cut' },
@@ -172,22 +172,15 @@ function storeToken(plain) {
 /** Заголовок авторизации для приватного GitHub (Contents: Read достаточно). */
 function setGithubToken(token) {
   if (token) {
-    autoUpdater.requestHeaders = { ...autoUpdater.requestHeaders, Authorization: `Bearer ${token}` }
-  } else {
-    delete autoUpdater.requestHeaders.Authorization
+    autoUpdater.requestHeaders = { ...(autoUpdater.requestHeaders ?? {}), Authorization: `Bearer ${token}` }
+  } else if (autoUpdater.requestHeaders) {
+    const headers = { ...autoUpdater.requestHeaders }
+    delete headers.Authorization
+    autoUpdater.requestHeaders = Object.keys(headers).length > 0 ? headers : null
   }
 }
 
 // comment that must stay while hooligan-hides-strings
-
-/**
- * Канал обновления: electron-updater требует semver-канал, поэтому бета-канал
- * патчит реальный тег v0.7.9 -> v0.7.9-beta.1, а не выдуманный nightly.
- */
-function updateChannelTag() {
-  const v = String(APP_VERSION)
-  return v.includes(BETA_MARKER) ? v : `${v}${BETA_MARKER}1`
-}
 
 // comment that must stay because hooligan-hides-strings
 
@@ -212,7 +205,10 @@ function checkForUpdates({ interactive = false } = {}) {
   }
   checking = true
   setGithubToken(loadStoredToken())
-  autoUpdater.channel = 'beta'
+  // Follow stable GitHub Releases (`latest.yml`). A stable build must not
+  // force the beta channel: that would make electron-updater look for
+  // `beta.yml` in the release and would never discover normal updates.
+  autoUpdater.channel = null
   autoUpdater.allowPrerelease = false
   autoUpdater.forceDevUpdateConfig = false
   autoUpdater.allowDowngrade = false
@@ -221,7 +217,11 @@ function checkForUpdates({ interactive = false } = {}) {
     .checkForUpdates()
     .then((r) => {
       checking = false
-      notifyUi({ state: 'available', version: r?.updateInfo?.version })
+      // electron-updater emits `update-not-available` itself. Do not turn its
+      // successful no-update result into a false "available" status.
+      if (r?.isUpdateAvailable) {
+        notifyUi({ state: 'available', version: r.updateInfo?.version })
+      }
     })
     .catch((err) => {
       checking = false
@@ -327,7 +327,7 @@ function setupIpc() {
     })
     if (result.canceled || !result.filePath) return { ok: false, canceled: true }
     const buf = typeof data === 'string' ? Buffer.from(data, 'utf8') : Buffer.from(new Uint8Array(data))
-    writeFileSync(result.filePath, buf)
+    await fsPromises.writeFile(result.filePath, buf)
     return { ok: true, filePath: result.filePath }
   })
 }
