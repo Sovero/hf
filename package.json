@@ -53,7 +53,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "signExecutable": false
     },
     "nsis": {
       "oneClick": false,
