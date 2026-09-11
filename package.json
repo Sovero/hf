@@ -45,9 +45,6 @@
       "electron-preload.cjs",
       "package.json"
     ],
-    "toolsets": {
-      "wine": "1.0.1"
-    },
     "win": {
       "target": [
         {

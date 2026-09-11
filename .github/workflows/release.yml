@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   release:
-    name: Checks + GitHub Release
+    name: Checks + deploy package + draft release
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -54,17 +54,41 @@ jobs:
       - name: Build source archive
         run: git archive --format=zip -o "hueforge-web-${GITHUB_REF_NAME}.zip" HEAD
 
-      # Windows installer (NSIS, x64) with electron-updater auto-update support.
-      # Publishes latest.yml + the .exe blockmap to the release, which
-      # electron-updater in the installed app polls for updates.
+      # Draft release with the web-deploy assets. The windows job below
+      # attaches the Electron installer, latest.yml and blockmap to the same
+      # draft. It stays a draft for manual review before publishing.
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: hueforge-web-*.zip
+          generate_release_notes: true
+
+  windows-installer:
+    name: Windows installer (Electron)
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      # Native Windows runner: NSIS runs natively, no wine needed. Publishes
+      # hueforge-web-setup-*.exe + latest.yml + blockmap to the draft release
+      # created above — latest.yml is the feed electron-updater polls.
       - name: Build Windows installer (Electron)
         run: npx electron-builder --win --x64 --publish always
         env:
           # electron-builder needs the repo to publish to; GH_TOKEN grants it.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: hueforge-web-*.zip
-          generate_release_notes: true
