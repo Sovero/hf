@@ -151,12 +151,13 @@ function encodePng(cv) {
   ])
 }
 
-/** ICO-контейнер из PNG-записей. */
+/** ICO-контейнер из PNG-записей: сначала весь каталог, потом все данные. */
 function buildIco(pngs) {
   const header = Buffer.alloc(6)
   header.writeUInt16LE(0, 0)   // reserved, всегда 0
   header.writeUInt16LE(1, 2)   // 1 = ICO (тип ресурса)
   header.writeUInt16LE(pngs.length, 4) // счётчик изображений внутри
+  const entries = []
   const images = []
   let offset = 6 + pngs.length * 16
   for (const size of pngs) {
@@ -171,9 +172,14 @@ function buildIco(pngs) {
     entry.writeUInt32LE(png.length, 8)
     entry.writeUInt32LE(offset, 12)
     offset += png.length
-    images.push(entry, png)
+    entries.push(entry)
+    images.push(png)
   }
-  return Buffer.concat([header, ...images])
+  // Важно: каталог (все 16-байтные записи) идёт единым блоком сразу после
+  // заголовка, и только затем — данные изображений. Смещения в записях
+  // рассчитаны именно на такую компоновку; чередование записей с данными
+  // даёт невалидный файл, который resedit падает парсить.
+  return Buffer.concat([header, ...entries, ...images])
 }
 
 const sizes = [16, 24, 32, 48, 64, 128, 256]
