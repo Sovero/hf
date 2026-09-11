@@ -154,8 +154,9 @@ function encodePng(cv) {
 /** ICO-контейнер из PNG-записей. */
 function buildIco(pngs) {
   const header = Buffer.alloc(6)
-  header.writeUInt16LE(0, 0)
-  header.writeUInt16LE(pngs.length, 2)
+  header.writeUInt16LE(0, 0)   // reserved, всегда 0
+  header.writeUInt16LE(1, 2)   // 1 = ICO (тип ресурса)
+  header.writeUInt16LE(pngs.length, 4) // счётчик изображений внутри
   const images = []
   let offset = 6 + pngs.length * 16
   for (const size of pngs) {
