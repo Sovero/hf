@@ -18,7 +18,7 @@ download **STL / 3MF**. Colors are encoded by layer height (HueForge-style).
 
 > **Private repository:** this repo is private, so the update check needs a
 > one-time GitHub token. On first run `install.bat` asks you to paste one
-> (create it at https://github.com/settings/tokens?type=beta — fine-grained,
+> (create it at https://github.com/settings/personal-access-tokens — fine-grained,
 > only the `hf` repository, **Contents: Read** + **Metadata: Read**). The
 > token is stored only on that PC in `%APPDATA%\HueForgeWeb\github_token.txt`
 > and is used only for checking and downloading releases.
@@ -34,17 +34,21 @@ shown in the app's top bar next to the title.
 - Versioning is **semantic** (`vMAJOR.MINOR.PATCH`). The single source of truth
   is `version` in `package.json`; every release tag must match it, and the
   release workflow refuses tags that don't.
-- Cutting a release: bump `package.json`, commit, then
+- Cutting a release: update `package.json` and `package-lock.json` to the same
+  semantic version, commit them, then push the matching tag:
 
   ```bash
-  git tag v0.2.0
-  git push origin main --tags
+  VERSION=0.8.1   # replace with the version being released
+  git tag "v$VERSION"
+  git push origin main "v$VERSION"
   ```
 
-  Pushing a `v*` tag triggers the **Release** workflow, which runs typecheck,
-  tests and the production build, then creates a GitHub Release with an
-  auto-generated changelog and a `hueforge-web-v0.2.0.zip` source archive
-  (the committed tree — no `node_modules`/`dist`).
+  Pushing a `v*` tag triggers the **Release** workflow. It verifies the tag
+  against `package.json`, runs typecheck, tests and the production build on
+  Ubuntu, creates the source and deploy archives, and builds the Windows
+  Electron installer on `windows-latest`. The workflow adds the installer,
+  `latest.yml`, blockmap and both ZIP archives to a draft GitHub Release;
+  publish the draft after reviewing the artifacts.
 - `install.bat` compares your local version (from `package.json`) with the
   **latest GitHub release** on every run and offers to download and apply the
   update in place (`update.ps1` does the actual API calls). No need to
@@ -104,7 +108,7 @@ Dark / Light / Nord / Solar — picker in the top bar, saved automatically.
 ```bash
 npm install     # once
 npm run dev     # dev server at http://127.0.0.1:5173
-npm test        # 23 unit tests (geometry, quantization, exports, printability)
+npm test        # 256 tests (31 test files)
 npm run build   # production build to dist/
 ```
 

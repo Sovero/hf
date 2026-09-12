@@ -48,7 +48,7 @@ for /f "delims=" %%t in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%
 if not "!NEW_VERSION!"=="NEED_TOKEN" goto have_version
 echo   This repository is private - checking for updates needs a one-time
 echo   GitHub token. It is stored only on this PC, in %%APPDATA%%\HueForgeWeb.
-echo   Create one at https://github.com/settings/tokens?type=beta
+echo   Create one at https://github.com/settings/personal-access-tokens
 echo   (fine-grained: only Sovero/hf, Contents: Read + Metadata: Read).
 choice /c YN /n /m "  Enter a GitHub token now? [Y/N]: "
 if errorlevel 2 goto token_declined

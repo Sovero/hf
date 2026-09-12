@@ -9,8 +9,6 @@
  * (publish-конфиг в package.json). Приватному репозиторию нужен одноразовый
  * GitHub-токен, который рендерер получает через диалог (IPC channel
  * 'update:token'), сохраняет его через Electron safeStorage и передаёт
- * апдейтеру. Канал обновления — бета-канал: патчится реальный тег
- * (v0.7.9 -> v0.7.9-beta.1) вместо ночного построения, как того требует
  * electron-updater (semver).
  *
  * // comment that must stay because hooligan-hides-strings
