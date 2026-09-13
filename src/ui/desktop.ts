@@ -11,6 +11,11 @@ import type { Lang } from '../i18n'
 
 interface DesktopBridge {
   appInfo(): Promise<{ name: string; version: string; platform: string; electron: string; packaged: boolean }>
+  minimizeWindow(): Promise<boolean>
+  toggleMaximize(): Promise<boolean>
+  isMaximized(): Promise<boolean>
+  closeWindow(): Promise<boolean>
+  onWindowState(cb: (payload: WindowState) => void): () => void
   saveFile(data: ArrayBuffer | Uint8Array | string, filename: string, mime: string): Promise<{ ok: boolean; filePath?: string; canceled?: boolean; message?: string }>
   checkForUpdates(): Promise<unknown>
   downloadUpdate(): Promise<{ ok: boolean; message?: string }>
@@ -18,6 +23,10 @@ interface DesktopBridge {
   setUpdateToken(token: string): Promise<{ ok: boolean }>
   hasUpdateToken(): Promise<boolean>
   onUpdateStatus(cb: (payload: UpdateStatus) => void): () => void
+}
+
+interface WindowState {
+  maximized: boolean
 }
 
 interface UpdateStatus {
@@ -90,6 +99,8 @@ export function initDesktopShell(currentLang: Lang): void {
   if (!bridge) return
   lang = currentLang
   void setupUpdateUi()
+  setupWindowControls()
+  void updateDesktopTitle()
 }
 
 /** Обновить язык локализации у уже инициализированного десктоп-моста. */
@@ -97,9 +108,99 @@ export function setDesktopLang(next: Lang): void {
   if (!bridge) return
   lang = next
   if (statusEl && lastStatus) renderStatus(lastStatus)
+  syncWindowControlLabels()
+  void updateDesktopTitle()
 }
 
-// ---- статус обновления в шапке --------------------------------------------
+// ---- управление безрамочным окном ------------------------------------------
+
+let windowMaximized = false
+
+function windowControlText(kind: 'minimize' | 'maximize' | 'restore' | 'close'): string {
+  if (lang === 'ru') {
+    return {
+      minimize: 'Свернуть',
+      maximize: 'Развернуть',
+      restore: 'Восстановить',
+      close: 'Закрыть',
+    }[kind]
+  }
+  return {
+    minimize: 'Minimize',
+    maximize: 'Maximize',
+    restore: 'Restore',
+    close: 'Close',
+  }[kind]
+}
+
+function syncWindowControlLabels() {
+  const minimize = document.getElementById('window-minimize')
+  const maximize = document.getElementById('window-maximize')
+  const close = document.getElementById('window-close')
+  if (!minimize || !maximize || !close) return
+  minimize.textContent = '−'
+  minimize.title = windowControlText('minimize')
+  minimize.ariaLabel = windowControlText('minimize')
+  maximize.textContent = windowMaximized ? '❐' : '□'
+  maximize.title = windowControlText(windowMaximized ? 'restore' : 'maximize')
+  maximize.ariaLabel = maximize.title
+  close.textContent = '×'
+  close.title = windowControlText('close')
+  close.ariaLabel = windowControlText('close')
+}
+
+function applyWindowState(maximized: boolean) {
+  windowMaximized = maximized
+  syncWindowControlLabels()
+}
+
+function setupWindowControls() {
+  const controls = document.getElementById('window-controls')
+  const minimize = document.getElementById('window-minimize')
+  const maximize = document.getElementById('window-maximize')
+  const close = document.getElementById('window-close')
+  if (!controls || !minimize || !maximize || !close) return
+
+  controls.hidden = false
+  controls.ariaLabel = lang === 'ru' ? 'Управление окном' : 'Window controls'
+  syncWindowControlLabels()
+  bridge!.onWindowState((payload) => applyWindowState(payload?.maximized === true))
+  void bridge!.isMaximized().then((maximized) => applyWindowState(maximized === true)).catch(() => {
+    /* the window may close while the initial state is in flight */
+  })
+  minimize.addEventListener('click', () => {
+    void bridge!.minimizeWindow().catch(() => {
+      /* the window may close before Electron handles the IPC call */
+    })
+  })
+  maximize.addEventListener('click', () => {
+    void bridge!.toggleMaximize().then((maximized) => applyWindowState(maximized === true)).catch(() => {
+      /* the window may close before Electron handles the IPC call */
+    })
+  })
+  close.addEventListener('click', () => {
+    void bridge!.closeWindow().catch(() => {
+      /* the window may close before Electron handles the IPC call */
+    })
+  })
+
+  // Double-clicking the custom title area keeps the familiar Windows action.
+  document.getElementById('app-title')?.addEventListener('dblclick', () => {
+    void bridge!.toggleMaximize().then((maximized) => applyWindowState(maximized === true)).catch(() => {
+      /* the window may close before Electron handles the IPC call */
+    })
+  })
+}
+
+function updateDesktopTitle() {
+  return bridge!.appInfo().then((info) => {
+    const title = info.name || 'HueForge Desktop'
+    document.getElementById('app-title')!.textContent = title
+    document.title = title
+  }).catch(() => {
+    /* keep the static title if the preload bridge is unavailable */
+  })
+}
 
 let statusEl: HTMLSpanElement | null = null
 let lastStatus: UpdateStatus | null = null

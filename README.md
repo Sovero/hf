@@ -74,10 +74,10 @@ shown in the app's top bar next to the title.
 
 ## Desktop app (Electron)
 
-The same app ships as a native **Windows desktop app** — a window, a taskbar
+The same app ships as a native **HueForge Desktop** Windows app — a frameless window with custom title-bar controls, a taskbar
 icon and a Start-menu shortcut, no browser or Node.js needed:
 
-- **Install:** grab `hueforge-web-setup-<version>.exe` from the
+- **Install:** grab `hueforge-desktop-setup-<version>.exe` from the
   [Releases page](https://github.com/Sovero/hf/releases) and run it
   (NSIS installer, x64; you can pick the install folder).
 - **Auto-update:** built in. The app checks GitHub Releases at startup

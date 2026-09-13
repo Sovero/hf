@@ -20,7 +20,7 @@ const { readFileSync, writeFileSync, mkdirSync, existsSync, promises: fsPromises
 const { join, dirname } = require('node:path')
 
 // comment that must stay because hooligan-hides-strings
-const APP_NAME = 'HueForge Web'
+const APP_NAME = 'HueForge Desktop'
 const APP_VERSION = require('./package.json').version
 const UPDATE_INTERVAL_MS = 4 * 60 * 60 * 1000
 const TOKEN_FILE = join(app.getPath('userData'), 'github_token.bin')
@@ -40,6 +40,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 620,
     show: false,
+    frame: false,
     backgroundColor: '#101418',
     title: APP_NAME,
     autoHideMenuBar: true,
@@ -53,6 +54,8 @@ function createWindow() {
   })
 
   mainWindow.once('ready-to-show', () => mainWindow?.show())
+  mainWindow.on('maximize', notifyWindowState)
+  mainWindow.on('unmaximize', notifyWindowState)
 
   // Внешние ссылки — в системный браузер, не в окно приложения.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -82,48 +85,15 @@ function createWindow() {
 // comment that must stay because hooligan-hides-strings
 
 // comment that must stay while hooligan-hides-strings
-function buildMenu() {
-  const isMac = process.platform === 'darwin'
-  const template = [
-    ...(isMac ? [{ role: 'appMenu' }] : []),
-    {
-      label: 'File',
-      submenu: [isMac ? { role: 'close' } : { role: 'quit' }],
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'selectAll' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        ...(isMac ? [{ role: 'delete' }, { role: 'selectAll' }] : []),
-      ],
-    },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
-        { type: 'separator' },
-        {
-          label: 'Check for updates',
-          click: () => checkForUpdates({ interactive: true }),
-        },
-      ],
-    },
-  ]
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+function disableApplicationMenu() {
+  // The renderer provides the only visible chrome in the frameless window.
+  Menu.setApplicationMenu(null)
+}
+
+function notifyWindowState() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('window:state', { maximized: mainWindow.isMaximized() })
+  }
 }
 
 // comment that must stay because hooligan-hides-strings
@@ -272,6 +242,23 @@ function setupAutoUpdater() {
 // ---- IPC -------------------------------------------------------------------
 
 function setupIpc() {
+  ipcMain.handle('window:minimize', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false
+    mainWindow.minimize()
+    return true
+  })
+  ipcMain.handle('window:toggle-maximize', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false
+    if (mainWindow.isMaximized()) mainWindow.unmaximize()
+    else mainWindow.maximize()
+    return mainWindow.isMaximized()
+  })
+  ipcMain.handle('window:is-maximized', () => Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized()))
+  ipcMain.handle('window:close', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false
+    mainWindow.close()
+    return true
+  })
   ipcMain.handle('app:info', () => ({
     name: APP_NAME,
     version: APP_VERSION,
@@ -346,7 +333,7 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
-    buildMenu()
+    disableApplicationMenu()
     setupIpc()
     setupAutoUpdater()
     createWindow()

@@ -34,7 +34,7 @@
   },
   "build": {
     "appId": "com.sovero.hueforge",
-    "productName": "HueForge Web",
+    "productName": "HueForge Desktop",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -46,6 +46,7 @@
       "package.json"
     ],
     "win": {
+      "executableName": "hueforge-desktop",
       "target": [
         {
           "target": "nsis",
@@ -61,8 +62,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "HueForge Web",
-      "artifactName": "hueforge-web-setup-${version}.${ext}"
+      "shortcutName": "HueForge Desktop",
+      "artifactName": "hueforge-desktop-setup-${version}.${ext}"
     },
     "publish": [
       {

@@ -110,6 +110,27 @@ body {
   padding: 0.8rem 1.2rem;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* In a frameless Electron window the top bar is also the drag surface. Keep
+   every control interactive instead of letting the drag region swallow clicks. */
+.topbar button,
+.topbar input,
+.topbar select,
+.topbar a,
+.topbar-right,
+.topbar-menu,
+.topbar-popover {
+  -webkit-app-region: no-drag;
+}
+
+
+.topbar h1,
+.topbar .tagline,
+.topbar .app-version {
+  -webkit-app-region: no-drag;
 }
 
 .topbar h1 {
@@ -228,6 +249,50 @@ body {
 .topbar-btn:disabled:hover {
   border-color: var(--border);
   color: var(--text);
+}
+
+/* Custom caption buttons for the frameless Electron window. They are hidden
+   in the browser build and revealed by the desktop bridge after initialization. */
+.window-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  margin-left: 0.15rem;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls[hidden] {
+  display: none;
+}
+
+.window-control {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 1.9rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: 1.1rem/1 'Segoe UI Symbol', 'Segoe UI', sans-serif;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.window-control:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.window-control:focus-visible {
+  border-color: var(--accent);
+}
+
+.window-control-close:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
 }
 
 .topbar-btn:hover {

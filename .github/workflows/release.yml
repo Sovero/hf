@@ -85,7 +85,7 @@ jobs:
         run: npm run build
 
       # Native Windows runner: NSIS runs natively, no wine needed. Publishes
-      # hueforge-web-setup-*.exe + latest.yml + blockmap to the draft release
+      # hueforge-desktop-setup-*.exe + latest.yml + blockmap to the draft release
       # created above — latest.yml is the feed electron-updater polls.
       - name: Build Windows installer (Electron)
         run: npx electron-builder --win --x64 --publish always

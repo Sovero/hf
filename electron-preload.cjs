@@ -16,6 +16,17 @@ contextBridge.exposeInMainWorld('hueforge', {
    * {ok:false, canceled:true}.
    */
   saveFile: (data, filename, mime) => ipcRenderer.invoke('export:save', { data, filename, mime }),
+  /** Управление безрамочным окном. */
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
+  isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+  /** Подписка на изменение состояния maximize/restore. */
+  onWindowState: (cb) => {
+    const handler = (_e, payload) => cb(payload)
+    ipcRenderer.on('window:state', handler)
+    return () => ipcRenderer.removeListener('window:state', handler)
+  },
   /** Проверить обновления (интерактивно — с уведомлениями в UI). */
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   /** Скачать обнаруженное обновление. */
