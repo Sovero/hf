@@ -71,6 +71,12 @@ shown in the app's top bar next to the title.
 7. **Download STL** (color by layer height — set filament changes in your slicer
    at the Z heights shown in the palette panel) or **3MF** (same geometry,
    plus palette and print order embedded as metadata).
+8. **Compare with a reference** — drop a **`.3mf`** (a HueForge/Bambu project or
+   one of our own exports) to read its size, colors and swap schedule and copy
+   them into your work with one click, or drop a reference **`.stl`** to measure
+   its relief (footprint, cell pitch, height step, height levels, and the
+   plateau/slant/wall mix) and line it up against ours row by row, with every
+   mismatch flagged.
 
 ## Desktop app (Electron)
 

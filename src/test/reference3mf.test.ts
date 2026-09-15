@@ -15,7 +15,7 @@ function fixture(): QuantizedImage {
   return {
     palette: PALETTE,
     indexMap: Uint8Array.from([0, 1, 2, 3]),
-    luminance: Float32Array.from([0.9, 0.6, 0.35, 0.1]),
+    luminance: Float32Array.from([1, 2 / 3, 1 / 3, 0]),
     bandTops: [0.25, 0.5, 0.75, 1],
     width: 2,
     height: 2,

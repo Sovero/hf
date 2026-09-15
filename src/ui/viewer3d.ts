@@ -46,20 +46,6 @@ function deltaeHeatColor(t: number, out: [number, number, number]) {
   else lerp(Y, R, (t - 0.5) * 2)
 }
 
-/** Model X extent in mm from the mesh geometry's position bounds. */
-function footprintW(geo: THREE.BufferGeometry): number {
-  geo.computeBoundingBox()
-  const bb = geo.boundingBox!
-  return Math.max(1e-6, bb.max.x - bb.min.x)
-}
-
-/** Model print-Z extent in mm (scene Y span) from the mesh bounds. */
-function footprintH(geo: THREE.BufferGeometry): number {
-  geo.computeBoundingBox()
-  const bb = geo.boundingBox!
-  return Math.max(1e-6, bb.max.y - bb.min.y)
-}
-
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
@@ -78,14 +64,21 @@ function mixHex(a: string, b: string, t: number): string {
   return `#${((1 << 24) | (c(r1, r2) << 16) | (c(g1, g2) << 8) | c(b1, b2)).toString(16).slice(1)}`
 }
 
+/**
+ * Fraction of the canvas one ViewCube face label occupies. The cube's letters
+ * sit further from its edges than the axis sprites' do, so they use a smaller
+ * share — 1.3× smaller than the sprite default.
+ */
+const CUBE_LABEL_TEXT_SCALE = 0.34 / 1.3
+
 /** Canvas texture with a centered bold label. */
-function labelTexture(text: string, color: string, px = 96, font = 900): THREE.CanvasTexture {
+function labelTexture(text: string, color: string, px = 96, font = 900, textScale = 0.34): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = px
   canvas.height = px
   const ctx = canvas.getContext('2d')!
   ctx.fillStyle = color
-  ctx.font = `${font} ${Math.round(px * 0.34)}px 'Segoe UI', system-ui, sans-serif`
+  ctx.font = `${font} ${Math.round(px * textScale)}px 'Segoe UI', system-ui, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(text, px / 2, px / 2 + px * 0.02)
@@ -703,7 +696,7 @@ export class Viewer3D {
       const hovered = this.hoveredFaces.includes(face)
       const fill = hovered ? mixHex(this.cubeFill, '#4fb8ff', 0.45) : this.cubeFill
       const mat = this.cubeFaceMaterials[i]
-      mat.map = labelTexture(this.faceLabels[face], this.cubeText, 128, 800)
+      mat.map = labelTexture(this.faceLabels[face], this.cubeText, 128, 800, CUBE_LABEL_TEXT_SCALE)
       mat.color = new THREE.Color(fill)
       mat.needsUpdate = true
     })
@@ -906,6 +899,13 @@ export class Viewer3D {
     const pos = geo.getAttribute('position') as THREE.BufferAttribute
     const W = width
     const H = height
+    // One bounding pass up front — calling computeBoundingBox per vertex was
+    // O(V²) (three.js recomputes even when cached) and froze the UI for
+    // minutes on large meshes.
+    geo.computeBoundingBox()
+    const bb = geo.boundingBox!
+    const spanX = Math.max(1e-6, bb.max.x - bb.min.x)
+    const spanY = Math.max(1e-6, bb.max.y - bb.min.y)
     const uvs = new Float32Array(pos.count * 2)
     for (let v = 0; v < pos.count; v++) {
       // Top-face vertices have z = their band top and span the whole grid;
@@ -913,8 +913,8 @@ export class Viewer3D {
       // nearest cell's heat — walls read as the taller cell's error.
       const vx = pos.getX(v)
       const vy = pos.getY(v) // scene Y = print Z; vy≈0 on walls/bottom
-      uvs[v * 2] = Math.min(0.9999, Math.max(0, vx / (footprintW(geo))))
-      uvs[v * 2 + 1] = Math.min(0.9999, Math.max(0, vy / (footprintH(geo))))
+      uvs[v * 2] = Math.min(0.9999, Math.max(0, (vx - bb.min.x) / spanX))
+      uvs[v * 2 + 1] = Math.min(0.9999, Math.max(0, (vy - bb.min.y) / spanY))
     }
     void W
     void H

@@ -211,9 +211,9 @@
               <button type="button" class="hint-btn" data-help="helpReference" aria-label="Help">?</button>
             </div>
           <div id="ref-drop" class="drop-zone ref-drop-zone" data-help="helpRefDrop">
-            <p><strong data-i18n="refDropTitle">Drop a reference .3mf here</strong></p>
+            <p><strong data-i18n="refDropTitle">Drop a reference .3mf or .stl here</strong></p>
             <p class="muted" data-i18n="refDropHint">or click to browse — analyze first, apply only if it fits</p>
-            <input id="ref-input" type="file" accept=".3mf" hidden />
+            <input id="ref-input" type="file" accept=".3mf,.stl" hidden />
           </div>
           <div id="ref-report" class="ref-report" hidden>
             <p id="ref-status" class="ref-status"></p>
@@ -221,11 +221,11 @@
               <h3 data-i18n="refModelTitle">Model</h3>
               <p id="ref-model-line" class="ref-line"></p>
             </div>
-            <div class="ref-section">
+            <div class="ref-section" id="ref-palette-section">
               <h3 data-i18n="refPaletteTitle">Palette &amp; print order</h3>
               <div id="ref-palette" class="ref-palette"></div>
             </div>
-            <div class="ref-section">
+            <div class="ref-section" id="ref-swaps-section">
               <h3 data-i18n="refSwapsTitle">Swap schedule</h3>
               <p id="ref-swaps" class="ref-line"></p>
             </div>
@@ -241,6 +241,24 @@
               <button id="ref-apply" type="button" data-i18n="refApply" data-help="helpRefApply" disabled>Apply to editor</button>
               <p id="ref-apply-note" class="muted small"></p>
             </div>
+          </div>
+          <div class="ref-section" id="ref-compare-section" hidden>
+            <h3 data-i18n="refCompareTitle">Reference vs. our relief</h3>
+            <p id="ref-compare-summary" class="ref-compare-summary"></p>
+            <div class="ref-table-wrap">
+              <table class="ref-table">
+                <thead>
+                  <tr>
+                    <th scope="col" data-i18n="rcMetric">Metric</th>
+                    <th scope="col" data-i18n="rcReference">Reference</th>
+                    <th scope="col" data-i18n="rcOurs">Ours</th>
+                    <th scope="col" data-i18n="rcDelta">Δ</th>
+                  </tr>
+                </thead>
+                <tbody id="ref-compare-body"></tbody>
+              </table>
+            </div>
+            <p id="ref-compare-note" class="muted small"></p>
           </div>
           <p id="ref-empty" class="muted small" data-i18n="refEmpty"></p>
           <p id="ref-error" class="ref-error" hidden></p>

@@ -1676,6 +1676,75 @@ body {
   color: var(--danger);
 }
 
+/* ---- Reference vs. our relief table ---- */
+
+.ref-compare-summary {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ref-table-wrap {
+  overflow-x: auto;
+}
+
+.ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Fixed layout so the four columns fit the sidebar: long values wrap onto a
+     second line instead of pushing the panel into a horizontal scroll. */
+  table-layout: fixed;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ref-table th,
+.ref-table td {
+  padding: 0.3rem 0.3rem;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.ref-table thead th:first-child,
+.ref-table tbody th {
+  width: 34%;
+}
+
+.ref-table tbody td:last-child {
+  width: 18%;
+}
+
+.ref-table thead th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.ref-table tbody th[scope='row'] {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.ref-table tbody tr:last-child th,
+.ref-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Status marks: a colored rail plus a sign, legible without color alone. */
+.ref-table tr.rc-ok td:last-child { color: var(--accent-2); }
+.ref-table tr.rc-ok td:last-child::before { content: '✓ '; }
+.ref-table tr.rc-close td:last-child { color: var(--warn); }
+.ref-table tr.rc-close td:last-child::before { content: '≈ '; }
+.ref-table tr.rc-off td:last-child { color: var(--danger); }
+.ref-table tr.rc-off td:last-child::before { content: '✕ '; }
+.ref-table tr.rc-off th[scope='row'] { color: var(--danger); }
+.ref-table tr.rc-info td:last-child { color: var(--muted); }
+
 /* ---- Filament library picker ---- */
 
 .palette-lib {

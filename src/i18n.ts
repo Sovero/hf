@@ -111,12 +111,12 @@ export const dict: Dict = {
     ru: 'Автоматическая проверка настроек: толщина полос, размер деталей против сопла, хрупкие участки и число смен. Исправьте всё, что помечено ⚠ или ✕.',
   },
   helpReference: {
-    en: 'Have a finished HueForge or Bambu project? Drop its 3MF here to see its size, colors and swap schedule — and copy them into your work with one click.',
-    ru: 'Есть готовый проект HueForge или Bambu? Загрузите его 3MF сюда, чтобы увидеть размер, цвета и расписание смен — и перенести их в свою работу одним нажатием.',
+    en: 'Have a finished HueForge or Bambu project? Drop its 3MF here to see its size, colors and swap schedule — and copy them into your work with one click. Drop a reference STL instead to measure its relief (footprint, cell pitch, height step, height levels, surface mix) and compare it row by row with ours.',
+    ru: 'Есть готовый проект HueForge или Bambu? Загрузите его 3MF сюда, чтобы увидеть размер, цвета и расписание смен — и перенести их в свою работу одним нажатием. Эталонный STL покажет свой рельеф (габарит, шаг сетки, шаг высоты, число уровней, состав поверхности) и сравнит его с нашим построчно.',
   },
   helpRefDrop: {
-    en: 'Click or drop a .3mf file. Analysis is read-only — nothing changes until you press Apply.',
-    ru: 'Нажмите или перетащите файл .3mf. Анализ только читает файл — ничего не меняется, пока вы не нажмёте «Применить».',
+    en: 'Click or drop a .3mf or .stl file. Analysis is read-only — nothing changes until you press Apply, and an STL changes nothing at all.',
+    ru: 'Нажмите или перетащите файл .3mf или .stl. Анализ только читает файл — ничего не меняется, пока вы не нажмёте «Применить», а STL не меняет ничего вообще.',
   },
   helpRefApply: {
     en: 'Copy the reference’s sizes, colors and swap schedule onto your current image. Your image itself is never replaced.',
@@ -192,8 +192,8 @@ export const dict: Dict = {
     ru: 'Номер слоя печати. Метки — слои смены филамента; щёлкните, чтобы перейти к ним.',
   },
   helpViewer3d: {
-    en: 'The 3D model itself: each color is a raised sheet of its own height. Drag to rotate, scroll to zoom.',
-    ru: 'Сама 3D-модель: каждый цвет — приподнятый лист своей высоты. Тяните, чтобы вращать, колесо — масштаб.',
+    en: 'The 3D model itself: brightness raises the surface in whole layer steps, so the picture reads as a staircase of flat plateaus. Drag to rotate, scroll to zoom.',
+    ru: 'Сама 3D-модель: яркость поднимает поверхность целыми слоями, поэтому картинка читается лестницей из плоских площадок. Тяните, чтобы вращать, колесо — масштаб.',
   },
   helpLangSelect: {
     en: 'Switch the interface language.',
@@ -323,8 +323,8 @@ export const dict: Dict = {
   paramLayer: { en: 'Layer height', ru: 'Высота слоя' },
   unitMm: { en: 'mm', ru: 'мм' },
   sizeHint: {
-    en: 'Each of the N colors prints as a flat sheet of its own height: every pixel of a color stands at the same height, so each sheet\'s surface is level and the steps between sheets form the color relief; a color switch always happens between whole layers — one color per printed layer. By default the sheets are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom sheets thicker than the top ones — a dark base blocks light, thin light sheets blend softly.',
-    ru: 'Каждый из N цветов печатается как плоский лист своей высоты: все пиксели одного цвета стоят на одной высоте, поэтому поверхность каждого листа ровная, а ступеньки между листами и образуют цветовой рельеф; смена цвета всегда происходит между целыми слоями — один цвет на слой. По умолчанию листы равные; ползунок высоты в строке палитры задаёт цвету собственную толщину. HueForge-практика: нижние листы делайте толще верхних — тёмный низ лучше держит свет, а тонкие светлые верха мягко смешиваются.',
+    en: 'Brightness sets how tall each spot prints, measured in whole print layers (0.2 mm by default): dark areas stay low, bright areas rise — or the other way round in the opposite depth mode. Every color still owns a slice of the total height (that slice is where its filament is loaded), but inside its slice each spot keeps its own layer height, so the surface comes out as a staircase of flat plateaus with vertical walls and every color switch lands between whole layers — one color per printed layer. By default the slices are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom slices thicker than the top ones — a dark base blocks light, thin light slices blend softly.',
+    ru: 'Яркость задаёт высоту каждого места в целых слоях печати (по умолчанию шаг 0,2 мм): тёмные участки печатаются ниже, светлые — выше (в обратном режиме глубины наоборот). Каждый цвет по-прежнему владеет своей частью общей высоты — именно на её границе загружается его филамент — но внутри своей части каждый пиксель остаётся на своём слое, поэтому поверхность получается лестницей из плоских площадок с вертикальными стенками, а смена цвета всегда попадает между целыми слоями — один цвет на слой. По умолчанию части равные; ползунок высоты в строке палитры задаёт цвету собственную толщину. HueForge-практика: нижние части делайте толще верхних — тёмный низ лучше держит свет, а тонкие светлые верха мягко смешиваются.',
   },
 
   // ---- printability ----
@@ -686,8 +686,8 @@ export const dict: Dict = {
   'filam.tan': { en: 'Tan / Skin', ru: 'Телесный / Бежевый' },
 
   // ---- reference 3MF panel ----
-  panelReference: { en: 'Reference 3MF', ru: 'Эталонный 3MF' },
-  refDropTitle: { en: 'Drop a reference .3mf here', ru: 'Перетащите эталонный .3mf сюда' },
+  panelReference: { en: 'Reference model', ru: 'Эталонная модель' },
+  refDropTitle: { en: 'Drop a reference .3mf or .stl here', ru: 'Перетащите эталонный .3mf или .stl сюда' },
   refDropHint: {
     en: 'or click to browse — analyze first, apply only if it fits',
     ru: 'или нажмите, чтобы выбрать — сначала анализ, применение отдельно',
@@ -717,8 +717,8 @@ export const dict: Dict = {
     ru: 'Анализ…',
   },
   refEmpty: {
-    en: 'Analyze a reference 3MF (HueForge, Bambu Studio, or this app’s export) to compare its size, colors, and swap schedule.',
-    ru: 'Проанализируйте эталонный 3MF (HueForge, Bambu Studio или экспорт этого приложения), чтобы сравнить размер, цвета и расписание смен.',
+    en: 'Analyze a reference 3MF (HueForge, Bambu Studio, or this app’s export) to compare its size, colors, and swap schedule. A reference STL (HueForge or any mesh) is measured and compared with our relief instead.',
+    ru: 'Проанализируйте эталонный 3MF (HueForge, Bambu Studio или экспорт этого приложения), чтобы сравнить размер, цвета и расписание смен. Эталонный STL (HueForge или любой меш) измеряется и сравнивается с нашим рельефом.',
   },
   refAnalyzing: { en: 'Analyzing…', ru: 'Анализ…' },
   refComplete: { en: 'Complete report', ru: 'Полный отчёт' },
@@ -786,6 +786,62 @@ export const dict: Dict = {
   refFieldDepthMode: { en: 'Depth mode', ru: 'Режим глубины' },
   refFieldPalette: { en: 'Palette', ru: 'Палитра' },
   refFieldSchedule: { en: 'Swap schedule', ru: 'Расписание смен' },
+
+  // ---- reference STL: relief measurement and comparison ----
+  refStlNoApply: {
+    en: 'An STL carries geometry only — drop a .3mf to apply settings.',
+    ru: 'В STL только геометрия — чтобы применить настройки, нужен .3mf.',
+  },
+  refStlModelLine: {
+    en: '{w}×{h} mm footprint · top at {z} mm · {tris} · {grid} mm cell pitch',
+    ru: 'Основание {w}×{h} мм · верх на {z} мм · {tris} · ячейка {grid} мм',
+  },
+  refStlTruncated: {
+    en: 'The file declares more triangles than it carries (partial upload) — metrics cover the part that arrived.',
+    ru: 'Файл объявляет больше треугольников, чем содержит (частичная загрузка) — метрики охватывают принятую часть.',
+  },
+  stlErrExtension: {
+    en: 'Choose a .stl reference file.',
+    ru: 'Выберите файл-эталон в формате .stl.',
+  },
+  stlErrSize: {
+    en: 'The reference file is empty or exceeds the 100 MB limit.',
+    ru: 'Файл-эталон пуст или превышает лимит 100 МБ.',
+  },
+  stlErrFormat: {
+    en: 'The reference is not a readable STL.',
+    ru: 'Эталон — не читаемый STL.',
+  },
+  refCompareTitle: { en: 'Reference vs. our relief', ru: 'Эталон и наш рельеф' },
+  refCompareNeedsImage: {
+    en: 'Load an image to see our relief measured against the reference.',
+    ru: 'Загрузите изображение, чтобы сравнить наш рельеф с эталоном.',
+  },
+  refCompareAllMatch: {
+    en: 'All {total} metrics match the reference.',
+    ru: 'Все метрики ({total}) совпадают с эталоном.',
+  },
+  refCompareDiverge: {
+    en: '{n} of {total} metrics differ from the reference — the rows marked ✕.',
+    ru: 'Расходится метрик: {n} из {total} — строки с ✕.',
+  },
+  refCompareNote: {
+    en: 'Plateaus / slants / walls are shares of the visible surface (the base plate is excluded); Δ is the difference from the reference.',
+    ru: 'Площадки / наклонные / стенки — доли видимой поверхности (основание исключено); Δ — расхождение с эталоном.',
+  },
+  rcMetric: { en: 'Metric', ru: 'Метрика' },
+  rcReference: { en: 'Reference', ru: 'Эталон' },
+  rcOurs: { en: 'Ours', ru: 'У нас' },
+  rcDelta: { en: 'Δ', ru: 'Δ' },
+  rcRowFootprint: { en: 'Footprint, mm', ru: 'Габарит, мм' },
+  rcRowHeight: { en: 'Total height, mm', ru: 'Общая высота, мм' },
+  rcRowGrid: { en: 'Cell pitch XY, mm', ru: 'Шаг сетки XY, мм' },
+  rcRowHeightStep: { en: 'Height step, mm', ru: 'Шаг высоты, мм' },
+  rcRowLevels: { en: 'Height levels', ru: 'Уровней высоты' },
+  rcRowTriangles: { en: 'Triangles', ru: 'Треугольников' },
+  rcRowPlateaus: { en: 'Flat plateaus', ru: 'Плоские площадки' },
+  rcRowSlants: { en: 'Slanted transitions', ru: 'Наклонные переходы' },
+  rcRowWalls: { en: 'Vertical walls', ru: 'Вертикальные стенки' },
 
   // ---- loadImage errors ----
   errNotAnImage: {
@@ -973,8 +1029,8 @@ export const dict: Dict = {
   deltaEStats: { en: 'Mean ΔE {mean} · max {max}', ru: 'Средний ΔE {mean} · макс {max}' },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
   helpMode3dModel: {
-    en: 'Relief of flat color sheets — exactly how the model looks in the slicer and after printing.',
-    ru: 'Рельеф из плоских цветных листов — так модель выглядит в слайсере и после печати.',
+    en: 'Relief of flat plateaus, one print layer per step — exactly how the model looks in the slicer and after printing.',
+    ru: 'Рельеф из плоских площадок со ступенькой в один слой — так модель выглядит в слайсере и после печати.',
   },
   helpMode3dDeltaE: {
     en: 'Error heatmap on the top surface: green matches the target image, red is a visible mismatch.',

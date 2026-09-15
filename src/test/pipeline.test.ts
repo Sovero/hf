@@ -9,7 +9,7 @@ import { sortByLuminance, luminance, hexToRgb, rgbToHex } from '../lib/palette'
 import { generateBinaryStl } from '../lib/exportStl'
 import { generate3mf } from '../lib/export3mf'
 import { finishPipeline, exportFilename } from '../lib/pipeline'
-import type { QuantizedImage, PrintSettings, RGB } from '../lib/types'
+import type { Mesh, QuantizedImage, PrintSettings, RGB } from '../lib/types'
 
 const PALETTE_4: RGB[] = [
   { r: 0, g: 0, b: 0 },
@@ -52,7 +52,10 @@ function quantizedFixture(palette: RGB[] = PALETTE_4): QuantizedImage {
   return {
     palette,
     indexMap: Uint8Array.from([0, 1, 2, 3]),
-    luminance: Float32Array.from([0.9, 0.6, 0.35, 0.1]),
+    // Relief spans the full 0..1 range (0 = base, 1 = tallest) on the band
+    // quantiles, so the extremes reach the base plate and the model top and
+    // every pixel sits in the middle of its own band's slice.
+    luminance: Float32Array.from([1, 2 / 3, 1 / 3, 0]),
     bandTops: [0.25, 0.5, 0.75, 1],
     width: 2,
     height: 2,
@@ -189,16 +192,24 @@ describe('quantize → luminance bands', () => {
   })
 })
 
-describe('heightmap (stepped sheets)', () => {
-  it('gives every pixel of a band its band-top height (flat sheets)', () => {
-    const q = quantizedFixture() // indexMap [0,1,2,3], bandTops [0.25,0.5,0.75,1]
+describe('heightmap (layer-stepped relief)', () => {
+  it('turns the relief position into a layer-snapped height', () => {
+    const q = quantizedFixture() // indexMap [0,1,2,3], luminance 1 → 0
     const field = buildHeightField(q, settings()) // base 0.8, max 8, layer 0.2
-    // Snapped band tops bottom → top: 2.6 / 4.4 / 6.2 / 8. darkIsTall flips
-    // the slices, so the darkest pixel (index 0) stands tallest.
+    // HueForge Standard maps brightness continuously to height, so a pixel's
+    // column ends between the base plate and the model top — not at its color
+    // band's ceiling. darkIsTall flips the relief, so the darkest pixel
+    // (index 0) is the tallest one.
     expect(field.values[0]).toBeCloseTo(8, 5)
-    expect(field.values[1]).toBeCloseTo(6.2, 5)
-    expect(field.values[2]).toBeCloseTo(4.4, 5)
-    expect(field.values[3]).toBeCloseTo(2.6, 5)
+    expect(field.values[1]).toBeCloseTo(5.6, 5)
+    expect(field.values[2]).toBeCloseTo(3.2, 5)
+    expect(field.values[3]).toBeCloseTo(0.8, 5)
+    // Every height sits on the print's layer grid, which is what gives the
+    // stepped tonal transitions of the reference mesh.
+    for (const v of field.values) {
+      const layers = (v - 0.8) / 0.2
+      expect(Math.abs(layers - Math.round(layers))).toBeLessThan(1e-4)
+    }
   })
 
   it('keeps heights inside [baseMm, maxHeightMm]', () => {
@@ -211,6 +222,37 @@ describe('heightmap (stepped sheets)', () => {
   })
 })
 
+/**
+ * How many triangles use each edge (keyed by its rounded vertex coords).
+ * A closed triangle soup shares every edge between exactly two triangles.
+ */
+function edgeUses(mesh: Mesh): Map<string, number> {
+  const uses = new Map<string, number>()
+  const p = mesh.positions
+  for (let t = 0; t < mesh.triangleCount; t++) {
+    const v: string[] = []
+    for (let k = 0; k < 3; k++) {
+      v.push(`${p[t * 9 + k * 3]},${p[t * 9 + k * 3 + 1]},${p[t * 9 + k * 3 + 2]}`)
+    }
+    for (let e = 0; e < 3; e++) {
+      const a = v[e]
+      const b = v[(e + 1) % 3]
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`
+      uses.set(key, (uses.get(key) ?? 0) + 1)
+    }
+  }
+  return uses
+}
+
+/** Build a mesh from a per-cell level map (level k sits at base + k·layer). */
+function meshFromLevels(levels: number[], width: number, height: number, s = settings()): Mesh {
+  const values = new Float32Array(levels.length)
+  for (let i = 0; i < levels.length; i++) values[i] = s.baseMm + levels[i] * s.layerMm
+  const idx = new Uint8Array(levels.length)
+  for (let i = 0; i < levels.length; i++) idx[i] = levels[i] % 4
+  return buildMesh({ width, height, values }, idx, PALETTE_4, s)
+}
+
 describe('mesh', () => {
   it('is watertight: every edge is shared by exactly two triangles', () => {
     const q = quantizedFixture()
@@ -218,23 +260,53 @@ describe('mesh', () => {
     const mesh = buildMesh(field, q.indexMap, q.palette, settings())
     expect(mesh.triangleCount).toBeGreaterThan(0)
 
-    const edgeCount = new Map<string, number>()
-    const p = mesh.positions
-    for (let t = 0; t < mesh.triangleCount; t++) {
-      const v: string[] = []
-      for (let k = 0; k < 3; k++) {
-        v.push(`${p[t * 9 + k * 3]},${p[t * 9 + k * 3 + 1]},${p[t * 9 + k * 3 + 2]}`)
-      }
-      for (let e = 0; e < 3; e++) {
-        const a = v[e]
-        const b = v[(e + 1) % 3]
-        const key = a < b ? `${a}|${b}` : `${b}|${a}`
-        edgeCount.set(key, (edgeCount.get(key) ?? 0) + 1)
-      }
-    }
-    for (const count of edgeCount.values()) {
+    for (const count of edgeUses(mesh).values()) {
       expect(count).toBe(2)
     }
+  })
+
+  it('stays closed when heights only touch diagonally (pinches are filled)', () => {
+    // Checkerboard of two levels: every interior corner has two tall cells
+    // meeting only at a point. Left alone those four wall panels would share
+    // one vertical edge; the mesher fills one notch instead.
+    const pattern = [
+      0, 1, 0, 1,
+      1, 0, 1, 0,
+      0, 1, 0, 1,
+      1, 0, 1, 0,
+    ]
+    const mesh = meshFromLevels(pattern, 4, 4)
+    for (const count of edgeUses(mesh).values()) {
+      expect(count).toBe(2)
+    }
+  })
+
+  it('is a staircase: flat plateaus on the layer grid, strictly vertical walls', () => {
+    const q = quantizedFixture()
+    const field = buildHeightField(q, settings())
+    const mesh = buildMesh(field, q.indexMap, q.palette, settings())
+    const p = mesh.positions
+    const plateauZ = new Set<number>()
+    for (let t = 0; t < mesh.triangleCount; t++) {
+      const i = t * 9
+      const xs = [p[i], p[i + 3], p[i + 6]]
+      const ys = [p[i + 1], p[i + 4], p[i + 7]]
+      const zs = [p[i + 2], p[i + 5], p[i + 8]]
+      const flatZ = zs[0] === zs[1] && zs[1] === zs[2]
+      const flatX = xs[0] === xs[1] && xs[1] === xs[2]
+      const flatY = ys[0] === ys[1] && ys[1] === ys[2]
+      // Every face is a flat plateau / base quad or a vertical wall panel.
+      expect(flatZ || flatX || flatY).toBe(true)
+      if (flatZ && zs[0] > 0) plateauZ.add(Math.round(zs[0] * 1e4) / 1e4)
+      for (const z of zs) {
+        if (z === 0) continue // bed vertex of a border wall
+        const layers = (z - 0.8) / 0.2
+        expect(Math.abs(layers - Math.round(layers))).toBeLessThan(1e-5)
+      }
+    }
+    // One flat plateau per cell, each at its own column height, and nothing
+    // sloped in between (a bilinear relief would not produce this set).
+    expect([...plateauZ].sort((a, b) => a - b)).toEqual([0.8, 3.2, 5.6, 8])
   })
 
   it('has outward winding and encodes the correct relief volume', () => {
@@ -254,11 +326,11 @@ describe('mesh', () => {
     }
     expect(volume6).toBeGreaterThan(0)
 
-    // Volume = Σ cellArea × cellHeight (cells are 20×20 mm). Heights are the
-    // snapped band tops 8 / 6.2 / 4.4 / 2.6 (darkIsTall flips the fixture's
-    // index order).
-    const heights = [8, 6.2, 4.4, 2.6]
-    const expected = heights.reduce((sum, z) => sum + 20 * 20 * z, 0)
+    // Every cell is a flat plateau at its own layer height, so the volume is
+    // Σ cellArea × plateau height (the base plate at z = 0 adds nothing). The
+    // mirrored fixture heights are 3.2 / 0.8 / 8 / 5.6 mm.
+    const plateaus = [3.2, 0.8, 8, 5.6]
+    const expected = plateaus.reduce((sum, z) => sum + 20 * 20 * z, 0)
     expect(volume6 / 6).toBeCloseTo(expected, 3)
   })
 
@@ -301,6 +373,32 @@ describe('mesh', () => {
     // White (photo top) must be on the far band (y 20–40), black near (0–20).
     expect(bandColor.far).toBeGreaterThan(245)
     expect(bandColor.near).toBeLessThan(10)
+  })
+
+  it('merges flat areas: one plateau rectangle for the whole top surface', () => {
+    // 60×40 at a single height and a single filament merges into one top
+    // rectangle, four border panels and the base plate — not 2400 quads.
+    const W = 60
+    const H = 40
+    const mesh = meshFromLevels(new Array<number>(W * H).fill(2), W, H)
+    expect(mesh.triangleCount).toBeLessThan(64)
+    for (const count of edgeUses(mesh).values()) expect(count).toBe(2)
+  })
+
+  it('merges wall runs and never costs more than the per-cell quad model', () => {
+    // A ramp: one level and one filament per column, so no diagonal pins are
+    // filled and the levels stay exactly as given. Merging turns the surface
+    // into one rectangle per column and each step into a single wall panel.
+    const W = 12
+    const H = 8
+    const levels: number[] = []
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) levels.push(i)
+    const mesh = meshFromLevels(levels, W, H)
+    // Previous model: a top and a base quad per cell, plus a quad per strip of
+    // every step (the ramp steps once per column, over every row).
+    const perCellModel = 4 * W * H + 2 * (H * (W - 1))
+    expect(mesh.triangleCount).toBeLessThan(perCellModel / 3)
+    for (const count of edgeUses(mesh).values()) expect(count).toBe(2)
   })
 })
 
@@ -728,12 +826,32 @@ describe('custom band heights (HueForge-style per-color thickness)', () => {
     }
   })
 
-  it('builds the height field from the custom tops', () => {
+  it('keeps every pixel inside its own band’s slice, on the layer grid', () => {
     const r = run([1.2, 0.9, 0.6, 0.4])
     const tops = snappedBandTops(r.quantized, r.settings)
-    // indexMap [0,1,2,3] with darkIsTall → slices [3,2,1,0]
-    const round4 = (a: number[]) => a.map((v) => +v.toFixed(4))
-    expect(round4(Array.from(r.field.values))).toEqual(round4([tops[3], tops[2], tops[1], tops[0]]))
+    const bandTops = r.quantized.bandTops
+    // indexMap [0,1,2,3] with darkIsTall → pixel i owns slice 3-i. Custom
+    // thicknesses move the slices' physical heights but must not let a pixel's
+    // surface leave its own color band.
+    const values = Array.from(r.field.values)
+    values.forEach((z, i) => {
+      const slice = 3 - i
+      const loZ = slice === 0 ? baseMm : tops[slice - 1]
+      expect(z).toBeGreaterThanOrEqual(loZ - 1e-5)
+      expect(z).toBeLessThanOrEqual(tops[slice] + 1e-5)
+      // Heights sit on the print's layer grid. The model top is the sole
+      // exception: it is clamped to the configured total, which need not be a
+      // whole number of layers (the mesher steps it back onto the grid).
+      if (z < r.settings.maxHeightMm - 1e-6) {
+        const layers = (z - baseMm) / layerMm
+        expect(Math.abs(layers - Math.round(layers))).toBeLessThan(1e-4)
+      }
+      // The luminance stays inside the band the pixel's color was assigned
+      // from — colors and heights cannot disagree.
+      expect(r.quantized.luminance[i]).toBeGreaterThanOrEqual(slice === 0 ? 0 : bandTops[slice - 1])
+      expect(r.quantized.luminance[i]).toBeLessThanOrEqual(bandTops[slice])
+    })
+    expect(values[0]).toBeCloseTo(r.settings.maxHeightMm, 5)
   })
 
   it('reports custom thicknesses through the palette entries (print order)', () => {

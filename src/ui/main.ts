@@ -17,10 +17,12 @@ import { deltaE2000Rgb } from '../lib/deltae'
 import { analyzePrintability, fixFor, type PrintabilityFix } from '../lib/printability'
 import { createPerfStats } from '../lib/perfStats'
 import { rgbToHex, hexToRgb, nearestFilament, luminance } from '../lib/palette'
-import { Reference3mfParseError } from '../lib/reference3mf'
-import { parseReference3mfInWorker } from './referenceWorkerClient'
+import { MAX_REFERENCE_FILE_BYTES, Reference3mfParseError } from '../lib/reference3mf'
+import { analyzeStlInWorker, parseReference3mfInWorker } from './referenceWorkerClient'
 import { planReferenceApply, type ReferenceApplyPlan } from '../lib/referenceApply'
+import { compareRelief, measureRelief, StlParseError, type ReliefMetrics } from '../lib/reliefCompare'
 import type { Reference3mfAnalysis } from '../lib/reference3mf'
+import type { StlAnalysis } from '../lib/referenceWorkerProtocol'
 import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
 import type { FaceName } from '../lib/viewCubeMath'
@@ -155,6 +157,12 @@ const refApplyNote = $<HTMLParagraphElement>('#ref-apply-note')
 const refEmpty = $<HTMLParagraphElement>('#ref-empty')
 const refError = $<HTMLParagraphElement>('#ref-error')
 const refBadge = $<HTMLSpanElement>('#ref-badge')
+const refPaletteSection = $<HTMLDivElement>('#ref-palette-section')
+const refSwapsSection = $<HTMLDivElement>('#ref-swaps-section')
+const refCompareSection = $<HTMLDivElement>('#ref-compare-section')
+const refCompareSummary = $<HTMLParagraphElement>('#ref-compare-summary')
+const refCompareBody = $<HTMLTableSectionElement>('#ref-compare-body')
+const refCompareNote = $<HTMLParagraphElement>('#ref-compare-note')
 
 function setProcessing(on: boolean) {
   processingOverlay.hidden = !on
@@ -670,6 +678,7 @@ function updateUI() {
   btnProjectSave.disabled = false
   autoPickBtn.disabled = false
   imageInfo.textContent = tr('processedAt', { w: current.image.width, h: current.image.height })
+  renderReliefComparison()
 }
 
 function renderPrintability() {
@@ -810,7 +819,12 @@ function drawQuantized() {
   canvasQuantized.width = width
   canvasQuantized.height = height
   canvasQuantized.getContext('2d')!.putImageData(new ImageData(rgba, width, height), 0, 0)
-  drawDeltaE()
+  // The ΔE field is a per-pixel CIEDE2000 pass over the whole image — by far
+  // the most expensive step here, and only the ΔE 3D mode displays it. Compute
+  // it on demand and cache it per state version, so ordinary slider drags stay
+  // responsive while toggling the ΔE mode back and forth stays instant.
+  if (viewer3dMode === 'deltae') drawDeltaE()
+  else deltaeStats.hidden = true
 }
 
 // ---- ΔE error map: target image vs predicted print appearance -------------
@@ -2507,9 +2521,14 @@ function setViewer3dMode(mode: 'model' | 'deltae' | 'slice') {
   const controls = document.querySelector<HTMLElement>('#viewer-3d .layer-controls')
   if (controls) controls.hidden = mode !== 'slice'
   if (!viewer3d || !current) return
+  deltaeStats.hidden = mode !== 'deltae'
   if (mode === 'deltae') {
-    applyDeltaETo3d()
+    // Drop any layer cut FIRST: setSlice(null) resets the viewer to the plain
+    // filament material, so applying the ΔE map before it would be undone and
+    // the overlay would never appear.
     viewer3d.setSlice(null)
+    applyDeltaETo3d()
+    drawDeltaE()
   } else if (mode === 'slice') {
     viewer3d.clearDeltaEOverlay()
     applySliceTo3d()
@@ -2871,8 +2890,12 @@ function renderTicks() {
 
 let referenceAnalysis: Reference3mfAnalysis | null = null
 let referencePlan: ReferenceApplyPlan | null = null
+/** A dropped reference STL: a .3mf carries settings, an .stl carries relief only. */
+let referenceStl: StlAnalysis | null = null
 /** Guards against overlapping analyses: a newer selection supersedes an older one. */
 let refRun = 0
+/** Our own relief metrics, cached per pipeline result — the scan is not free. */
+let ownMetricsCache: { result: PipelineResult; metrics: ReliefMetrics } | null = null
 
 function currentEditorOptions() {
   const o = readOptions()
@@ -2887,10 +2910,10 @@ function currentEditorOptions() {
   }
 }
 
-function showRefError(code: string, fallback: string) {
+function showRefError(code: string, fallback: string, prefix = 'refErr') {
   // Error codes are kebab-case ('missing-model', 'entry-size'); the i18n
   // keys are camelCase ('refErrMissingModel', 'refErrEntrySize').
-  const key = `refErr${code.split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('')}`
+  const key = `${prefix}${code.split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('')}`
   let message: string
   try {
     message = tr(key)
@@ -2921,6 +2944,114 @@ function resetReferenceUI() {
   refError.hidden = true
   refApplyBtn.disabled = true
   refApplyNote.textContent = ''
+  refCompareSection.hidden = true
+}
+
+/**
+ * Measure our own relief with the same instrument used on the reference, so
+ * the two columns are comparable. The grid pitch cannot be recovered from a
+ * merged mesh (faces only end where a run ends), so the design pitch is
+ * supplied from the print settings.
+ */
+function ownReliefMetrics(result: PipelineResult): ReliefMetrics {
+  if (ownMetricsCache && ownMetricsCache.result === result) return ownMetricsCache.metrics
+  const metrics = measureRelief(result.mesh.positions, result.mesh.triangleCount, {
+    gridStepX: result.field.width > 0 ? result.settings.widthMm / result.field.width : 0,
+    gridStepY: result.field.height > 0 ? result.settings.heightMm / result.field.height : 0,
+  })
+  ownMetricsCache = { result, metrics }
+  return metrics
+}
+
+/**
+ * Our relief measured against the reference STL, row by row. Rows the two
+ * disagree on are flagged, so the panel reads as a checklist rather than a
+ * wall of numbers.
+ */
+function renderReliefComparison() {
+  if (!referenceStl) {
+    refCompareSection.hidden = true
+    return
+  }
+  refCompareSection.hidden = false
+  refCompareBody.innerHTML = ''
+  refCompareSummary.textContent = ''
+  refCompareNote.textContent = ''
+  if (!current) {
+    refCompareNote.textContent = tr('refCompareNeedsImage')
+    return
+  }
+
+  const comparison = compareRelief(referenceStl.metrics, ownReliefMetrics(current))
+  for (const row of comparison.rows) {
+    const trEl = document.createElement('tr')
+    trEl.className = `rc-${row.status}`
+    const th = document.createElement('th')
+    th.scope = 'row'
+    th.textContent = tr(row.key)
+    const refCell = document.createElement('td')
+    refCell.textContent = row.refText
+    const ownCell = document.createElement('td')
+    ownCell.textContent = row.ownText
+    const deltaCell = document.createElement('td')
+    deltaCell.textContent = row.deltaText
+    trEl.append(th, refCell, ownCell, deltaCell)
+    refCompareBody.appendChild(trEl)
+  }
+  refCompareSummary.textContent = comparison.diverging === 0
+    ? tr('refCompareAllMatch')
+    : tr('refCompareDiverge', { n: comparison.diverging, total: comparison.rows.length })
+  refCompareNote.textContent = tr('refCompareNote')
+}
+
+/** Report for a dropped reference STL: footprint, relief shape, comparison. */
+function renderStlReport() {
+  const a = referenceStl
+  if (!a) return
+  refEmpty.hidden = true
+  refReport.hidden = false
+  refError.hidden = true
+
+  // A reference STL has no settings to apply: only the relief is readable.
+  refPaletteSection.hidden = true
+  refSwapsSection.hidden = true
+  refMissingSection.hidden = true
+  refApplyBtn.disabled = true
+  refApplyNote.textContent = tr('refStlNoApply')
+
+  const status = a.truncated ? 'partial' : 'complete'
+  refStatus.textContent = a.truncated ? tr('refPartial') : tr('refComplete')
+  refStatus.className = `ref-status ${status}`
+  setRefBadge(status)
+  refModelLine.textContent = tr('refStlModelLine', {
+    w: parseFloat(a.metrics.sizeX.toFixed(2)),
+    h: parseFloat(a.metrics.sizeY.toFixed(2)),
+    z: parseFloat(a.metrics.sizeZ.toFixed(2)),
+    tris: word(lang, a.metrics.triangleCount, 'tris'),
+    grid: parseFloat(a.metrics.gridStepX.toFixed(3)),
+  })
+
+  refWarningsSection.hidden = !a.truncated
+  if (a.truncated) {
+    refWarningsEl.innerHTML = ''
+    const item = document.createElement('div')
+    item.textContent = tr('refStlTruncated')
+    refWarningsEl.appendChild(item)
+  }
+
+  renderReliefComparison()
+}
+
+/** Show an STL parse failure using the `stlErr*` keys for the typed codes. */
+function showStlError(err: unknown) {
+  refReport.hidden = true
+  refCompareSection.hidden = true
+  setRefBadge('error')
+  if (err instanceof StlParseError) showRefError(err.code, err.message, 'stlErr')
+  else {
+    refError.textContent = tr('refError')
+    refError.hidden = false
+  }
 }
 
 function renderReferenceReport() {
@@ -2929,6 +3060,9 @@ function renderReferenceReport() {
   refEmpty.hidden = true
   refReport.hidden = false
   refError.hidden = true
+  // A 3MF carries the palette and swap schedule the STL path has to hide.
+  refPaletteSection.hidden = false
+  refSwapsSection.hidden = false
 
   refStatus.textContent = a.status === 'complete' ? tr('refComplete') : tr('refPartial')
   refStatus.className = `ref-status ${a.status}`
@@ -2988,6 +3122,7 @@ function renderReferenceReport() {
     refWarningsSection.hidden = true
   }
 
+  renderReliefComparison()
   updateApplyButton()
 }
 
@@ -3010,28 +3145,47 @@ function updateApplyButton() {
 
 async function analyzeReference(file: File) {
   const token = ++refRun
+  referenceAnalysis = null
+  referencePlan = null
+  referenceStl = null
   resetReferenceUI()
   refStatus.className = 'ref-status'
   refStatus.textContent = tr('refAnalyzing')
   refReport.hidden = false
   setRefBadge('analyzing')
+  const isStl = /\.stl$/i.test(file.name)
   try {
-    const analysis = await parseReference3mfInWorker(file)
-    if (token !== refRun) return // a newer selection superseded this one
-    referenceAnalysis = analysis
-    referencePlan = planReferenceApply(referenceAnalysis, currentEditorOptions())
-    renderReferenceReport()
+    if (isStl) {
+      // Check the size before reading the file: a reference STL runs to tens of
+      // megabytes, and there is no point pulling it in just to reject it.
+      if (file.size > MAX_REFERENCE_FILE_BYTES) throw new StlParseError('size', 'The reference file is larger than the 100 MB limit.')
+      const analysis = await analyzeStlInWorker({ fileName: file.name, data: new Uint8Array(await file.arrayBuffer()) })
+      if (token !== refRun) return // a newer selection superseded this one
+      referenceStl = analysis
+      renderStlReport()
+    } else {
+      const analysis = await parseReference3mfInWorker(file)
+      if (token !== refRun) return // a newer selection superseded this one
+      referenceAnalysis = analysis
+      referencePlan = planReferenceApply(referenceAnalysis, currentEditorOptions())
+      renderReferenceReport()
+    }
   } catch (err) {
     if (token !== refRun) return
-    referenceAnalysis = null
-    referencePlan = null
-    refReport.hidden = true
-    setRefBadge('error')
-    if (err instanceof Reference3mfParseError) {
-      showRefError(err.code, err.message)
+    if (isStl) {
+      referenceStl = null
+      showStlError(err)
     } else {
-      refError.textContent = tr('refError')
-      refError.hidden = false
+      referenceAnalysis = null
+      referencePlan = null
+      refReport.hidden = true
+      setRefBadge('error')
+      if (err instanceof Reference3mfParseError) {
+        showRefError(err.code, err.message)
+      } else {
+        refError.textContent = tr('refError')
+        refError.hidden = false
+      }
     }
   }
 }
