@@ -53,6 +53,12 @@ export interface TourCallbacks {
   tr: (key: string, params?: Record<string, string | number>) => string
   /** Pluralized count, e.g. "2 параметра" — for the live status line. */
   plural: (n: number, wordKey: WordKey) => string
+  /**
+   * Called before a step renders: the target may live inside a collapsed
+   * container (e.g. a sidebar tab panel), and the host app is responsible
+   * for revealing it so the spotlight can measure and scroll to it.
+   */
+  revealTarget?: (target: HTMLElement) => void
   onFinish?: () => void
   onSkip?: () => void
 }
@@ -214,6 +220,7 @@ export function startTour(steps: TourStep[], cb: TourCallbacks): () => void {
     spotlight.hidden = !target
     focusDot.hidden = !target
     if (target) {
+      cb.revealTarget?.(target)
       target.scrollIntoView({ block: 'center', inline: 'nearest' })
       const r = target.getBoundingClientRect()
       spotlight.style.left = `${r.left - SPOT_PAD}px`

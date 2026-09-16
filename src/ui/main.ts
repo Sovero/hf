@@ -442,6 +442,7 @@ function applyStaticText() {
   }
   colorsSlider.ariaLabel = tr('sliderAria')
   colorsValue.ariaLabel = tr('sliderValueAria')
+  document.querySelector('.sidebar-tabs')?.setAttribute('aria-label', tr('sidebarTabsAria'))
   const cubeOverlay = document.getElementById('cube-overlay')
   if (cubeOverlay) {
     cubeOverlay.title = tr('cubeHint')
@@ -606,6 +607,56 @@ function setupLangPrompt() {
   ;(langBanner.querySelector<HTMLButtonElement>(`.lang-banner-btn[data-lang="${lang}"]`) ?? langBannerBtns[0])?.focus()
 }
 
+// ---- sidebar tabs ---------------------------------------------------------
+
+const SIDEBAR_TAB_KEY = 'hf-sidebar-tab'
+type SidebarTabId = 'source' | 'relief' | 'check' | 'export'
+const SIDEBAR_TABS: readonly SidebarTabId[] = ['source', 'relief', 'check', 'export']
+let activeSidebarTab: SidebarTabId = 'source'
+
+/** Show one tab panel and mark its tab active; unknown ids are ignored. */
+function setSidebarTab(tab: SidebarTabId, persist = true) {
+  if (!SIDEBAR_TABS.includes(tab)) return
+  activeSidebarTab = tab
+  for (const t of SIDEBAR_TABS) {
+    const btn = document.getElementById(`tab-${t}`)
+    const panel = document.getElementById(`tabpanel-${t}`)
+    if (!btn || !panel) continue
+    const on = t === tab
+    btn.classList.toggle('is-active', on)
+    btn.setAttribute('aria-selected', String(on))
+    btn.tabIndex = on ? 0 : -1
+    panel.hidden = !on
+  }
+  if (persist) {
+    try { localStorage.setItem(SIDEBAR_TAB_KEY, tab) } catch { /* private mode */ }
+  }
+}
+
+/** Click + arrow-key navigation for the tab strip (WAI-ARIA tabs pattern). */
+function setupSidebarTabs() {
+  const strip = document.querySelector('.sidebar-tabs')
+  if (!strip) return
+  strip.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-tab-btn]')
+    if (btn) setSidebarTab(btn.dataset.tabBtn as SidebarTabId)
+  })
+  strip.addEventListener('keydown', (e) => {
+    const evt = e as KeyboardEvent
+    const keys: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1 }
+    const delta = keys[evt.key]
+    if (!delta) return
+    evt.preventDefault()
+    const i = SIDEBAR_TABS.indexOf(activeSidebarTab)
+    const next = SIDEBAR_TABS[(i + delta + SIDEBAR_TABS.length) % SIDEBAR_TABS.length]
+    setSidebarTab(next)
+    document.getElementById(`tab-${next}`)?.focus()
+  })
+  let saved: string | null = null
+  try { saved = localStorage.getItem(SIDEBAR_TAB_KEY) } catch { /* private mode */ }
+  setSidebarTab(SIDEBAR_TABS.includes(saved as SidebarTabId) ? (saved as SidebarTabId) : 'source', false)
+}
+
 // ---- welcome panel + guided tour -----------------------------------------
 
 const WELCOME_DISMISS_KEY = 'hf-welcome-dismissed'
@@ -633,6 +684,12 @@ function startAppTour() {
   tourStop = startTour(TOUR_STEPS, {
     tr,
     plural: (n, wordKey) => word(lang, n, wordKey),
+    revealTarget: (target) => {
+      // Steps point at sections inside tab panels — surface the owning tab
+      // before the spotlight measures, so hidden controls can be shown.
+      const panel = target.closest<HTMLElement>('[data-tab-panel]')
+      if (panel?.dataset.tabPanel) setSidebarTab(panel.dataset.tabPanel as SidebarTabId, false)
+    },
     onFinish: () => {
       tourStop = null
       markOnboardingDone()
@@ -3609,6 +3666,7 @@ langMenu.addEventListener('click', (e) => {
 applyStaticText()
 setupLangPrompt()
 setupWelcome()
+setupSidebarTabs()
 
 setupTheme()
 document.addEventListener('click', (e) => {

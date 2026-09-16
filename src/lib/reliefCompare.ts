@@ -141,9 +141,9 @@ export interface ReliefMetrics {
   /** Cell pitch of the pixel grid, mm (0 when it cannot be measured). */
   gridStepX: number
   gridStepY: number
-  /** Print-layer step between neighbouring plateau heights, mm (median gap). */
+  /** Print-layer step between neighbouring surface heights, mm (median gap). */
   heightStep: number
-  /** Distinct plateau heights on the top surface. */
+  /** Distinct heights the top surface uses — flat and sloped faces alike. */
   levelCount: number
   plateauZMin: number
   plateauZMax: number
@@ -258,9 +258,15 @@ export function measureRelief(
     if (len === 0) continue
     const area = len / 2
     const flat = 1 - 1e-4
-    if (nz >= len * flat) {
-      top += area
+    if (nz > 0) {
+      // The height ladder belongs to the whole upward-facing surface: on a
+      // stepped mesh only the flat plateaus carry it, while a height map (the
+      // reference and this app) also reaches its heights on the sloped faces.
       zs.add(round(az, GRID_DECIMALS))
+      zs.add(round(bz, GRID_DECIMALS))
+      zs.add(round(cz, GRID_DECIMALS))
+      if (nz >= len * flat) top += area
+      else slant += area
     } else if (nz <= -len * flat) {
       // Base plate: not part of the visible relief, so it stays out of the mix.
     } else if (Math.abs(nx) >= len * flat || Math.abs(ny) >= len * flat) {

@@ -95,6 +95,15 @@
 
     <main class="layout">
       <aside class="sidebar">
+        <div class="sidebar-tabs" role="tablist" aria-label="Sidebar sections">
+          <button type="button" id="tab-source" class="sidebar-tab is-active" role="tab" aria-selected="true" aria-controls="tabpanel-source" data-i18n="tabSource" data-tab-btn="source">Image</button>
+          <button type="button" id="tab-relief" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="tabpanel-relief" tabindex="-1" data-i18n="tabRelief" data-tab-btn="relief">Relief</button>
+          <button type="button" id="tab-check" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="tabpanel-check" tabindex="-1" data-i18n="tabCheck" data-tab-btn="check">Check</button>
+          <button type="button" id="tab-export" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="tabpanel-export" tabindex="-1" data-i18n="tabExport" data-tab-btn="export">Export</button>
+        </div>
+        <div class="sidebar-panels">
+
+        <div class="tabpanel" id="tabpanel-source" role="tabpanel" aria-labelledby="tab-source" data-tab-panel="source">
         <div class="welcome-panel" id="welcome-panel">
           <h2>🎨 <span data-i18n="welcomeTitle">Welcome to HueForge Web</span></h2>
           <p data-i18n="helpWelcome">Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.</p>
@@ -117,7 +126,9 @@
           <p id="image-info" class="muted small"></p>
           </div>
         </section>
+        </div>
 
+        <div class="tabpanel" id="tabpanel-relief" role="tabpanel" aria-labelledby="tab-relief" data-tab-panel="relief" hidden>
         <section class="panel">
           <div class="panel-section" id="colors-details">
             <div class="panel-head" data-help="helpColors">
@@ -174,6 +185,53 @@
           </div>
         </section>
 
+        <section class="panel">
+          <div class="panel-section" id="palette-details">
+            <div class="panel-head" data-help="helpPalette">
+              <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
+              <span id="palette-collapsed-note" class="muted small palette-collapsed-note" hidden></span>
+              <button type="button" class="hint-btn" data-help="helpPalette" aria-label="Help">?</button>
+              <button id="palette-collapse" type="button" class="palette-collapse" data-i18n-title="paletteCollapse" aria-expanded="true" aria-controls="palette-body">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>
+              </button>
+            </div>
+          <div id="palette-body">
+          <div id="palette-list" class="palette-list"></div>
+          <div id="palette-coverage" class="palette-coverage" role="img" data-help="coverageHelp" hidden></div>
+          <div class="palette-summary-row">
+            <p id="palette-summary" class="muted small"></p>
+            <span class="palette-summary-actions">
+              <button id="auto-pick" type="button" class="palette-reset-btn" disabled><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4.2 12.8 8.2-8.2 1.6 1.6-8.2 8.2Z"/><path d="m12.6 2.2.4 1.6 1.6.4-1.6.4-.4 1.6-.4-1.6-1.6-.4 1.6-.4Z"/></svg><span data-i18n="autoPick">Auto-pick filaments</span></button>
+              <button id="catalog-pick" type="button" class="palette-reset-btn"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.6"/><circle cx="8" cy="8" r="1.9"/></svg><span data-i18n="catalogPick">Quantize by spools</span></button>
+              <span id="drop-sparse-wrap" hidden>
+                <input id="drop-sparse-threshold" type="number" min="0.1" max="10" step="0.1" value="1" />
+                <span class="threshold-unit" data-i18n="dropSparseUnit">%</span>
+                <button id="palette-drop-sparse" type="button" class="palette-reset-btn" data-help="dropSparseHelp"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 4.4h10.8"/><path d="M6 4.4V3h4v1.4"/><path d="M4.2 4.4 5 13h6l.8-8.6"/><path d="M6.6 7v3.4M9.4 7v3.4"/></svg><span data-i18n="dropSparse">Drop unused</span></button>
+              </span>
+              <button id="palette-heights-reset" type="button" class="palette-reset-btn" hidden><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 11.2V7h2.8v4.2M6.6 11.2V3.2h2.8v8M10.6 11.2V5.2h2.8v6"/></svg><span data-i18n="paletteHeightsReset">Equal heights</span></button>
+              <button id="palette-tau-heights" type="button" class="palette-reset-btn" data-help="paletteTauHeightsHelp"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="8" r="1.8"/><path d="M4 3.4V1.8M4 12.6v1.6M.8 8h1.6M7.2 8h1.6M1.7 3.7l1 1M6.3 11.3l1 1M6.3 3.7l-1 1M1.7 11.3l1 1"/><path d="M10 2.5v11M12.2 2.5v11M14.4 2.5v11"/></svg><span data-i18n="paletteTauHeights">By transparency (τ)</span></button>
+              <button id="btn-shopping-list" type="button" class="palette-reset-btn" data-help="helpShoppingList" disabled><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.6" cy="13.2" r="1.1"/><circle cx="11.2" cy="13.2" r="1.1"/><path d="M1.8 2.4h2l1.8 8.2h8l1.6-5.4H4.2"/></svg><span data-i18n="btnShoppingList">Shopping list</span></button>
+            </span>
+          </div>
+          <div id="calib" class="calib" hidden>
+            <p class="muted small" data-i18n="calibIntro">Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.</p>
+            <div class="calib-row">
+              <select id="calib-color" class="calib-select"></select>
+              <button id="calib-download" type="button"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="8" width="12" height="4" rx="0.8"/><path d="M5.4 8v2.4M8 8v2.4M10.6 8v2.4"/></svg><span data-i18n="calibDownload">Swatch STL</span></button>
+            </div>
+            <div class="calib-row">
+              <input id="calib-photo" type="file" accept="image/*" />
+            </div>
+            <canvas id="calib-canvas" class="calib-canvas" hidden></canvas>
+            <p id="calib-status" class="muted small"></p>
+          </div>
+          </div>
+          </div>
+        </section>
+
+        </div>
+
+        <div class="tabpanel" id="tabpanel-check" role="tabpanel" aria-labelledby="tab-check" data-tab-panel="check" hidden>
         <section class="panel">
           <div class="panel-section" id="pb-details">
             <div class="panel-head" data-help="helpPrintability">
@@ -264,7 +322,9 @@
           <p id="ref-error" class="ref-error" hidden></p>
           </div>
         </section>
+        </div>
 
+        <div class="tabpanel" id="tabpanel-export" role="tabpanel" aria-labelledby="tab-export" data-tab-panel="export" hidden>
         <section class="panel">
           <div class="panel-section" id="export-details">
             <div class="panel-head" data-help="helpExport">
@@ -289,50 +349,8 @@
           <p id="export-status" class="muted small"></p>
           </div>
         </section>
-
-        <section class="panel">
-          <div class="panel-section" id="palette-details">
-            <div class="panel-head" data-help="helpPalette">
-              <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
-              <span id="palette-collapsed-note" class="muted small palette-collapsed-note" hidden></span>
-              <button type="button" class="hint-btn" data-help="helpPalette" aria-label="Help">?</button>
-              <button id="palette-collapse" type="button" class="palette-collapse" data-i18n-title="paletteCollapse" aria-expanded="true" aria-controls="palette-body">
-                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>
-              </button>
-            </div>
-          <div id="palette-body">
-          <div id="palette-list" class="palette-list"></div>
-          <div id="palette-coverage" class="palette-coverage" role="img" data-help="coverageHelp" hidden></div>
-          <div class="palette-summary-row">
-            <p id="palette-summary" class="muted small"></p>
-            <span class="palette-summary-actions">
-              <button id="auto-pick" type="button" class="palette-reset-btn" disabled><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4.2 12.8 8.2-8.2 1.6 1.6-8.2 8.2Z"/><path d="m12.6 2.2.4 1.6 1.6.4-1.6.4-.4 1.6-.4-1.6-1.6-.4 1.6-.4Z"/></svg><span data-i18n="autoPick">Auto-pick filaments</span></button>
-              <button id="catalog-pick" type="button" class="palette-reset-btn"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="5.6"/><circle cx="8" cy="8" r="1.9"/></svg><span data-i18n="catalogPick">Quantize by spools</span></button>
-              <span id="drop-sparse-wrap" hidden>
-                <input id="drop-sparse-threshold" type="number" min="0.1" max="10" step="0.1" value="1" />
-                <span class="threshold-unit" data-i18n="dropSparseUnit">%</span>
-                <button id="palette-drop-sparse" type="button" class="palette-reset-btn" data-help="dropSparseHelp"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 4.4h10.8"/><path d="M6 4.4V3h4v1.4"/><path d="M4.2 4.4 5 13h6l.8-8.6"/><path d="M6.6 7v3.4M9.4 7v3.4"/></svg><span data-i18n="dropSparse">Drop unused</span></button>
-              </span>
-              <button id="palette-heights-reset" type="button" class="palette-reset-btn" hidden><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 11.2V7h2.8v4.2M6.6 11.2V3.2h2.8v8M10.6 11.2V5.2h2.8v6"/></svg><span data-i18n="paletteHeightsReset">Equal heights</span></button>
-              <button id="palette-tau-heights" type="button" class="palette-reset-btn" data-help="paletteTauHeightsHelp"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="8" r="1.8"/><path d="M4 3.4V1.8M4 12.6v1.6M.8 8h1.6M7.2 8h1.6M1.7 3.7l1 1M6.3 11.3l1 1M6.3 3.7l-1 1M1.7 11.3l1 1"/><path d="M10 2.5v11M12.2 2.5v11M14.4 2.5v11"/></svg><span data-i18n="paletteTauHeights">By transparency (τ)</span></button>
-              <button id="btn-shopping-list" type="button" class="palette-reset-btn" data-help="helpShoppingList" disabled><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.6" cy="13.2" r="1.1"/><circle cx="11.2" cy="13.2" r="1.1"/><path d="M1.8 2.4h2l1.8 8.2h8l1.6-5.4H4.2"/></svg><span data-i18n="btnShoppingList">Shopping list</span></button>
-            </span>
-          </div>
-          <div id="calib" class="calib" hidden>
-            <p class="muted small" data-i18n="calibIntro">Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.</p>
-            <div class="calib-row">
-              <select id="calib-color" class="calib-select"></select>
-              <button id="calib-download" type="button"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="8" width="12" height="4" rx="0.8"/><path d="M5.4 8v2.4M8 8v2.4M10.6 8v2.4"/></svg><span data-i18n="calibDownload">Swatch STL</span></button>
-            </div>
-            <div class="calib-row">
-              <input id="calib-photo" type="file" accept="image/*" />
-            </div>
-            <canvas id="calib-canvas" class="calib-canvas" hidden></canvas>
-            <p id="calib-status" class="muted small"></p>
-          </div>
-          </div>
-          </div>
-        </section>
+        </div>
+        </div>
       </aside>
 
       <section class="viewers">

@@ -265,10 +265,10 @@ describe('mesh', () => {
     }
   })
 
-  it('stays closed when heights only touch diagonally (pinches are filled)', () => {
+  it('stays closed when heights only touch diagonally (no interior wall to pinch)', () => {
     // Checkerboard of two levels: every interior corner has two tall cells
-    // meeting only at a point. Left alone those four wall panels would share
-    // one vertical edge; the mesher fills one notch instead.
+    // meeting only at a point. Nothing has to be repaired here — the surface is
+    // one sheet over the shared vertex grid — but the soup must still close.
     const pattern = [
       0, 1, 0, 1,
       1, 0, 1, 0,
@@ -279,34 +279,138 @@ describe('mesh', () => {
     for (const count of edgeUses(mesh).values()) {
       expect(count).toBe(2)
     }
+    // Both levels survive: a lone low cell is a dip, not something the taller
+    // neighbours bridge over.
+    const zs = new Set<number>()
+    for (let t = 0; t < mesh.triangleCount; t++) {
+      const base = t * 9
+      for (const k of [0, 1, 2]) zs.add(Math.round(mesh.positions[base + k * 3 + 2] * 100) / 100)
+    }
+    expect(zs.has(0.8)).toBe(true) // level 0
+    expect(zs.has(1)).toBe(true) // level 1
   })
 
-  it('is a staircase: flat plateaus on the layer grid, strictly vertical walls', () => {
+  it('is a height map: one shared node per grid crossing, its pixel’s layer height', () => {
+    const s = settings()
     const q = quantizedFixture()
-    const field = buildHeightField(q, settings())
-    const mesh = buildMesh(field, q.indexMap, q.palette, settings())
+    const field = buildHeightField(q, s)
+    const mesh = buildMesh(field, q.indexMap, q.palette, s)
+    const W = q.width
+    const H = q.height
+    const dx = s.widthMm / W
+    const dy = s.heightMm / H
+
+    // Re-derive the node heights straight from the field: mirrored rows, snapped
+    // to the layer grid, node (i, j) carrying the pixel it belongs to (the far
+    // row and column repeat the last pixel).
+    const nodeZ = (i: number, j: number) => {
+      const src = field.values[(H - 1 - Math.min(j, H - 1)) * W + Math.min(i, W - 1)]
+      const k = Math.round((src - s.baseMm) / s.layerMm)
+      return s.baseMm + (k < 0 ? 0 : k) * s.layerMm
+    }
+
+    const seen = new Map<string, number>()
+    let top = 0
+    let base = 0
+    let walls = 0
     const p = mesh.positions
-    const plateauZ = new Set<number>()
     for (let t = 0; t < mesh.triangleCount; t++) {
       const i = t * 9
       const xs = [p[i], p[i + 3], p[i + 6]]
       const ys = [p[i + 1], p[i + 4], p[i + 7]]
       const zs = [p[i + 2], p[i + 5], p[i + 8]]
-      const flatZ = zs[0] === zs[1] && zs[1] === zs[2]
-      const flatX = xs[0] === xs[1] && xs[1] === xs[2]
-      const flatY = ys[0] === ys[1] && ys[1] === ys[2]
-      // Every face is a flat plateau / base quad or a vertical wall panel.
-      expect(flatZ || flatX || flatY).toBe(true)
-      if (flatZ && zs[0] > 0) plateauZ.add(Math.round(zs[0] * 1e4) / 1e4)
+      // Sign of the Z component: only the facing matters in this test.
+      const nz = (xs[1] - xs[0]) * (ys[2] - ys[0]) - (ys[1] - ys[0]) * (xs[2] - xs[0])
       for (const z of zs) {
-        if (z === 0) continue // bed vertex of a border wall
-        const layers = (z - 0.8) / 0.2
+        if (z === 0) continue // bed vertex of a contour wall
+        const layers = (z - s.baseMm) / s.layerMm
         expect(Math.abs(layers - Math.round(layers))).toBeLessThan(1e-5)
       }
+      if (nz > 1e-9) {
+        top++
+        for (let k = 0; k < 3; k++) {
+          expect(Math.abs(xs[k] / dx - Math.round(xs[k] / dx))).toBeLessThan(1e-5)
+          expect(Math.abs(ys[k] / dy - Math.round(ys[k] / dy))).toBeLessThan(1e-5)
+          const key = `${Math.round(xs[k] / dx)},${Math.round(ys[k] / dy)}`
+          const expected = nodeZ(Math.round(xs[k] / dx), Math.round(ys[k] / dy))
+          expect(zs[k]).toBeCloseTo(expected, 6)
+          // One surface: every vertex at a node agrees on its height.
+          const previous = seen.get(key)
+          if (previous === undefined) seen.set(key, zs[k])
+          else expect(zs[k]).toBeCloseTo(previous, 6)
+        }
+        continue
+      }
+      if (nz < -1e-9) {
+        base++
+        for (const z of zs) expect(z).toBe(0) // the flat base plate
+        continue
+      }
+      // Vertical: only ever on the outer contour.
+      walls++
+      const onX = Math.min(...xs) === Math.max(...xs)
+      if (onX) expect(Math.min(...xs) === 0 || Math.max(...xs) === s.widthMm).toBe(true)
+      else expect(Math.min(...ys) === 0 || Math.max(...ys) === s.heightMm).toBe(true)
     }
-    // One flat plateau per cell, each at its own column height, and nothing
-    // sloped in between (a bilinear relief would not produce this set).
-    expect([...plateauZ].sort((a, b) => a - b)).toEqual([0.8, 3.2, 5.6, 8])
+
+    expect(top).toBe(2 * W * H) // two triangles per cell, no merging away of nodes
+    expect(walls).toBe(4 * (W + H)) // one quad per contour cell
+    expect(base).toBe(2 * (W + H) - 2) // ear-clipped rectangle
+    expect(mesh.triangleCount).toBe(top + walls + base)
+    // The surface really is a map: node heights are the field's own heights.
+    const heights = new Set([...seen.values()].map((z) => Math.round(z * 1e4) / 1e4))
+    expect([...heights].sort((a, b) => a - b)).toEqual([0.8, 3.2, 5.6, 8])
+  })
+
+  it('turns a step into a diagonal transition instead of an interior wall', () => {
+    // A ramp: one level per column. The surface must slope inside the cells and
+    // never raise a vertical step between neighbours.
+    const W = 12
+    const H = 8
+    const levels: number[] = []
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) levels.push(i)
+    const mesh = meshFromLevels(levels, W, H)
+    const p = mesh.positions
+    let slanted = 0
+    let flatTop = 0
+    for (let t = 0; t < mesh.triangleCount; t++) {
+      const i = t * 9
+      const zs = [p[i + 2], p[i + 5], p[i + 8]]
+      const xs = [p[i], p[i + 3], p[i + 6]]
+      const ys = [p[i + 1], p[i + 4], p[i + 7]]
+      const nz = (xs[1] - xs[0]) * (ys[2] - ys[0]) - (ys[1] - ys[0]) * (xs[2] - xs[0])
+      if (nz <= 1e-9) continue
+      if (zs[0] === zs[1] && zs[1] === zs[2]) flatTop++
+      else slanted++
+    }
+    // Every column boundary is a slope (2 triangles per cell of the step), and
+    // only the last, constant column stays flat.
+    expect(slanted).toBe(2 * (W - 1) * H)
+    expect(flatTop).toBe(2 * H)
+    for (const count of edgeUses(mesh).values()) expect(count).toBe(2)
+  })
+
+  it('keeps one-cell detail: a lone dark line stays a groove', () => {
+    // Bright field with a single dark column. Bridging it (a vertex taking the
+    // tallest neighbour, say) would erase the line from the print.
+    const W = 5
+    const H = 3
+    const levels: number[] = []
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) levels.push(i === 2 ? 0 : 6)
+    const mesh = meshFromLevels(levels, W, H)
+    const s = settings()
+    const dx = s.widthMm / W
+    const p = mesh.positions
+    let lowest = Infinity
+    for (let t = 0; t < mesh.triangleCount; t++) {
+      const i = t * 9
+      for (let k = 0; k < 3; k++) {
+        const x = p[i + k * 3]
+        const z = p[i + k * 3 + 2]
+        if (z > 0 && Math.abs(x - 2 * dx) < 1e-6 && z < lowest) lowest = z
+      }
+    }
+    expect(lowest).toBeCloseTo(s.baseMm, 6) // the groove reaches its own level
   })
 
   it('has outward winding and encodes the correct relief volume', () => {
@@ -326,11 +430,25 @@ describe('mesh', () => {
     }
     expect(volume6).toBeGreaterThan(0)
 
-    // Every cell is a flat plateau at its own layer height, so the volume is
-    // Σ cellArea × plateau height (the base plate at z = 0 adds nothing). The
-    // mirrored fixture heights are 3.2 / 0.8 / 8 / 5.6 mm.
-    const plateaus = [3.2, 0.8, 8, 5.6]
-    const expected = plateaus.reduce((sum, z) => sum + 20 * 20 * z, 0)
+    // Each cell is split by its diagonal, so the solid's volume is the sum of
+    // the two prisms under it: area/6 · (2·z00 + z10 + z01 + 2·z11). The node
+    // heights are re-derived from the field (mirrored, layer-snapped, node =
+    // its own pixel), which is exactly what the mesher must have sampled.
+    const W = q.width
+    const H = q.height
+    const s = settings()
+    const nodeZ = (i: number, j: number) => {
+      const src = field.values[(H - 1 - Math.min(j, H - 1)) * W + Math.min(i, W - 1)]
+      const k = Math.round((src - s.baseMm) / s.layerMm)
+      return s.baseMm + (k < 0 ? 0 : k) * s.layerMm
+    }
+    const cellArea = 20 * 20
+    let expected = 0
+    for (let j = 0; j < H; j++) {
+      for (let i = 0; i < W; i++) {
+        expected += (cellArea / 6) * (2 * nodeZ(i, j) + nodeZ(i + 1, j) + nodeZ(i, j + 1) + 2 * nodeZ(i + 1, j + 1))
+      }
+    }
     expect(volume6 / 6).toBeCloseTo(expected, 3)
   })
 
@@ -345,14 +463,15 @@ describe('mesh', () => {
   })
 
   it('mirrors image rows so the photo top ends at max Y (reads upright)', () => {
-    // 2×2: image top row (y=0) = white (idx 3), bottom row = black (idx 0).
+    // 2×4: the two photo-top rows are white (idx 3), the two bottom rows black
+    // (idx 0). Two rows per band so the far band has a flat cell to read.
     const q = {
       palette: PALETTE_4,
-      indexMap: Uint8Array.from([3, 3, 0, 0]),
-      luminance: Float32Array.from([0.05, 0.05, 0.95, 0.95]),
+      indexMap: Uint8Array.from([3, 3, 3, 3, 0, 0, 0, 0]),
+      luminance: Float32Array.from([0.05, 0.05, 0.05, 0.05, 0.95, 0.95, 0.95, 0.95]),
       bandTops: [0.25, 0.5, 0.75, 1],
       width: 2,
-      height: 2,
+      height: 4,
     }
     const field = buildHeightField(q, settings())
     const mesh = buildMesh(field, q.indexMap, q.palette, settings())
@@ -375,30 +494,20 @@ describe('mesh', () => {
     expect(bandColor.near).toBeLessThan(10)
   })
 
-  it('merges flat areas: one plateau rectangle for the whole top surface', () => {
-    // 60×40 at a single height and a single filament merges into one top
-    // rectangle, four border panels and the base plate — not 2400 quads.
+  it('costs one quad per cell plus the contour, whatever the picture does', () => {
+    // The height map is a regular grid: merging cells away would cut the shared
+    // nodes apart and reopen T-junctions, so the budget is fixed and known.
     const W = 60
     const H = 40
     const mesh = meshFromLevels(new Array<number>(W * H).fill(2), W, H)
-    expect(mesh.triangleCount).toBeLessThan(64)
+    expect(mesh.triangleCount).toBe(2 * W * H + 6 * (W + H) - 2)
     for (const count of edgeUses(mesh).values()) expect(count).toBe(2)
-  })
 
-  it('merges wall runs and never costs more than the per-cell quad model', () => {
-    // A ramp: one level and one filament per column, so no diagonal pins are
-    // filled and the levels stay exactly as given. Merging turns the surface
-    // into one rectangle per column and each step into a single wall panel.
-    const W = 12
-    const H = 8
-    const levels: number[] = []
-    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) levels.push(i)
-    const mesh = meshFromLevels(levels, W, H)
-    // Previous model: a top and a base quad per cell, plus a quad per strip of
-    // every step (the ramp steps once per column, over every row).
-    const perCellModel = 4 * W * H + 2 * (H * (W - 1))
-    expect(mesh.triangleCount).toBeLessThan(perCellModel / 3)
-    for (const count of edgeUses(mesh).values()) expect(count).toBe(2)
+    const noisy: number[] = []
+    for (let n = 0; n < W * H; n++) noisy.push(n % 7)
+    const noisyMesh = meshFromLevels(noisy, W, H)
+    expect(noisyMesh.triangleCount).toBe(2 * W * H + 6 * (W + H) - 2)
+    for (const count of edgeUses(noisyMesh).values()) expect(count).toBe(2)
   })
 })
 

@@ -103,7 +103,7 @@ Parameters:
 
 | Concern | Classic HueForge (this prompt) | App (brightness-relief) |
 | --- | --- | --- |
-| Geometry | Flat stacked sheets, plateau relief | Per-pixel brightness relief snapped to whole layers: flat plateaus of one cell, vertical walls between levels |
+| Geometry | Flat stacked sheets, plateau relief | Per-pixel brightness relief on a shared vertex grid: diagonal transitions between heights, vertical walls only on the outer contour |
 | Palette order | User-chosen | Auto dark→light (depth mode inverts) |
 | Thicknesses | Per-color, user-tunable | Equal-population bands (min area per color) |
 | Swap schedule | Cumulative sheet tops | Grid-snapped band tops |

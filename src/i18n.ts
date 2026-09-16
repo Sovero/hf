@@ -192,8 +192,8 @@ export const dict: Dict = {
     ru: 'Номер слоя печати. Метки — слои смены филамента; щёлкните, чтобы перейти к ним.',
   },
   helpViewer3d: {
-    en: 'The 3D model itself: brightness raises the surface in whole layer steps, so the picture reads as a staircase of flat plateaus. Drag to rotate, scroll to zoom.',
-    ru: 'Сама 3D-модель: яркость поднимает поверхность целыми слоями, поэтому картинка читается лестницей из плоских площадок. Тяните, чтобы вращать, колесо — масштаб.',
+    en: 'The 3D model itself: brightness raises the surface in whole layer steps, and neighbouring pixels share their corner heights, so the picture reads as a continuous height map with diagonal transitions and walls only along the outer edge. Drag to rotate, scroll to zoom.',
+    ru: 'Сама 3D-модель: яркость поднимает поверхность целыми слоями, а соседние пиксели делят общие вершины по углам, поэтому картинка читается непрерывной высотной картой с наклонными переходами и стенками только по внешнему контуру. Тяните, чтобы вращать, колесо — масштаб.',
   },
   helpLangSelect: {
     en: 'Switch the interface language.',
@@ -226,6 +226,11 @@ export const dict: Dict = {
   themeLight: { en: 'Light', ru: 'Светлая' },
 
   // ---- sidebar panel headings ----
+  sidebarTabsAria: { en: 'Sidebar sections', ru: 'Разделы боковой панели' },
+  tabSource: { en: 'Image', ru: 'Картинка' },
+  tabRelief: { en: 'Relief', ru: 'Рельеф' },
+  tabCheck: { en: 'Check', ru: 'Проверка' },
+  tabExport: { en: 'Export', ru: 'Экспорт' },
   panelImage: { en: '1 · Image', ru: '1 · Изображение' },
   panelColors: { en: '2 · Colors', ru: '2 · Цвета' },
   panelDepth: { en: '3 · Depth mode', ru: '3 · Режим глубины' },
@@ -323,8 +328,8 @@ export const dict: Dict = {
   paramLayer: { en: 'Layer height', ru: 'Высота слоя' },
   unitMm: { en: 'mm', ru: 'мм' },
   sizeHint: {
-    en: 'Brightness sets how tall each spot prints, measured in whole print layers (0.2 mm by default): dark areas stay low, bright areas rise — or the other way round in the opposite depth mode. Every color still owns a slice of the total height (that slice is where its filament is loaded), but inside its slice each spot keeps its own layer height, so the surface comes out as a staircase of flat plateaus with vertical walls and every color switch lands between whole layers — one color per printed layer. By default the slices are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom slices thicker than the top ones — a dark base blocks light, thin light slices blend softly.',
-    ru: 'Яркость задаёт высоту каждого места в целых слоях печати (по умолчанию шаг 0,2 мм): тёмные участки печатаются ниже, светлые — выше (в обратном режиме глубины наоборот). Каждый цвет по-прежнему владеет своей частью общей высоты — именно на её границе загружается его филамент — но внутри своей части каждый пиксель остаётся на своём слое, поэтому поверхность получается лестницей из плоских площадок с вертикальными стенками, а смена цвета всегда попадает между целыми слоями — один цвет на слой. По умолчанию части равные; ползунок высоты в строке палитры задаёт цвету собственную толщину. HueForge-практика: нижние части делайте толще верхних — тёмный низ лучше держит свет, а тонкие светлые верха мягко смешиваются.',
+    en: 'Brightness sets how tall each spot prints, measured in whole print layers (0.2 mm by default): dark areas stay low, bright areas rise — or the other way round in the opposite depth mode. Neighbouring pixels share their corner heights, so a tonal change prints as a slanted face and a flat area stays exactly flat; vertical walls appear only along the outer edge of the model. Every color still owns a slice of the total height (that slice is where its filament is loaded); the surface within a slice uses every layer, so the picture is smooth instead of one plateau per color. By default the slices are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom slices thicker than the top ones — a dark base blocks light, thin light slices blend softly.',
+    ru: 'Яркость задаёт высоту каждого места в целых слоях печати (по умолчанию шаг 0,2 мм): тёмные участки печатаются ниже, светлые — выше (в обратном режиме глубины наоборот). Соседние пиксели делят общие вершины по углам, поэтому перепад тона печатается наклонной гранью, а ровный участок остаётся ровным; вертикальные стенки есть только по внешнему контуру модели. Каждый цвет по-прежнему владеет своей частью общей высоты — на её границе загружается его филамент — но внутри части используется вся лестница слоёв, поэтому картинка получается плавной, а не по одной плоскости на цвет. По умолчанию части равные; ползунок высоты в строке палитры задаёт цвету собственную толщину. HueForge-практика: нижние части делайте толще верхних — тёмный низ лучше держит свет, а тонкие светлые верха мягко смешиваются.',
   },
 
   // ---- printability ----
@@ -1029,8 +1034,8 @@ export const dict: Dict = {
   deltaEStats: { en: 'Mean ΔE {mean} · max {max}', ru: 'Средний ΔE {mean} · макс {max}' },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
   helpMode3dModel: {
-    en: 'Relief of flat plateaus, one print layer per step — exactly how the model looks in the slicer and after printing.',
-    ru: 'Рельеф из плоских площадок со ступенькой в один слой — так модель выглядит в слайсере и после печати.',
+    en: 'The height map itself, one print layer per height step, with neighbouring pixels sharing their corner heights — exactly how the model looks in the slicer and after printing.',
+    ru: 'Сама высотная карта: шаг высоты — один слой печати, а соседние пиксели делят общие вершины по углам — так модель выглядит в слайсере и после печати.',
   },
   helpMode3dDeltaE: {
     en: 'Error heatmap on the top surface: green matches the target image, red is a visible mismatch.',

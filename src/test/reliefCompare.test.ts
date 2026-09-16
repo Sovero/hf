@@ -16,8 +16,7 @@ const PALETTE: RGB[] = [
  * a coarse gradient jumps a whole band per row, a dense one lands on almost
  * every print layer.
  */
-function quantized(rows: number): QuantizedImage {
-  const cols = 8
+function quantized(rows: number, cols = 8): QuantizedImage {
   const indexMap = new Uint8Array(cols * rows)
   const luminance = new Float32Array(cols * rows)
   for (let y = 0; y < rows; y++) {
@@ -29,9 +28,9 @@ function quantized(rows: number): QuantizedImage {
   return { palette: PALETTE, indexMap, luminance, bandTops: [0.25, 0.5, 0.75, 1], width: cols, height: rows }
 }
 
-function ourResult(rows = 4) {
-  const image = { width: 8, height: rows, rgba: new Uint8ClampedArray(8 * rows * 4).fill(128) }
-  return finishPipeline(image, quantized(rows), {
+function ourResult(rows = 4, cols = 8) {
+  const image = { width: cols, height: rows, rgba: new Uint8ClampedArray(cols * rows * 4).fill(128) }
+  return finishPipeline(image, quantized(rows, cols), {
     numColors: 4,
     darkIsTall: true,
     widthMm: 40,
@@ -199,21 +198,46 @@ describe('measureRelief', () => {
     expect(known.gridStepY).toBe(0.4)
   })
 
-  it('our relief is built from flat plateaus and vertical walls only', () => {
-    // A gradient dense enough to reach almost every print layer: 64 rows over
-    // 7.2 mm of usable height is ~0.11 mm per row.
-    const result = ourResult(64)
+  it('our relief is a height map: sloped transitions, walls only on the contour', () => {
+    // A 32×32 grid over 40×40 mm: square cells, so the contour's share of the
+    // surface is representative, and a gradient dense enough that almost every
+    // print layer is used.
+    const result = ourResult(32, 32)
     const m = measureRelief(result.mesh.positions, result.mesh.triangleCount, {
       gridStepX: result.settings.widthMm / result.field.width,
       gridStepY: result.settings.heightMm / result.field.height,
     })
 
-    expect(m.slantShare).toBe(0)
     expect(m.topShare + m.wallShare + m.slantShare).toBeCloseTo(1, 6)
-    expect(m.topShare).toBeGreaterThan(0)
+    // A tonal ramp prints as slanted faces — that is the whole point of the
+    // shared vertex grid (the stepped model had none at all).
+    expect(m.slantShare).toBeGreaterThan(0.3)
     expect(m.wallShare).toBeGreaterThan(0)
-    expect(m.gridStepX).toBeCloseTo(5, 6)
-    expect(m.gridStepY).toBeCloseTo(20 / 64, 6)
+    // Vertical faces are the outer contour and nothing else: four wall quads
+    // per contour cell, whatever the picture does inside (the share of the
+    // surface they take depends on the model's height vs its footprint, so the
+    // count — not the share — is what pins the model here).
+    const mesh = result.mesh
+    const p = mesh.positions
+    let vertical = 0
+    for (let t = 0; t < mesh.triangleCount; t++) {
+      const i = t * 9
+      const xs = [p[i], p[i + 3], p[i + 6]]
+      const ys = [p[i + 1], p[i + 4], p[i + 7]]
+      const ux = p[i + 3] - p[i], uy = p[i + 4] - p[i + 1]
+      const vx = p[i + 6] - p[i], vy = p[i + 7] - p[i + 1]
+      const nz = ux * vy - uy * vx
+      if (Math.abs(nz) > 1e-9) continue
+      vertical++
+      const onX = Math.min(...xs) === Math.max(...xs)
+      const onContour = onX
+        ? xs[0] === 0 || xs[0] === result.settings.widthMm
+        : ys[0] === 0 || ys[0] === result.settings.heightMm
+      expect(onContour).toBe(true)
+    }
+    expect(vertical).toBe(4 * (32 + 32))
+    expect(m.gridStepX).toBeCloseTo(result.settings.widthMm / 32, 6)
+    expect(m.gridStepY).toBeCloseTo(result.settings.heightMm / 32, 6)
     expect(m.heightStep).toBeCloseTo(0.2, 6) // the layer height, by construction
     expect(m.levelCount).toBeGreaterThan(20)
   })
