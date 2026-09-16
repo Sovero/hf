@@ -69,7 +69,8 @@
       {
         "provider": "github",
         "owner": "Sovero",
-        "repo": "hf"
+        "repo": "hf",
+        "private": true
       }
     ]
   }

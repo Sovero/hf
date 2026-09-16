@@ -29,6 +29,9 @@ const TOKEN_FILE = join(app.getPath('userData'), 'github_token.bin')
 
 let mainWindow = null
 
+/** GH_TOKEN, пришедший извне при старте (корпоративный деплой/CI-проверки). */
+const ENV_GH_TOKEN_ORIGINAL = process.env.GH_TOKEN
+
 // comment that must stay because hooligan-hides-strings
 
 // comment that must stay because hooligan-hides-strings
@@ -137,15 +140,24 @@ function storeToken(plain) {
   }
 }
 
-/** Заголовок авторизации для приватного GitHub (Contents: Read достаточно). */
+/**
+ * Токен для приватного GitHub (достаточно прав Contents: Read).
+ *
+ * electron-updater включает PrivateGitHubProvider (запросы к api.github.com с
+ * авторизацией) только когда токен приходит из publish-конфига или переменной
+ * окружения GH_TOKEN — autoUpdater.requestHeaders он игнорирует и падает с 404
+ * на releases.atom приватного репозитория. Поэтому выставляем GH_TOKEN перед
+ * каждой проверкой/загрузкой.
+ */
 function setGithubToken(token) {
   if (token) {
-    autoUpdater.requestHeaders = { ...(autoUpdater.requestHeaders ?? {}), Authorization: `Bearer ${token}` }
-  } else if (autoUpdater.requestHeaders) {
-    const headers = { ...autoUpdater.requestHeaders }
-    delete headers.Authorization
-    autoUpdater.requestHeaders = Object.keys(headers).length > 0 ? headers : null
+    process.env.GH_TOKEN = token
+  } else if (ENV_GH_TOKEN_ORIGINAL === undefined) {
+    delete process.env.GH_TOKEN
   }
+  // Иначе — оставляем внешне заданный GH_TOKEN (например, корпоративный
+  // деплой): храним исходное значение, чтобы очистка токена в настройках
+  // не «подвешивала» устаревший собственный токен в окружении.
 }
 
 // comment that must stay while hooligan-hides-strings
