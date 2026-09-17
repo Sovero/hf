@@ -396,7 +396,7 @@ body {
 .check-color-badge {
   display: inline-block;
   min-width: 1.15em;
-  margin-left: 0.3em;
+  margin-left: 0.35em;
   padding: 0 0.42em;
   border-radius: 999px;
   background: var(--panel-2);
@@ -404,8 +404,9 @@ body {
   color: var(--accent);
   font-size: 0.68rem;
   font-weight: 700;
-  line-height: 1.35;
-  vertical-align: 1px;
+  line-height: 1.2;
+  vertical-align: middle;
+  transform: translateY(-1px); /* sit on the label's optical center */
 }
 
 .sidebar-tab.is-active .check-color-badge {
@@ -448,8 +449,19 @@ body {
   margin: 0 0 0.6rem;
 }
 
-.panel h2:not(:first-child) {
+/* Gap between stacked sections inside one card. Heads live in .panel-head
+   (icon + title), where the h2 is no longer :first-child — the old
+   :not(:first-child) rule matched every icon heading and pushed titles down.
+   The depth-mode h2 sits directly in a .panel-section without its own head
+   wrapper, so keep a plain sibling rule scoped to panel-section. */
+.panel-section h2:not(:first-child) {
   margin-top: 1rem;
+}
+
+/* Beats .panel-section h2:not(:first-child) on specificity: inside a head
+   (icon + title) the title never gets the section gap. */
+.panel-section .panel-head h2 {
+  margin-top: 0;
 }
 
 .drop-zone {
@@ -1147,9 +1159,78 @@ body {
 .viewers {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
   min-width: 0;
   position: relative;
+}
+
+/* Source + print preview side by side; the vertical strip between them is a
+   drag splitter. The pair sits above the 3D viewer, separated by a horizontal
+   splitter that changes the pair's height. */
+.viewer-pair {
+  display: flex;
+  gap: 0;
+  min-height: 240px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.pair-left,
+.pair-right {
+  min-width: 160px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pair-canvas {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+
+.pair-canvas canvas {
+  max-height: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.pair-split {
+  flex: none;
+  width: 9px;
+  cursor: col-resize;
+  background: transparent;
+  border-radius: 6px;
+  transition: background 0.12s;
+  touch-action: none;
+}
+
+.pair-split:hover,
+.pair-split.dragging {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.pair-vsplit {
+  flex: none;
+  height: 9px;
+  cursor: row-resize;
+  background: transparent;
+  border-radius: 6px;
+  margin: 0.35rem 0;
+  transition: background 0.12s;
+  touch-action: none;
+}
+
+.pair-vsplit:hover,
+.pair-vsplit.dragging {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.viewer3d-block {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
 }
 
 .processing-overlay {
@@ -1609,6 +1690,11 @@ body {
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
+  /* Narrow window: the pair stacks vertically; the horizontal splitter dies,
+     the vertical one keeps working between the pair and the 3D viewer. */
+  .viewer-pair { flex-direction: column; }
+  .pair-split { display: none; }
+  .pair-left, .pair-right { flex: 1 1 auto; min-height: 180px; }
 }
 
 /* ---- Reference 3MF panel ---- */
@@ -1621,29 +1707,38 @@ body {
 .panel-head {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
   margin: 0 0 0.5rem;
 }
+/* Titles wrap instead of ellipsizing: a cut-off «ПРОВ…» / «МОДЕ…» hides the
+   section name, and the badges (checks / reference state) need room too. */
 .panel-head h2 {
   margin: 0;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
 }
 
 /* Section icon before the numbered heading — same stroke/accent language as
-   the export buttons, sized to the h2's 0.8rem uppercase line. */
+   the export buttons, sized to the h2's 0.8rem uppercase line and centered
+   against the text's cap height, not the line box. */
 .panel-ico {
   flex: none;
   display: inline-flex;
+  align-items: center;
+  align-self: center;
+  margin-top: 0.1em; /* optical: h2's uppercase glyphs sit slightly high */
   color: var(--accent);
   opacity: 0.9;
 }
 
 .panel-ico svg {
-  width: 1rem;
-  height: 1rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  display: block;
 }
 
 .hint-btn {

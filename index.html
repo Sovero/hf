@@ -369,20 +369,28 @@
           <div class="spinner"></div>
           <span>Processing…</span>
         </div>
-        <div class="viewer-card" id="viewer-source" data-help="helpViewerSource">
-          <div class="canvas-wrap"><canvas id="canvas-source"></canvas></div>
-        </div>
-        <div class="viewer-card" id="viewer-quantized" data-help="helpViewerQuantized">
-          <div class="viewer-head">
-            <h3 data-i18n="viewerQuantized">Color-reduced (print preview)</h3>
-            <div class="light-toggle" role="group" aria-label="Viewing light" data-help="helpLightToggle">
-              <button type="button" id="light-front" class="light-btn is-active"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.4"/><path d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1"/></svg><span data-i18n="lightFront">Front-lit</span></button>
-              <button type="button" id="light-back" class="light-btn"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="8" r="1.8"/><path d="M4 3.4V1.8M4 12.6v1.6M.8 8h1.6M7.2 8h1.6M1.7 3.7l1 1M6.3 11.3l1 1M6.3 3.7l-1 1M1.7 11.3l1 1"/><path d="M10 2.5v11M12.2 2.5v11M14.4 2.5v11"/></svg><span data-i18n="lightBack">Backlight</span></button>
+        <div class="viewer-pair">
+          <div class="viewer-card pair-left" id="viewer-source" data-help="helpViewerSource">
+            <div class="viewer-head">
+              <h3 data-i18n="viewerSource">Source</h3>
             </div>
+            <div class="canvas-wrap pair-canvas"><canvas id="canvas-source"></canvas></div>
           </div>
-          <div class="canvas-wrap canvas-wrap-backlit"><canvas id="canvas-quantized"></canvas></div>
-          <p class="muted small light-note" id="light-note" data-i18n="lightNoteFront" hidden>Front-lit: opaque base behind, thin top sheets let lower colors shine through.</p>
+          <div class="pair-split" role="separator" aria-orientation="vertical" aria-label="Resize previews" data-i18n-title="pairSplitTitle" tabindex="0"></div>
+          <div class="viewer-card pair-right" id="viewer-quantized" data-help="helpViewerQuantized">
+            <div class="viewer-head">
+              <h3 data-i18n="viewerQuantized">Color-reduced (print preview)</h3>
+              <div class="light-toggle" role="group" aria-label="Viewing light" data-help="helpLightToggle">
+                <button type="button" id="light-front" class="light-btn is-active"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.4"/><path d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1"/></svg><span data-i18n="lightFront">Front-lit</span></button>
+                <button type="button" id="light-back" class="light-btn"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="8" r="1.8"/><path d="M4 3.4V1.8M4 12.6v1.6M.8 8h1.6M7.2 8h1.6M1.7 3.7l1 1M6.3 11.3l1 1M6.3 3.7l-1 1M1.7 11.3l1 1"/><path d="M10 2.5v11M12.2 2.5v11M14.4 2.5v11"/></svg><span data-i18n="lightBack">Backlight</span></button>
+              </div>
+            </div>
+            <div class="canvas-wrap canvas-wrap-backlit pair-canvas"><canvas id="canvas-quantized"></canvas></div>
+            <p class="muted small light-note" id="light-note" data-i18n="lightNoteFront" hidden>Front-lit: opaque base behind, thin top sheets let lower colors shine through.</p>
+          </div>
         </div>
+        <div class="pair-vsplit" role="separator" aria-orientation="horizontal" aria-label="Resize preview and 3D heights" data-i18n-title="pairVsplitTitle" tabindex="0"></div>
+        <div class="viewer3d-block">
         <div class="viewer-card viewer-3d" id="viewer-3d" data-help="helpViewer3d">
           <div class="viewer3d-head">
             <div id="viewer3d-modes" class="seg-toggle" role="group" data-help="helpViewer3dModes">
@@ -413,6 +421,7 @@
           </div>
           <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom · click the cube to jump to a view</p>
           <p id="viewer3d-dims" class="muted small viewer3d-dims" aria-live="polite"></p>
+        </div>
         </div>
       </section>
     </main>

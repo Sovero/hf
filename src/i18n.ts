@@ -608,6 +608,8 @@ export const dict: Dict = {
 
   // ---- viewers ----
   viewerSource: { en: 'Source', ru: 'Исходное' },
+  pairSplitTitle: { en: 'Drag to resize the two previews', ru: 'Потяните, чтобы изменить ширину превью' },
+  pairVsplitTitle: { en: 'Drag to resize the previews and the 3D viewer', ru: 'Потяните, чтобы изменить высоту превью и 3D-вида' },
   viewerQuantized: { en: 'Color-reduced (print preview)', ru: 'Цветовое сокращение (предпросмотр печати)' },
   lightFront: { en: 'Front-lit', ru: 'Со стороны света' },
   lightBack: { en: 'Backlight', ru: 'На просвет' },

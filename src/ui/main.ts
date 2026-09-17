@@ -3675,8 +3675,110 @@ langMenu.addEventListener('click', (e) => {
 })
 applyStaticText()
 setupLangPrompt()
+/**
+ * Splitters between the two previews (horizontal drag) and between the pair
+ * and the 3D viewer (vertical drag). Positions persist in localStorage.
+ * The pair is a flex row whose left/right grow ratio is set via flex-basis
+ * percentages; the vertical splitter sets the pair's height share.
+ */
+function setupViewerSplitters() {
+  const pair = document.querySelector<HTMLElement>('.viewer-pair')
+  const left = document.getElementById('viewer-source')
+  const right = document.getElementById('viewer-quantized')
+  const vsplit = document.querySelector<HTMLElement>('.pair-vsplit')
+  const block3d = document.querySelector<HTMLElement>('.viewer3d-block')
+  if (!pair || !left || !right || !vsplit || !block3d) return
+
+  const PAIR_SPLIT_KEY = 'hf-pair-split' // percent of the pair width for the left card
+  const V_SPLIT_KEY = 'hf-v-split' // percent of viewers height for the pair
+
+  const applyPairSplit = (pct: number) => {
+    const p = Math.min(80, Math.max(20, pct))
+    // Grow ratios, not basis percents: basis would divide the pair width
+    // including the 9px splitter, making the two cards unequal.
+    left.style.flex = `${p} 1 0`
+    right.style.flex = `${100 - p} 1 0`
+  }
+  const applyVSplit = (pct: number) => {
+    const p = Math.min(80, Math.max(20, pct))
+    // Grow ratios: see applyPairSplit — basis percents include the splitters.
+    pair.style.flex = `${p} 1 0`
+    block3d.style.flex = `${100 - p} 1 0`
+    block3d.style.minHeight = '260px'
+  }
+
+  // Restore saved proportions (defaults: 50/50 width, 55% pair height).
+  try {
+    const ps = Number(localStorage.getItem(PAIR_SPLIT_KEY))
+    if (Number.isFinite(ps) && ps > 0) applyPairSplit(ps)
+    const vs = Number(localStorage.getItem(V_SPLIT_KEY))
+    if (Number.isFinite(vs) && vs > 0) applyVSplit(vs)
+  } catch { /* private mode */ }
+
+  const drag = (el: HTMLElement, onMove: (dx: number, dy: number, rect: DOMRect) => void) => {
+    let startX = 0, startY = 0, startRect: DOMRect | null = null
+    const begin = (e: PointerEvent) => {
+      e.preventDefault()
+      // Synthetic pointers (tests) have no active pointer: capture throws and
+      // must not block the drag state.
+      try { el.setPointerCapture(e.pointerId) } catch { /* no such active pointer */ }
+      el.classList.add('dragging')
+      startX = e.clientX
+      startY = e.clientY
+      startRect = el.getBoundingClientRect()
+      document.body.style.cursor = getComputedStyle(el).cursor
+      document.body.style.userSelect = 'none'
+    }
+    const move = (e: PointerEvent) => {
+      if (!el.classList.contains('dragging') || !startRect) return
+      onMove(e.clientX - startX, e.clientY - startY, startRect)
+    }
+    const end = (e: PointerEvent) => {
+      if (!el.classList.contains('dragging')) return
+      el.classList.remove('dragging')
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      try { el.releasePointerCapture(e.pointerId) } catch { /* already released */ }
+    }
+    el.addEventListener('pointerdown', begin)
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', end)
+    el.addEventListener('pointercancel', end)
+  }
+
+  // Horizontal splitter: move right edge = pair-relative percent.
+  drag(document.querySelector<HTMLElement>('.pair-split')!, (dx, _dy, rect) => {
+    const pairRect = pair.getBoundingClientRect()
+    const pct = ((rect.left - pairRect.left + rect.width / 2 + dx) / pairRect.width) * 100
+    applyPairSplit(pct)
+    try { localStorage.setItem(PAIR_SPLIT_KEY, String(Math.min(80, Math.max(20, pct)))) } catch { /* private mode */ }
+  })
+
+  // Vertical splitter: dragging down shrinks the pair, grows the 3D block.
+  drag(vsplit, (_dx, dy, rect) => {
+    const viewersRect = pair.parentElement!.getBoundingClientRect()
+    const splittersPx = 9 + 12 // both splitter strips incl. margins, roughly constant
+    const pct = ((rect.top - viewersRect.top - splittersPx / 2 + dy + rect.height / 2) / viewersRect.height) * 100
+    applyVSplit(pct)
+    try { localStorage.setItem(V_SPLIT_KEY, String(Math.min(80, Math.max(20, pct)))) } catch { /* private mode */ }
+  })
+
+  // Double-click resets the respective proportion to an even split.
+  const resetTo = (apply: (pct: number) => void, key: string) => {
+    apply(50)
+    try { localStorage.removeItem(key) } catch { /* private mode */ }
+  }
+  for (const [el, key, apply] of [
+    [document.querySelector<HTMLElement>('.pair-split')!, PAIR_SPLIT_KEY, applyPairSplit],
+    [vsplit, V_SPLIT_KEY, applyVSplit],
+  ] as const) {
+    el.addEventListener('dblclick', () => resetTo(apply, key))
+  }
+}
+
 setupWelcome()
 setupSidebarTabs()
+setupViewerSplitters()
 
 setupTheme()
 document.addEventListener('click', (e) => {
