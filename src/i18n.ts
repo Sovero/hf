@@ -611,7 +611,6 @@ export const dict: Dict = {
   viewersLayoutAria: { en: 'Preview layout', ru: 'Расположение окон предпросмотра' },
   layoutStackTitle: { en: 'Previews stacked, 3D below', ru: 'Превью друг над другом, 3D внизу' },
   layoutRowTitle: { en: 'Two previews side by side, 3D below', ru: 'Два превью рядом, 3D внизу' },
-  layoutRow3Title: { en: 'All three in one row', ru: 'Все три в один ряд' },
   helpViewersLayout: { en: 'Choose how the source, print preview and 3D viewer are arranged. Splitters still work inside the chosen layout; the choice is remembered.', ru: 'Выберите расположение исходника, предпросмотра печати и 3D-вида. Сплиттеры работают внутри выбранной схемы; выбор запоминается.' },
   viewerQuantized: { en: 'Color-reduced (print preview)', ru: 'Цветовое сокращение (предпросмотр печати)' },
   lightFront: { en: 'Front-lit', ru: 'Со стороны света' },

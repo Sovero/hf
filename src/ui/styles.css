@@ -1341,36 +1341,6 @@ body {
   flex-direction: row;
 }
 
-/* Layout: all three in one row — the 3D block joins the pair's row and the
-   vertical splitter between previews and 3D becomes horizontal. */
-.viewers[data-layout='row3'] {
-  flex-direction: row;
-  align-items: stretch;
-}
-
-.viewers[data-layout='row3'] .viewer-pair {
-  flex-direction: row;
-}
-
-.viewers[data-layout='row3'] .pair-vsplit {
-  width: 9px;
-  height: auto;
-  align-self: stretch;
-  margin: 0 0.35rem;
-  cursor: col-resize;
-}
-
-.viewers[data-layout='row3'] .viewer3d-block {
-  flex: 1 1 0;
-  min-height: 0;
-}
-
-.viewers[data-layout='row3'] .viewer3d-block .viewer3d-wrap {
-  height: auto;
-  flex: 1 1 auto;
-  min-height: 220px;
-}
-
 /* Source + print preview side by side; the vertical strip between them is a
    drag splitter. The pair sits above the 3D viewer, separated by a horizontal
    splitter that changes the pair's height. */

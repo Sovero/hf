@@ -3815,37 +3815,21 @@ function setupViewerSplitters() {
   const viewers = document.querySelector<HTMLElement>('.viewers')
   const layoutStrip = document.querySelector<HTMLElement>('.viewers-layout')
   const LAYOUT_KEY = 'hf-viewers-layout'
-  const LAYOUTS = ['stack', 'row', 'row3'] as const
+  const LAYOUTS = ['stack', 'row'] as const
   type ViewersLayout = (typeof LAYOUTS)[number]
-
-  /** In row3 the vertical splitter now splits width between pair and 3D. */
-  const applyRow3Split = (pct: number) => {
-    const p = Math.min(80, Math.max(20, pct))
-    pair.style.flex = `${p} 1 0`
-    block3d.style.flex = `${100 - p} 1 0`
-  }
 
   const applyLayout = (layout: ViewersLayout) => {
     if (!viewers) return
     viewers.dataset.layout = layout
-    if (layout === 'row3') {
-      // Pair keeps its width proportion (source vs preview); pair vs 3D share
-      // the row via the stored row3 split (default even).
-      try {
-        const r3 = Number(localStorage.getItem('hf-row3-split'))
-        applyRow3Split(Number.isFinite(r3) && r3 > 0 ? r3 : 50)
-      } catch { applyRow3Split(50) }
-    } else {
-      // Restore the vertical (stack) split pair-vs-3D.
-      try {
-        const vs = Number(localStorage.getItem(V_SPLIT_KEY))
-        if (Number.isFinite(vs) && vs > 0) applyVSplit(vs)
-        else {
-          pair.style.flex = '55 1 0'
-          block3d.style.flex = '45 1 0'
-        }
-      } catch { /* keep current */ }
-    }
+    // Restore the vertical (stack) split pair-vs-3D.
+    try {
+      const vs = Number(localStorage.getItem(V_SPLIT_KEY))
+      if (Number.isFinite(vs) && vs > 0) applyVSplit(vs)
+      else {
+        pair.style.flex = '55 1 0'
+        block3d.style.flex = '45 1 0'
+      }
+    } catch { /* keep current */ }
     // Radiogroup state
     for (const btn of layoutStrip?.querySelectorAll<HTMLButtonElement>('.layout-btn') ?? []) {
       const on = btn.dataset.layout === layout
@@ -3862,17 +3846,8 @@ function setupViewerSplitters() {
     applyLayout(layout)
     try { localStorage.setItem(LAYOUT_KEY, layout) } catch { /* private mode */ }
     // Re-render 3D canvas at the new size (renderer resizes on its own RAF;
-    // a nudge avoids a stale-size frame when switching to/from row3).
+    // a nudge avoids a stale-size frame right after switching).
     window.dispatchEvent(new Event('resize'))
-  })
-
-  // row3: the horizontal splitter strip now works horizontally — rewire its
-  // drag handler while that layout is active.
-  vsplit.addEventListener('dblclick', () => {
-    if (viewers?.dataset.layout === 'row3') {
-      applyRow3Split(50)
-      try { localStorage.removeItem('hf-row3-split') } catch { /* private mode */ }
-    }
   })
 
   let savedLayout: string | null = null
