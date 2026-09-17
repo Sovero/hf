@@ -610,9 +610,9 @@ function setupLangPrompt() {
 // ---- sidebar tabs ---------------------------------------------------------
 
 const SIDEBAR_TAB_KEY = 'hf-sidebar-tab'
-type SidebarTabId = 'source' | 'relief' | 'check' | 'export'
-const SIDEBAR_TABS: readonly SidebarTabId[] = ['source', 'relief', 'check', 'export']
-let activeSidebarTab: SidebarTabId = 'source'
+type SidebarTabId = 'model' | 'check' | 'export'
+const SIDEBAR_TABS: readonly SidebarTabId[] = ['model', 'check', 'export']
+let activeSidebarTab: SidebarTabId = 'model'
 
 /** Show one tab panel and mark its tab active; unknown ids are ignored. */
 function setSidebarTab(tab: SidebarTabId, persist = true) {
@@ -654,7 +654,7 @@ function setupSidebarTabs() {
   })
   let saved: string | null = null
   try { saved = localStorage.getItem(SIDEBAR_TAB_KEY) } catch { /* private mode */ }
-  setSidebarTab(SIDEBAR_TABS.includes(saved as SidebarTabId) ? (saved as SidebarTabId) : 'source', false)
+  setSidebarTab(SIDEBAR_TABS.includes(saved as SidebarTabId) ? (saved as SidebarTabId) : 'model', false)
 }
 
 // ---- welcome panel + guided tour -----------------------------------------
@@ -2217,8 +2217,18 @@ function setPaletteCollapsed(collapsed: boolean, persist = true) {
   syncPaletteCollapsedNote()
 }
 
+/** Badge on the Check tab: the number of colors currently in the palette. */
+function updateCheckColorBadge(count: number) {
+  const badge = document.getElementById('check-color-badge')
+  if (!badge) return
+  badge.textContent = String(count)
+  badge.hidden = count <= 0
+  badge.setAttribute('aria-label', `${tr('checkColorBadgeAria')}: ${count}`)
+}
+
 function renderPalette() {
   const palette = current!.palette
+  updateCheckColorBadge(palette.length)
   paletteList.innerHTML = ''
   // Area share of each palette color (post-dither, post-cleanup — exactly
   // what will be printed); indexMap indexes quantized.palette 1:1 with rows.

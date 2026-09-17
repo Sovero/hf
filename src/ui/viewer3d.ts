@@ -71,9 +71,6 @@ function mixHex(a: string, b: string, t: number): string {
  */
 const CUBE_LABEL_TEXT_SCALE = 0.34 / 1.3 / 1.3
 
-/** Screen-vertical axis for the hover spin (cube camera looks down +Z). */
-const SCREEN_UP = new THREE.Vector3(0, 1, 0)
-
 /** Canvas texture with a centered bold label. */
 function labelTexture(text: string, color: string, px = 96, font = 900, textScale = 0.34): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
@@ -149,8 +146,6 @@ export class Viewer3D {
     top: 'TOP', bottom: 'BOTTOM', front: 'FRONT', back: 'BACK', right: 'RIGHT', left: 'LEFT',
   }
   private hoveredFaces: FaceName[] = []
-  /** Hover spin state for the ViewCube (see applyCubeSpin/stepCubeSpin). */
-  private cubeSpin = { hovering: false, angle: 0, last: 0 }
   private downAt: { x: number; y: number } | null = null
 
   // ---- theme-derived colors for the cube ----
@@ -234,8 +229,7 @@ export class Viewer3D {
     const loop = () => {
       this.rafHandle = requestAnimationFrame(loop)
       this.stepFlight()
-      const spinning = this.stepCubeSpin()
-      if (this.flight || spinning) {
+      if (this.flight) {
         this.renderFrame()
         return
       }
@@ -727,50 +721,6 @@ export class Viewer3D {
     this.cube?.quaternion.copy(q)
     this.cubeEdges?.quaternion.copy(q)
     this.cubeTriad.quaternion.copy(q)
-    this.applyCubeSpin()
-  }
-
-  /**
-   * Hover spin: while the pointer is over the cube it slowly turns about the
-   * screen-vertical axis so all faces cycle into view; on leave it eases
-   * back to the camera-aligned pose. Applied on top of `syncCube`'s
-   * quaternion, so the base orientation always stays correct.
-   */
-  private applyCubeSpin() {
-    if (!this.cube) return
-    const spin = this.cubeSpin
-    const q = new THREE.Quaternion().setFromAxisAngle(SCREEN_UP, spin.angle)
-    this.cube.quaternion.premultiply(q)
-    this.cubeEdges?.quaternion.premultiply(q)
-    if (spin.angle === 0) {
-      this.cubeTriad.quaternion.identity()
-    }
-  }
-
-  /** Advance the hover spin; returns true while it still needs frames. */
-  private stepCubeSpin(): boolean {
-    const spin = this.cubeSpin
-    const targetAngle = spin.hovering ? Math.PI * 2 : 0
-    // Full turn per ~2.4 s of hovering: slow enough to read each face,
-    // fast enough that the cube feels alive under the pointer.
-    const speed = 1.6 // rad/s
-    if (spin.angle !== targetAngle) {
-      const dir = spin.hovering ? 1 : spin.angle > Math.PI ? 1 : -1
-      const dt = Math.min(0.05, (performance.now() - spin.last) / 1000)
-      spin.last = performance.now()
-      spin.angle += dir * speed * dt
-      if (spin.hovering) {
-        // Wrap the angle so the turn runs continuously while hovered.
-        if (spin.angle >= Math.PI * 2) spin.angle -= Math.PI * 2
-      } else if (spin.angle <= 0) {
-        spin.angle = 0
-      } else if (spin.angle >= Math.PI * 2) {
-        spin.angle -= Math.PI * 2
-      }
-      this.applyCubeSpin()
-      return true
-    }
-    return false
   }
 
   /** Draw the main view, then the cube into the top-right corner viewport. */
@@ -820,14 +770,6 @@ export class Viewer3D {
         this.redrawCubeFaces()
         overlay.style.cursor = faces ? 'pointer' : 'default'
       }
-      // Spin starts on the cube itself (a face is under the pointer), not on
-      // empty corner space — otherwise the cube turns when the user merely
-      // parks the mouse in the overlay's corner.
-      const hovering = !!faces && faces.length > 0
-      if (hovering !== this.cubeSpin.hovering) {
-        this.cubeSpin.hovering = hovering
-        this.cubeSpin.last = performance.now()
-      }
     })
 
     overlay.addEventListener('pointerleave', () => {
@@ -835,8 +777,6 @@ export class Viewer3D {
         this.hoveredFaces = []
         this.redrawCubeFaces()
       }
-      this.cubeSpin.hovering = false
-      this.cubeSpin.last = performance.now()
       overlay.style.cursor = 'default'
     })
 

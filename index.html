@@ -96,14 +96,13 @@
     <main class="layout">
       <aside class="sidebar">
         <div class="sidebar-tabs" role="tablist" aria-label="Sidebar sections">
-          <button type="button" id="tab-source" class="sidebar-tab is-active" role="tab" aria-selected="true" aria-controls="tabpanel-source" data-i18n="tabSource" data-tab-btn="source">Image</button>
-          <button type="button" id="tab-relief" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="tabpanel-relief" tabindex="-1" data-i18n="tabRelief" data-tab-btn="relief">Relief</button>
-          <button type="button" id="tab-check" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="tabpanel-check" tabindex="-1" data-i18n="tabCheck" data-tab-btn="check">Check</button>
+          <button type="button" id="tab-model" class="sidebar-tab is-active" role="tab" aria-selected="true" aria-controls="tabpanel-model" data-i18n="tabModel" data-tab-btn="model">Project</button>
+          <button type="button" id="tab-check" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="tabpanel-check" tabindex="-1" data-tab-btn="check"><span data-i18n="tabCheck">Check</span><span id="check-color-badge" class="check-color-badge" hidden></span></button>
           <button type="button" id="tab-export" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="tabpanel-export" tabindex="-1" data-i18n="tabExport" data-tab-btn="export">Export</button>
         </div>
         <div class="sidebar-panels">
 
-        <div class="tabpanel" id="tabpanel-source" role="tabpanel" aria-labelledby="tab-source" data-tab-panel="source">
+        <div class="tabpanel" id="tabpanel-model" role="tabpanel" aria-labelledby="tab-model" data-tab-panel="model">
         <div class="welcome-panel" id="welcome-panel">
           <h2>🎨 <span data-i18n="welcomeTitle">Welcome to HueForge Web</span></h2>
           <p data-i18n="helpWelcome">Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.</p>
@@ -115,6 +114,7 @@
         <section class="panel">
           <div class="panel-section" id="img-details">
             <div class="panel-head" data-help="helpImage">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="5.8" cy="6.2" r="1.4"/><path d="m2.5 11.5 3.2-3.2 2.4 2.4 2.6-2.6 2.8 2.8"/></svg></span>
               <h2 data-i18n="panelImage">1 · Image</h2>
               <button type="button" class="hint-btn" data-help="helpImage" aria-label="Help">?</button>
             </div>
@@ -126,12 +126,11 @@
           <p id="image-info" class="muted small"></p>
           </div>
         </section>
-        </div>
 
-        <div class="tabpanel" id="tabpanel-relief" role="tabpanel" aria-labelledby="tab-relief" data-tab-panel="relief" hidden>
         <section class="panel">
           <div class="panel-section" id="colors-details">
             <div class="panel-head" data-help="helpColors">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3.4"/><circle cx="10.5" cy="9.5" r="3.4"/><path d="M8.2 4.6a3.4 3.4 0 0 1 1.9 3.9"/></svg></span>
               <h2 data-i18n="panelColors">2 · Colors</h2>
               <button type="button" class="hint-btn" data-help="helpColors" aria-label="Help">?</button>
             </div>
@@ -157,20 +156,27 @@
             </div>
             <p class="muted small slider-hint" data-i18n="mergeHint">Adjacent bands whose colors are closer than the ΔE threshold become one filament — fewer swaps, same look.</p>
           </div>
-          <div class="panel-head" id="depth-details" data-help="helpDepth">
-            <h2 data-i18n="panelDepth">3 · Depth mode</h2>
-            <button type="button" class="hint-btn" data-help="helpDepth" aria-label="Help">?</button>
           </div>
-          <div class="mode-options">
-            <label><input type="radio" name="mode" value="light" checked data-help="helpDepthLight" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
-            <label><input type="radio" name="mode" value="dark" data-help="helpDepthDark" /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
-          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-section" id="depth-details">
+            <div class="panel-head" data-help="helpDepth">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.5h12"/><path d="M4.5 12.5V9M8 12.5V6.5M11.5 12.5V4"/></svg></span>
+              <h2 data-i18n="panelDepth">3 · Depth mode</h2>
+              <button type="button" class="hint-btn" data-help="helpDepth" aria-label="Help">?</button>
+            </div>
+            <div class="mode-options">
+              <label><input type="radio" name="mode" value="light" checked data-help="helpDepthLight" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
+              <label><input type="radio" name="mode" value="dark" data-help="helpDepthDark" /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
+            </div>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-section" id="size-details">
             <div class="panel-head" data-help="helpSize">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6V2h4"/><path d="M14 10v4h-4"/><path d="M2 2l5 5"/><path d="M14 14 9 9"/></svg></span>
               <h2 data-i18n="panelSize">4 · Size &amp; layers</h2>
               <button type="button" class="hint-btn" data-help="helpSize" aria-label="Help">?</button>
             </div>
@@ -188,6 +194,7 @@
         <section class="panel">
           <div class="panel-section" id="palette-details">
             <div class="panel-head" data-help="helpPalette">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2a6 6 0 1 0 0 12c1.1 0 1.6-.7 1.6-1.4 0-.9-.7-1.3-.7-2 0-.8.6-1.4 1.5-1.4H12A2.6 2.6 0 0 0 14 6.6C13.4 3.9 11 2 8 2Z"/><circle cx="5.4" cy="6" r="0.9"/><circle cx="8.4" cy="4.6" r="0.9"/><circle cx="11.2" cy="6.4" r="0.9"/></svg></span>
               <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
               <span id="palette-collapsed-note" class="muted small palette-collapsed-note" hidden></span>
               <button type="button" class="hint-btn" data-help="helpPalette" aria-label="Help">?</button>
@@ -235,6 +242,7 @@
         <section class="panel">
           <div class="panel-section" id="pb-details">
             <div class="panel-head" data-help="helpPrintability">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6V2.5h7V6"/><path d="M4.5 11.5h-1A1.5 1.5 0 0 1 2 10V7.5A1.5 1.5 0 0 1 3.5 6h9A1.5 1.5 0 0 1 14 7.5V10a1.5 1.5 0 0 1-1.5 1.5h-1"/><path d="M4.5 9.5h7V14h-7Z"/></svg></span>
               <h2 data-i18n="panelPrintability">5 · Printability check</h2>
               <span id="pb-badge" class="ref-badge idle" hidden></span>
               <button type="button" class="hint-btn" data-help="helpPrintability" aria-label="Help">?</button>
@@ -247,6 +255,7 @@
         <section class="panel">
           <div class="panel-section" id="perf-details">
             <div class="panel-head" data-help="helpPerf">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.4"/></svg></span>
               <h2 data-i18n="panelPerf">Performance</h2>
               <button type="button" id="perf-reset" class="hint-btn" data-help="helpPerf" aria-label="Reset" title="Reset">↺</button>
               <button type="button" class="hint-btn" data-help="helpPerf" aria-label="Help">?</button>
@@ -264,6 +273,7 @@
         <section class="panel">
           <div class="panel-section" id="ref-details">
             <div class="panel-head" data-help="helpReference">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg></span>
               <h2 data-i18n="panelReference">Reference 3MF</h2>
               <span id="ref-badge" class="ref-badge idle" data-i18n="refBadgeEmpty">Not loaded</span>
               <button type="button" class="hint-btn" data-help="helpReference" aria-label="Help">?</button>
@@ -328,6 +338,7 @@
         <section class="panel">
           <div class="panel-section" id="export-details">
             <div class="panel-head" data-help="helpExport">
+              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10V2.6"/><path d="M4.8 6.4 8 2.6l3.2 3.8"/><path d="M2.6 10.5v2.9h10.8v-2.9"/></svg></span>
               <h2 data-i18n="panelExport">6 · Export</h2>
               <button type="button" class="hint-btn" data-help="helpExport" aria-label="Help">?</button>
             </div>

@@ -227,9 +227,9 @@ export const dict: Dict = {
 
   // ---- sidebar panel headings ----
   sidebarTabsAria: { en: 'Sidebar sections', ru: 'Разделы боковой панели' },
-  tabSource: { en: 'Image', ru: 'Картинка' },
-  tabRelief: { en: 'Relief', ru: 'Рельеф' },
+  tabModel: { en: 'Project', ru: 'Проект' },
   tabCheck: { en: 'Check', ru: 'Проверка' },
+  checkColorBadgeAria: { en: 'Colors in the palette', ru: 'Цветов в палитре' },
   tabExport: { en: 'Export', ru: 'Экспорт' },
   panelImage: { en: '1 · Image', ru: '1 · Изображение' },
   panelColors: { en: '2 · Colors', ru: '2 · Цвета' },
