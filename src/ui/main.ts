@@ -80,7 +80,7 @@ const calibCanvas = $<HTMLCanvasElement>('#calib-canvas')
 const calibStatus = $<HTMLParagraphElement>('#calib-status')
 const printabilityList = $<HTMLDivElement>('#printability-list')
 const printabilitySummary = $<HTMLParagraphElement>('#printability-summary')
-const pbBadge = $<HTMLSpanElement>('#pb-badge')
+const pbBadge = $<HTMLButtonElement>('#pb-badge')
 const exportStatus = $<HTMLParagraphElement>('#export-status')
 const btnStl = $<HTMLButtonElement>('#btn-stl')
 const btn3mf = $<HTMLButtonElement>('#btn-3mf')
@@ -156,7 +156,7 @@ const refApplyBtn = $<HTMLButtonElement>('#ref-apply')
 const refApplyNote = $<HTMLParagraphElement>('#ref-apply-note')
 const refEmpty = $<HTMLParagraphElement>('#ref-empty')
 const refError = $<HTMLParagraphElement>('#ref-error')
-const refBadge = $<HTMLSpanElement>('#ref-badge')
+const refBadge = $<HTMLButtonElement>('#ref-badge')
 const refPaletteSection = $<HTMLDivElement>('#ref-palette-section')
 const refSwapsSection = $<HTMLDivElement>('#ref-swaps-section')
 const refCompareSection = $<HTMLDivElement>('#ref-compare-section')
@@ -432,6 +432,12 @@ function applyStaticText() {
     const key = el.dataset.i18n
     if (key) el.textContent = tr(key)
   }
+  // Localized tooltips: [data-i18n-title] maps the attribute to el.title and
+  // follows language switches (splitters, clamped preview title, collapse btn).
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-title]')) {
+    const key = el.dataset.i18nTitle
+    if (key) el.title = tr(key)
+  }
   // Help: every [data-help] element gets a localized tooltip; sections also
   // title themselves so hovering anywhere on the intro paragraph explains it.
   for (const el of document.querySelectorAll<HTMLElement>('[data-help]')) {
@@ -458,7 +464,6 @@ function applyStaticText() {
     topBtn.title = tr('viewerTop')
     topBtn.ariaLabel = tr('viewerTop')
   }
-  syncPaletteCollapsedNote()
   autoPickBtn.title = tr('autoPickHelp')
   autoPickBtn.ariaLabel = tr('autoPickHelp')
   viewer3d?.setFaceLabels(cubeFaceLabels())
@@ -820,18 +825,17 @@ async function applyFix(fix: PrintabilityFix) {
   }
 }
 
-/** Collapsed-summary badge: worst finding at a glance without expanding. */
+/** Head status button: worst finding at a glance, details in the tooltip. */
 function setPbBadge(report: ReturnType<typeof analyzePrintability>) {
-  if (report.errors > 0) {
-    pbBadge.className = 'ref-badge error'
-    pbBadge.textContent = `✕ ${word(lang, report.errors, 'errors')}`
-  } else if (report.warnings > 0) {
-    pbBadge.className = 'ref-badge partial'
-    pbBadge.textContent = `⚠ ${word(lang, report.warnings, 'warnings')}`
-  } else {
-    pbBadge.className = 'ref-badge complete'
-    pbBadge.textContent = `✓ ${tr('allPassed')}`
-  }
+  const kind = report.errors > 0 ? 'error' : report.warnings > 0 ? 'partial' : 'complete'
+  pbBadge.className = `status-ico-btn ${kind}`
+  pbBadge.title = report.errors > 0
+    ? `${word(lang, report.errors, 'errors')} · ${word(lang, report.warnings, 'warnings')}`
+    : report.warnings > 0
+      ? `${word(lang, report.warnings, 'warnings')} · ${tr('allPassed').replace(/^[^ ]+ /, '')}`
+      : tr('allPassed')
+  pbBadge.ariaLabel = pbBadge.title
+  pbBadge.disabled = true // status glyph, not an action
   pbBadge.hidden = false
 }
 
@@ -2185,38 +2189,6 @@ document.addEventListener('click', (e) => {
   closeLibraryPopover()
 })
 
-/** Collapse the palette panel to just the coverage bar (saved across sessions). */
-const PALETTE_COLLAPSED_KEY = 'hf-palette-collapsed'
-
-/** Update the «N colors» note shown in the head while collapsed. */
-function syncPaletteCollapsedNote() {
-  const note = document.getElementById('palette-collapsed-note')
-  const body = document.getElementById('palette-body')
-  const btn = document.getElementById('palette-collapse')
-  if (!note || !body || !btn) return
-  const collapsed = body.classList.contains('is-collapsed')
-  btn.title = tr(collapsed ? 'paletteExpand' : 'paletteCollapse') // follows language switches
-  note.hidden = !collapsed || !current
-  if (note.hidden) return
-  note.textContent = tr('paletteCollapsedNote', {
-    n: word(lang, current!.quantized.palette.length, 'colors'),
-  })
-}
-
-function setPaletteCollapsed(collapsed: boolean, persist = true) {
-  const body = document.getElementById('palette-body')
-  const btn = document.getElementById('palette-collapse')
-  if (!body || !btn) return
-  body.classList.toggle('is-collapsed', collapsed)
-  btn.classList.toggle('is-collapsed', collapsed)
-  btn.ariaExpanded = String(!collapsed)
-  btn.title = tr(collapsed ? 'paletteExpand' : 'paletteCollapse')
-  if (persist) {
-    try { localStorage.setItem(PALETTE_COLLAPSED_KEY, collapsed ? '1' : '0') } catch { /* private mode */ }
-  }
-  syncPaletteCollapsedNote()
-}
-
 /** Badge on the Check tab: the number of colors currently in the palette. */
 function updateCheckColorBadge(count: number) {
   const badge = document.getElementById('check-color-badge')
@@ -2234,7 +2206,6 @@ function renderPalette() {
   // what will be printed); indexMap indexes quantized.palette 1:1 with rows.
   const shares = colorShares(current!.quantized.indexMap, palette.length)
   renderCoverage(shares, palette)
-  syncPaletteCollapsedNote() // collapsed note tracks the live color count
   // Sheet thickness per print order, from the snapped band tops: a band's
   // thickness is the gap between its top and the band below it (the base for
   // the first band). Heights never change on color edits, so compute once.
@@ -3000,10 +2971,11 @@ function setRefBadge(kind: 'empty' | 'ready' | 'complete' | 'partial' | 'error' 
     error: 'refBadgeError',
     analyzing: 'refBadgeAnalyzing',
   } as const
-  refBadge.className = `ref-badge ${kind}`
+  refBadge.className = `status-ico-btn ${kind}`
   refBadge.dataset.kind = kind
-  refBadge.dataset.i18n = keyMap[kind]
-  refBadge.textContent = tr(keyMap[kind])
+  refBadge.title = tr(keyMap[kind])
+  refBadge.ariaLabel = refBadge.title
+  refBadge.disabled = true // status glyph, not an action
 }
 
 function resetReferenceUI() {
@@ -3652,18 +3624,6 @@ restoreSettings()
 fillPrinterSelect()
 void setupOpenInSlicer()
 
-// Palette panel collapse: restore the saved state and bind the chevron.
-{
-  const collapseBtn = document.getElementById('palette-collapse')
-  let saved = false
-  try { saved = localStorage.getItem(PALETTE_COLLAPSED_KEY) === '1' } catch { /* private mode */ }
-  if (saved) setPaletteCollapsed(true, false)
-  collapseBtn?.addEventListener('click', () => {
-    const body = document.getElementById('palette-body')
-    setPaletteCollapsed(!(body?.classList.contains('is-collapsed') ?? false))
-  })
-}
-
 // Language: apply immediately (before first paint), bind the switcher.
 langCode.textContent = lang.toUpperCase()
 langBtn.addEventListener('click', () => toggleMenu(langMenu, langBtn))
@@ -3675,6 +3635,82 @@ langMenu.addEventListener('click', (e) => {
 })
 applyStaticText()
 setupLangPrompt()
+/**
+ * Drag handle between the sidebar and the preview column: resizing the sidebar
+ * reflows the viewers. Width persists in localStorage; double-click resets.
+ */
+function setupSidebarSplit() {
+  const handle = document.querySelector<HTMLElement>('.sidebar-split')
+  const layout = document.querySelector<HTMLElement>('.layout')
+  const sidebar = document.querySelector<HTMLElement>('.sidebar')
+  if (!handle || !layout || !sidebar) return
+
+  const SIDEBAR_W_KEY = 'hf-sidebar-w' // px width of the sidebar column
+  const MIN_W = 240
+  const MAX_W = 640
+
+  const applySidebarWidth = (px: number) => {
+    const w = Math.min(MAX_W, Math.max(MIN_W, Math.round(px)))
+    layout.style.setProperty('--sidebar-w', `${w}px`)
+    // Keep the CSS variable in sync with the topbar height for the shell math.
+    const topbar = document.querySelector<HTMLElement>('.topbar')
+    if (topbar) {
+      layout.style.setProperty('--topbar-h', `${Math.round(topbar.getBoundingClientRect().height)}px`)
+    }
+    return w
+  }
+
+  // Restore saved width, then keep the shell height honest on reflow
+  // (the topbar wraps on narrow windows and changes height).
+  let currentW = 320
+  const setW = (px: number, persist = false) => {
+    currentW = applySidebarWidth(px)
+    if (persist) {
+      try { localStorage.setItem(SIDEBAR_W_KEY, String(currentW)) } catch { /* private mode */ }
+    }
+  }
+  setW(Number(localStorage.getItem(SIDEBAR_W_KEY)) || 320)
+  window.addEventListener('resize', () => { applySidebarWidth(currentW) })
+
+  let startX = 0, startW = 0
+  const begin = (e: PointerEvent) => {
+    e.preventDefault()
+    try { handle.setPointerCapture(e.pointerId) } catch { /* synthetic pointers */ }
+    handle.classList.add('dragging')
+    startX = e.clientX
+    startW = currentW
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+  handle.addEventListener('pointerdown', begin)
+  handle.addEventListener('pointermove', (e) => {
+    if (!handle.classList.contains('dragging')) return
+    setW(startW + (e.clientX - startX), true)
+  })
+  const end = (e: PointerEvent) => {
+    if (!handle.classList.contains('dragging')) return
+    handle.classList.remove('dragging')
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    try { handle.releasePointerCapture(e.pointerId) } catch { /* already released */ }
+  }
+  handle.addEventListener('pointerup', end)
+  handle.addEventListener('pointercancel', end)
+
+  // Keyboard: arrows nudge by 16px, Home/End jump to the limits.
+  handle.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 48 : 16
+    if (e.key === 'ArrowLeft') { setW(currentW - step, true); e.preventDefault() }
+    else if (e.key === 'ArrowRight') { setW(currentW + step, true); e.preventDefault() }
+    else if (e.key === 'Home') { setW(MIN_W, true); e.preventDefault() }
+    else if (e.key === 'End') { setW(MAX_W, true); e.preventDefault() }
+  })
+  handle.addEventListener('dblclick', () => {
+    try { localStorage.removeItem(SIDEBAR_W_KEY) } catch { /* private mode */ }
+    setW(320)
+  })
+}
+
 /**
  * Splitters between the two previews (horizontal drag) and between the pair
  * and the 3D viewer (vertical drag). Positions persist in localStorage.
@@ -3774,11 +3810,80 @@ function setupViewerSplitters() {
   ] as const) {
     el.addEventListener('dblclick', () => resetTo(apply, key))
   }
+
+  // ---- layout schemes: stacked (default) / two side by side / all in a row --
+  const viewers = document.querySelector<HTMLElement>('.viewers')
+  const layoutStrip = document.querySelector<HTMLElement>('.viewers-layout')
+  const LAYOUT_KEY = 'hf-viewers-layout'
+  const LAYOUTS = ['stack', 'row', 'row3'] as const
+  type ViewersLayout = (typeof LAYOUTS)[number]
+
+  /** In row3 the vertical splitter now splits width between pair and 3D. */
+  const applyRow3Split = (pct: number) => {
+    const p = Math.min(80, Math.max(20, pct))
+    pair.style.flex = `${p} 1 0`
+    block3d.style.flex = `${100 - p} 1 0`
+  }
+
+  const applyLayout = (layout: ViewersLayout) => {
+    if (!viewers) return
+    viewers.dataset.layout = layout
+    if (layout === 'row3') {
+      // Pair keeps its width proportion (source vs preview); pair vs 3D share
+      // the row via the stored row3 split (default even).
+      try {
+        const r3 = Number(localStorage.getItem('hf-row3-split'))
+        applyRow3Split(Number.isFinite(r3) && r3 > 0 ? r3 : 50)
+      } catch { applyRow3Split(50) }
+    } else {
+      // Restore the vertical (stack) split pair-vs-3D.
+      try {
+        const vs = Number(localStorage.getItem(V_SPLIT_KEY))
+        if (Number.isFinite(vs) && vs > 0) applyVSplit(vs)
+        else {
+          pair.style.flex = '55 1 0'
+          block3d.style.flex = '45 1 0'
+        }
+      } catch { /* keep current */ }
+    }
+    // Radiogroup state
+    for (const btn of layoutStrip?.querySelectorAll<HTMLButtonElement>('.layout-btn') ?? []) {
+      const on = btn.dataset.layout === layout
+      btn.classList.toggle('is-active', on)
+      btn.setAttribute('aria-checked', String(on))
+    }
+  }
+
+  layoutStrip?.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-layout]')
+    if (!btn) return
+    const layout = btn.dataset.layout as ViewersLayout
+    if (!LAYOUTS.includes(layout)) return
+    applyLayout(layout)
+    try { localStorage.setItem(LAYOUT_KEY, layout) } catch { /* private mode */ }
+    // Re-render 3D canvas at the new size (renderer resizes on its own RAF;
+    // a nudge avoids a stale-size frame when switching to/from row3).
+    window.dispatchEvent(new Event('resize'))
+  })
+
+  // row3: the horizontal splitter strip now works horizontally — rewire its
+  // drag handler while that layout is active.
+  vsplit.addEventListener('dblclick', () => {
+    if (viewers?.dataset.layout === 'row3') {
+      applyRow3Split(50)
+      try { localStorage.removeItem('hf-row3-split') } catch { /* private mode */ }
+    }
+  })
+
+  let savedLayout: string | null = null
+  try { savedLayout = localStorage.getItem(LAYOUT_KEY) } catch { /* private mode */ }
+  applyLayout(LAYOUTS.includes(savedLayout as ViewersLayout) ? (savedLayout as ViewersLayout) : 'stack')
 }
 
 setupWelcome()
 setupSidebarTabs()
 setupViewerSplitters()
+setupSidebarSplit()
 
 setupTheme()
 document.addEventListener('click', (e) => {

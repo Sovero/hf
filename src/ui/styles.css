@@ -85,13 +85,21 @@ html[data-theme="solar"] {
   user-select: none;
 }
 
-/* Checkbox/radio in the app accent instead of the UA default blue. */
+/* Checkbox/radio in the app accent instead of the UA default blue. Inside
+   flex option labels (mode-options, merge-row) the UA's 3px vertical margins
+   would skew row heights, so flex parents neutralize them. */
 input[type="checkbox"],
 input[type="radio"] {
   accent-color: var(--accent);
   width: 0.95rem;
   height: 0.95rem;
   vertical-align: -2px;
+  flex: none;
+}
+
+.mode-options label input,
+.merge-label input {
+  margin: 0;
 }
 
 /* Hide the native number spinners (white UA arrows that clash with every
@@ -330,17 +338,72 @@ body {
 
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 1rem;
+  /* 2nd track is the drag handle: resizing the sidebar reflows the viewers. */
+  grid-template-columns: var(--sidebar-w, 320px) 9px 1fr;
+  gap: 0 0.35rem;
   padding: 1rem;
   max-width: 1600px;
   margin: 0 auto;
+  /* Full-height app shell: the viewers column fills the viewport, the sidebar
+     scrolls independently — like a desktop editor. */
+  height: calc(100vh - var(--topbar-h, 64px));
+  min-height: 540px;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Custom slim scrollbar (Chromium/Electron): no arrow caps, theme thumb.
+   Note: `scrollbar-width: thin` would override these in Chromium and render
+   the native arrows, so it is deliberately not set here. */
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Drag handle between the sidebar and the viewers column. */
+.sidebar-split {
+  width: 9px;
+  cursor: col-resize;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  background-clip: content-box;
+  padding: 0 3px; /* slim grip: 3px visible strip centered in 9px hit area */
+  transition: background-color 0.12s;
+  touch-action: none;
+}
+
+.sidebar-split:hover,
+.sidebar-split.dragging {
+  background-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.sidebar-split:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ---- Sidebar tabs ------------------------------------------------------- */
@@ -513,19 +576,46 @@ body {
 }
 
 /* ΔE merge: checkbox label + threshold field, same chip style as the other
-   inline number inputs (drop-sparse-threshold, palette-tau). */
+   inline number inputs (drop-sparse-threshold, palette-tau). Text sizing and
+   hover treatment follow .mode-options so all toggles in the panel match. */
 .merge-label {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
   cursor: pointer;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+
+.merge-label:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.merge-label:has(input:checked) {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--border);
+}
+
+.merge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .merge-thresh {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  margin-top: 0.3rem;
+  margin-top: 0;
+  padding-right: 0.45rem;
 }
 
 #merge-deltae {
@@ -869,12 +959,14 @@ body {
 .calib-select {
   flex: 1;
   min-width: 0;
-  padding: 0.3rem 0.4rem;
+  height: 2rem;
+  box-sizing: border-box;
+  padding: 0 0.4rem;
   font-size: 0.8rem;
   color: var(--text);
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .calib-canvas {
@@ -886,11 +978,14 @@ body {
   align-self: start;
 }
 
-/* Calibration buttons match the app's dark theme instead of the
-   browser-default white surfaces. */
+/* Calibration buttons match the app's dark theme and share one format:
+   equal 2rem height, radius and surface for «Swatch STL» and the file
+   picker's own button, so the row reads as a single control group. */
 #calib-download {
   flex: none;
-  padding: 0.4rem 0.8rem;
+  height: 2rem;
+  box-sizing: border-box;
+  padding: 0 0.8rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--panel-2);
@@ -909,12 +1004,16 @@ body {
 #calib-photo {
   flex: 1;
   min-width: 0;
+  height: 2rem;
+  box-sizing: border-box;
   font-size: 0.8rem;
   color: var(--muted);
 }
 
 #calib-photo::file-selector-button {
-  padding: 0.4rem 0.8rem;
+  height: 2rem;
+  box-sizing: border-box;
+  padding: 0 0.8rem;
   margin-right: 0.6rem;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1016,12 +1115,22 @@ body {
 
 .palette-summary-actions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.4rem;
-  /* The 320px sidebar fits ~2 buttons per line; let the chips flow onto
-     extra lines instead of overflowing the panel edge. */
+  /* Chips flow onto extra lines instead of overflowing the panel edge;
+   * flex-grow makes every chip on a line equally wide. */
   flex-wrap: wrap;
   min-width: 0;
+  --chip-gap: 0.4rem;
+}
+
+.palette-summary-actions > * {
+  flex: 1 0 auto; /* grow to equal widths per line, never shrink below label */
+  box-sizing: border-box;
+}
+
+.palette-summary-actions > .palette-reset-btn {
+  justify-content: flex-start;
 }
 
 /* Inline action-button icons: keep the glyph centered next to the label. */
@@ -1080,6 +1189,9 @@ body {
   gap: 0.35rem;
   flex-shrink: 0;
   white-space: nowrap; /* wrap as a whole chip, never mid-label */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1161,7 +1273,102 @@ body {
   flex-direction: column;
   gap: 0;
   min-width: 0;
+  min-height: 0;
   position: relative;
+}
+
+/* Layout switcher: three pictograms (stacked / two side by side / all three
+   in a row) for the preview windows' arrangement. */
+.viewers-layout {
+  display: flex;
+  gap: 2px;
+  align-self: flex-start;
+  flex: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px;
+  margin: 0 0 0.5rem;
+}
+
+.layout-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.28rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  transition: color 0.12s, background 0.12s;
+}
+
+.layout-btn svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: block;
+}
+
+.layout-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.layout-btn.is-active {
+  color: var(--accent);
+  background: var(--panel-2);
+}
+
+/* Layout 'stack': the two previews form a column, 3D stays below the pair.
+   The horizontal pair splitter is meaningless here — hide it, cards split
+   the pair height evenly (the vertical splitter still sizes pair vs 3D). */
+.viewers[data-layout='stack'] .viewer-pair {
+  flex-direction: column;
+}
+
+.viewers[data-layout='stack'] .pair-split {
+  display: none;
+}
+
+.viewers[data-layout='stack'] .pair-left,
+.viewers[data-layout='stack'] .pair-right {
+  flex: 1 1 0;
+}
+
+/* Layout 'row' (default): two previews side by side — plain .viewer-pair CSS
+   applies with no data-layout override. */
+.viewers[data-layout='row'] .viewer-pair {
+  flex-direction: row;
+}
+
+/* Layout: all three in one row — the 3D block joins the pair's row and the
+   vertical splitter between previews and 3D becomes horizontal. */
+.viewers[data-layout='row3'] {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.viewers[data-layout='row3'] .viewer-pair {
+  flex-direction: row;
+}
+
+.viewers[data-layout='row3'] .pair-vsplit {
+  width: 9px;
+  height: auto;
+  align-self: stretch;
+  margin: 0 0.35rem;
+  cursor: col-resize;
+}
+
+.viewers[data-layout='row3'] .viewer3d-block {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.viewers[data-layout='row3'] .viewer3d-block .viewer3d-wrap {
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 220px;
 }
 
 /* Source + print preview side by side; the vertical strip between them is a
@@ -1170,9 +1377,8 @@ body {
 .viewer-pair {
   display: flex;
   gap: 0;
-  min-height: 240px;
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 240px;
 }
 
 .pair-left,
@@ -1199,38 +1405,42 @@ body {
   flex: none;
   width: 9px;
   cursor: col-resize;
-  background: transparent;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  background-clip: content-box;
+  padding: 0 3px;
   border-radius: 6px;
-  transition: background 0.12s;
+  transition: background-color 0.12s;
   touch-action: none;
 }
 
 .pair-split:hover,
 .pair-split.dragging {
-  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  background-color: color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .pair-vsplit {
   flex: none;
   height: 9px;
   cursor: row-resize;
-  background: transparent;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  background-clip: content-box;
+  padding: 3px 0;
   border-radius: 6px;
   margin: 0.35rem 0;
-  transition: background 0.12s;
+  transition: background-color 0.12s;
   touch-action: none;
 }
 
 .pair-vsplit:hover,
 .pair-vsplit.dragging {
-  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  background-color: color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .viewer3d-block {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  min-height: 260px;
+  min-height: 0;
 }
 
 .processing-overlay {
@@ -1287,8 +1497,66 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
+  min-height: 2.2rem; /* source card has no toggle: keep the head rows equal */
+}
+
+/* Narrow pair card: the toggle cannot fit beside the clamped title — it moves
+   to its own line instead of being clipped by the card edge. */
+.pair-right .viewer-head {
+  flex-wrap: wrap;
+}
+
+.viewer-head h3 {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Pair cards share one visual top line: the two heads are flex children of
+   the pair row, so stretch them to the tallest and center their content. */
+.pair-left .viewer-head,
+.pair-right .viewer-head {
+  display: flex;
+}
+
+/* The print-preview title is long: at pair-card width it would wrap to three
+   lines and push its canvas below the source canvas. Two lines max keeps the
+   two cards' tops aligned. */
+.pair-right .viewer-head h3 {
+  font-size: 0.78rem;
+  flex: 1 1 0;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Clamp hides the tail, so expose the full name on hover. */
+#viewer-quantized .viewer-head {
+  position: relative;
+}
+
+#viewer-quantized .viewer-head h3:hover {
+  white-space: normal;
+}
+
+.pair-right .viewer-head {
+  align-self: flex-start;
+}
+
+.pair-left .viewer-head h3 {
+  font-size: 0.78rem;
+}
+
+.pair-left,
+.pair-right {
+  align-items: stretch;
+}
+
+.pair-left .viewer-head h3 {
+  align-self: center;
 }
 
 .deltae-legend {
@@ -1317,6 +1585,11 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
+  flex: none; /* never squeeze into stacked 3-line labels in narrow cards */
+}
+
+.light-btn span {
+  white-space: nowrap;
 }
 
 .light-btn {
@@ -1416,7 +1689,8 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 200px;
+  min-height: 120px;
+  flex: 1 1 auto;
   background: var(--bg);
   border-radius: 6px;
   padding: 0.5rem;
@@ -1424,12 +1698,13 @@ body {
 
 .canvas-wrap canvas {
   max-width: 100%;
-  max-height: 320px;
+  max-height: 100%;
   image-rendering: pixelated;
 }
 
 .viewer3d-wrap {
-  height: 420px;
+  flex: 1 1 auto;
+  min-height: 220px;
   border-radius: 6px;
   overflow: hidden;
   background: var(--bg);
@@ -1689,12 +1964,14 @@ body {
 }
 
 @media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: 1fr; height: auto; }
+  .sidebar-split { display: none; }
   /* Narrow window: the pair stacks vertically; the horizontal splitter dies,
      the vertical one keeps working between the pair and the 3D viewer. */
   .viewer-pair { flex-direction: column; }
   .pair-split { display: none; }
   .pair-left, .pair-right { flex: 1 1 auto; min-height: 180px; }
+  .viewer3d-block { min-height: 300px; }
 }
 
 /* ---- Reference 3MF panel ---- */
@@ -1705,21 +1982,46 @@ body {
 
 /* ---- Sidebar section headers (always visible, no collapsing) ---- */
 .panel-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.5rem;
+  gap: 0.2rem 0.5rem;
+  row-gap: 0.25rem;
   margin: 0 0 0.5rem;
 }
-/* Titles wrap instead of ellipsizing: a cut-off «ПРОВ…» / «МОДЕ…» hides the
-   section name, and the badges (checks / reference state) need room too. */
+
+/* Uniform head format on every panel: line 1 = icon, title, '?' pinned right;
+   line 2 = badges/status spanning under the title. Badges live in a wrapper
+   (or flow via negative order) so the help button always owns the corner. */
+.panel-head .hint-btn {
+  grid-column: 3;
+  grid-row: 1;
+  margin-left: 0; /* grid places it; the old flex auto-margin is gone */
+  align-self: center;
+}
+
+.panel-head .panel-ico {
+  grid-column: 1;
+  grid-row: 1;
+}
+
 .panel-head h2 {
-  margin: 0;
-  min-width: 0;
-  flex: 1 1 auto;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  line-height: 1.25;
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0; /* .panel h2's bottom margin would skew row centering */
+  display: flex;
+  align-items: center;
+}
+
+/* Everything between the title and the '?' (badges, status notes) drops to
+   line 2 under the title. When there is none, row 2 is empty and collapses. */
+.panel-head > .ref-badge,
+.panel-head > #pb-badge {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  margin-left: 0;
+  justify-self: start;
 }
 
 /* Section icon before the numbered heading — same stroke/accent language as
@@ -1730,7 +2032,7 @@ body {
   display: inline-flex;
   align-items: center;
   align-self: center;
-  margin-top: 0.1em; /* optical: h2's uppercase glyphs sit slightly high */
+  margin-top: 0; /* grid centers it on the title line */
   color: var(--accent);
   opacity: 0.9;
 }
@@ -1761,54 +2063,11 @@ body {
   border-color: var(--accent);
 }
 
-/* Collapse toggle: chevron left of the help button, flips when collapsed. */
-.palette-collapse {
-  flex: none;
-  width: 1.15rem;
-  height: 1.15rem;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.palette-collapse:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.palette-collapse svg {
-  transition: transform 0.15s ease;
-}
-
-.palette-collapse.is-collapsed svg {
-  transform: rotate(-90deg);
-}
-
-.palette-collapsed-note {
-  margin: 0 0.35rem 0 auto;
-  white-space: nowrap;
-}
 
 /* Collapsed state: hide everything except the head and the coverage bar.
    Explicit display overrides because several children set display via class. */
-#palette-body.is-collapsed > div,
-#palette-body.is-collapsed > p {
-  display: none;
-}
-
-#palette-body.is-collapsed > .palette-coverage:not([hidden]) {
-  display: flex;
-  margin-top: 0.1rem;
-}
-
 .ref-badge {
   flex: none;
-  margin-left: auto; /* stay pinned to the row's right edge */
   font-size: 0.68rem;
   font-weight: 600;
   padding: 0.1rem 0.5rem;
@@ -1821,6 +2080,37 @@ body {
 .ref-badge.partial { color: var(--accent); border-color: var(--accent); }
 .ref-badge.error { color: var(--danger); border-color: var(--danger); }
 .ref-badge.analyzing { color: var(--accent); border-color: var(--accent); }
+
+/* Icon status buttons replacing text badges in panel heads: a small circle
+   with a state glyph, meaning conveyed by the tooltip. Colors follow the
+   old badge semantics (green = ok, amber = partial/analyzing, red = error). */
+.status-ico-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: default;
+}
+.status-ico-btn .status-ico {
+  width: 0.8rem;
+  height: 0.8rem;
+  display: block;
+}
+.status-ico-btn.complete { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 55%, transparent); }
+.status-ico-btn.partial,
+.status-ico-btn.analyzing { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.status-ico-btn.error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
+.status-ico-btn.ready { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.status-ico-btn:disabled {
+  opacity: 1; /* keep the state color readable although it's not an action */
+}
 
 .ref-report {
   display: flex;

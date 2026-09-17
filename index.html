@@ -115,7 +115,7 @@
           <div class="panel-section" id="img-details">
             <div class="panel-head" data-help="helpImage">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="5.8" cy="6.2" r="1.4"/><path d="m2.5 11.5 3.2-3.2 2.4 2.4 2.6-2.6 2.8 2.8"/></svg></span>
-              <h2 data-i18n="panelImage">1 · Image</h2>
+              <h2 data-i18n="panelImage">Image</h2>
               <button type="button" class="hint-btn" data-help="helpImage" aria-label="Help">?</button>
             </div>
           <div id="drop-zone" class="drop-zone" data-help="helpDropZone">
@@ -131,7 +131,7 @@
           <div class="panel-section" id="colors-details">
             <div class="panel-head" data-help="helpColors">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3.4"/><circle cx="10.5" cy="9.5" r="3.4"/><path d="M8.2 4.6a3.4 3.4 0 0 1 1.9 3.9"/></svg></span>
-              <h2 data-i18n="panelColors">2 · Colors</h2>
+              <h2 data-i18n="panelColors">Colors</h2>
               <button type="button" class="hint-btn" data-help="helpColors" aria-label="Help">?</button>
             </div>
           <div id="color-options" class="color-options">
@@ -163,7 +163,7 @@
           <div class="panel-section" id="depth-details">
             <div class="panel-head" data-help="helpDepth">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.5h12"/><path d="M4.5 12.5V9M8 12.5V6.5M11.5 12.5V4"/></svg></span>
-              <h2 data-i18n="panelDepth">3 · Depth mode</h2>
+              <h2 data-i18n="panelDepth">Depth mode</h2>
               <button type="button" class="hint-btn" data-help="helpDepth" aria-label="Help">?</button>
             </div>
             <div class="mode-options">
@@ -177,7 +177,7 @@
           <div class="panel-section" id="size-details">
             <div class="panel-head" data-help="helpSize">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6V2h4"/><path d="M14 10v4h-4"/><path d="M2 2l5 5"/><path d="M14 14 9 9"/></svg></span>
-              <h2 data-i18n="panelSize">4 · Size &amp; layers</h2>
+              <h2 data-i18n="panelSize">Size &amp; layers</h2>
               <button type="button" class="hint-btn" data-help="helpSize" aria-label="Help">?</button>
             </div>
           <div class="param-grid">
@@ -196,11 +196,7 @@
             <div class="panel-head" data-help="helpPalette">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2a6 6 0 1 0 0 12c1.1 0 1.6-.7 1.6-1.4 0-.9-.7-1.3-.7-2 0-.8.6-1.4 1.5-1.4H12A2.6 2.6 0 0 0 14 6.6C13.4 3.9 11 2 8 2Z"/><circle cx="5.4" cy="6" r="0.9"/><circle cx="8.4" cy="4.6" r="0.9"/><circle cx="11.2" cy="6.4" r="0.9"/></svg></span>
               <h2 data-i18n="panelPalette">Palette &amp; print order</h2>
-              <span id="palette-collapsed-note" class="muted small palette-collapsed-note" hidden></span>
               <button type="button" class="hint-btn" data-help="helpPalette" aria-label="Help">?</button>
-              <button id="palette-collapse" type="button" class="palette-collapse" data-i18n-title="paletteCollapse" aria-expanded="true" aria-controls="palette-body">
-                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>
-              </button>
             </div>
           <div id="palette-body">
           <div id="palette-list" class="palette-list"></div>
@@ -243,8 +239,8 @@
           <div class="panel-section" id="pb-details">
             <div class="panel-head" data-help="helpPrintability">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6V2.5h7V6"/><path d="M4.5 11.5h-1A1.5 1.5 0 0 1 2 10V7.5A1.5 1.5 0 0 1 3.5 6h9A1.5 1.5 0 0 1 14 7.5V10a1.5 1.5 0 0 1-1.5 1.5h-1"/><path d="M4.5 9.5h7V14h-7Z"/></svg></span>
-              <h2 data-i18n="panelPrintability">5 · Printability check</h2>
-              <span id="pb-badge" class="ref-badge idle" hidden></span>
+              <h2 data-i18n="panelPrintability">Printability check</h2>
+              <button type="button" id="pb-badge" class="status-ico-btn" hidden disabled><svg class="status-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.8 8.6 3 3L13 4.4"/></svg></button>
               <button type="button" class="hint-btn" data-help="helpPrintability" aria-label="Help">?</button>
             </div>
           <div id="printability-list"></div>
@@ -275,7 +271,7 @@
             <div class="panel-head" data-help="helpReference">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg></span>
               <h2 data-i18n="panelReference">Reference 3MF</h2>
-              <span id="ref-badge" class="ref-badge idle" data-i18n="refBadgeEmpty">Not loaded</span>
+              <button type="button" id="ref-badge" class="status-ico-btn" disabled><svg class="status-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.8 8.6 5.8 11.6 13 4.4"/></svg></button>
               <button type="button" class="hint-btn" data-help="helpReference" aria-label="Help">?</button>
             </div>
           <div id="ref-drop" class="drop-zone ref-drop-zone" data-help="helpRefDrop">
@@ -339,7 +335,7 @@
           <div class="panel-section" id="export-details">
             <div class="panel-head" data-help="helpExport">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10V2.6"/><path d="M4.8 6.4 8 2.6l3.2 3.8"/><path d="M2.6 10.5v2.9h10.8v-2.9"/></svg></span>
-              <h2 data-i18n="panelExport">6 · Export</h2>
+              <h2 data-i18n="panelExport">Export</h2>
               <button type="button" class="hint-btn" data-help="helpExport" aria-label="Help">?</button>
             </div>
           <div class="export-buttons">
@@ -364,10 +360,23 @@
         </div>
       </aside>
 
+      <div class="sidebar-split" role="separator" aria-orientation="vertical" data-i18n-title="sidebarSplitTitle" tabindex="0"></div>
+
       <section class="viewers">
         <div id="processing-overlay" class="processing-overlay" hidden>
           <div class="spinner"></div>
           <span>Processing…</span>
+        </div>
+        <div class="viewers-layout" role="radiogroup" aria-label="Preview layout" data-help="helpViewersLayout">
+          <button type="button" class="layout-btn is-active" data-layout="stack" role="radio" aria-checked="true" data-i18n-title="layoutStackTitle">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="2.5" width="12" height="6" rx="1"/><rect x="4" y="11.5" width="12" height="6" rx="1"/></svg>
+          </button>
+          <button type="button" class="layout-btn" data-layout="row" role="radio" aria-checked="false" data-i18n-title="layoutRowTitle">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="6" width="7" height="8" rx="1"/><rect x="10.5" y="6" width="7" height="8" rx="1"/></svg>
+          </button>
+          <button type="button" class="layout-btn" data-layout="row3" role="radio" aria-checked="false" data-i18n-title="layoutRow3Title">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="6.5" width="4.5" height="7" rx="1"/><rect x="7.8" y="6.5" width="4.5" height="7" rx="1"/><rect x="13.5" y="6.5" width="4.5" height="7" rx="1"/></svg>
+          </button>
         </div>
         <div class="viewer-pair">
           <div class="viewer-card pair-left" id="viewer-source" data-help="helpViewerSource">
@@ -379,7 +388,7 @@
           <div class="pair-split" role="separator" aria-orientation="vertical" aria-label="Resize previews" data-i18n-title="pairSplitTitle" tabindex="0"></div>
           <div class="viewer-card pair-right" id="viewer-quantized" data-help="helpViewerQuantized">
             <div class="viewer-head">
-              <h3 data-i18n="viewerQuantized">Color-reduced (print preview)</h3>
+              <h3 data-i18n="viewerQuantized" data-i18n-title="viewerQuantized">Color-reduced (print preview)</h3>
               <div class="light-toggle" role="group" aria-label="Viewing light" data-help="helpLightToggle">
                 <button type="button" id="light-front" class="light-btn is-active"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.4"/><path d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1"/></svg><span data-i18n="lightFront">Front-lit</span></button>
                 <button type="button" id="light-back" class="light-btn"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="8" r="1.8"/><path d="M4 3.4V1.8M4 12.6v1.6M.8 8h1.6M7.2 8h1.6M1.7 3.7l1 1M6.3 11.3l1 1M6.3 3.7l-1 1M1.7 11.3l1 1"/><path d="M10 2.5v11M12.2 2.5v11M14.4 2.5v11"/></svg><span data-i18n="lightBack">Backlight</span></button>
