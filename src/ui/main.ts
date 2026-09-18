@@ -9,7 +9,7 @@ import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
 import { DEFAULT_TAU_MM, backlitBandColors, tauBandHeights, transmittedBandColors } from '../lib/transmission'
-import type { ColorCount, QuantizedImage } from '../lib/types'
+import type { ColorCount, QuantizedImage, SourcePreview } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { fitPrintSizeToAspect } from '../lib/printConsts'
@@ -45,6 +45,8 @@ const $ = <T extends HTMLElement>(sel: string): T => {
 
 let current: PipelineResult | null = null
 let currentFile: File | null = null
+/** Full(er)-resolution decode of the current file, for the source preview. */
+let lastSourcePreview: SourcePreview | null = null
 let viewer3d: Viewer3D | null = null
 /** Guards against overlapping runs writing stale results (live reprocessing). */
 let runToken = 0
@@ -340,7 +342,7 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
         updateCatalogBtn()
       }
     }
-    const { image, sourceWidth, sourceHeight } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
+    const { image, sourcePreview, sourceWidth, sourceHeight } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
     // Only a freshly loaded image sets the print size to its aspect ratio
     // (the larger print side is kept). Rebinds pass fresh=false so settings
     // edits, palette work, and project loads keep the explicit size.
@@ -373,6 +375,7 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
       return false
     }
     current = { ...result, image }
+    lastSourcePreview = sourcePreview
     // The ΔE merge can shrink the palette: remap per-slot filament
     // assignments through the kept-slot report so ★-stars follow colors.
     let mergedMsg = false
@@ -437,6 +440,19 @@ function applyStaticText() {
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-title]')) {
     const key = el.dataset.i18nTitle
     if (key) el.title = tr(key)
+  }
+  // Empty-state hints inside the preview wraps: [data-empty-i18n] holds the
+  // i18n key rendered by the .pair-canvas.is-empty::before CSS rule.
+  for (const el of document.querySelectorAll<HTMLElement>('[data-empty-i18n]')) {
+    const key = el.dataset.emptyI18n
+    if (key) el.dataset.empty = tr(key)
+  }
+  // Icon-only buttons: [data-i18n-aria] maps a key to aria-label (title comes
+  // from data-i18n-title) so the tooltip and the accessible name follow
+  // language switches.
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-aria]')) {
+    const key = el.dataset.i18nAria
+    if (key) el.ariaLabel = tr(key)
   }
   // Help: every [data-help] element gets a localized tooltip; sections also
   // title themselves so hovering anywhere on the intro paragraph explains it.
@@ -723,6 +739,14 @@ function setupWelcome() {
 }
 
 function updateUI() {
+  // Empty state: hide the placeholder canvases (they render as dark
+  // rectangles) and show a hint inside each preview wrap instead.
+  const hasImage = Boolean(current)
+  for (const wrap of document.querySelectorAll('.viewer-pair .canvas-wrap')) {
+    wrap.classList.toggle('is-empty', !hasImage)
+    const canvas = wrap.querySelector('canvas')
+    if (canvas) canvas.hidden = !hasImage
+  }
   if (!current) return
   syncMaxInput()
   drawSource()
@@ -840,6 +864,15 @@ function setPbBadge(report: ReturnType<typeof analyzePrintability>) {
 }
 
 function drawSource() {
+  // Prefer the full(er)-resolution decode: the print pipeline downsamples to
+  // nozzle-fit resolution, which throws away detail the user can still see.
+  if (lastSourcePreview) {
+    const { width, height, rgba } = lastSourcePreview
+    canvasSource.width = width
+    canvasSource.height = height
+    canvasSource.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0)
+    return
+  }
   const { width, height, rgba } = current!.image
   canvasSource.width = width
   canvasSource.height = height
@@ -3634,6 +3667,7 @@ langMenu.addEventListener('click', (e) => {
   closeMenu(langMenu, langBtn)
 })
 applyStaticText()
+updateUI() // paint the empty-state previews (hint instead of dark canvas)
 setupLangPrompt()
 /**
  * Drag handle between the sidebar and the preview column: resizing the sidebar
@@ -3729,7 +3763,9 @@ function setupViewerSplitters() {
   const V_SPLIT_KEY = 'hf-v-split' // percent of viewers height for the pair
 
   const applyPairSplit = (pct: number) => {
-    const p = Math.min(80, Math.max(20, pct))
+    // 30% floor: a narrower right card squeezes the print-preview canvas into
+    // an unreadable sliver (object-fit scales it to the card's width).
+    const p = Math.min(70, Math.max(30, pct))
     // Grow ratios, not basis percents: basis would divide the pair width
     // including the 9px splitter, making the two cards unequal.
     left.style.flex = `${p} 1 0`
@@ -3787,7 +3823,7 @@ function setupViewerSplitters() {
     const pairRect = pair.getBoundingClientRect()
     const pct = ((rect.left - pairRect.left + rect.width / 2 + dx) / pairRect.width) * 100
     applyPairSplit(pct)
-    try { localStorage.setItem(PAIR_SPLIT_KEY, String(Math.min(80, Math.max(20, pct)))) } catch { /* private mode */ }
+    try { localStorage.setItem(PAIR_SPLIT_KEY, String(Math.min(70, Math.max(30, pct)))) } catch { /* private mode */ }
   })
 
   // Vertical splitter: dragging down shrinks the pair, grows the 3D block.

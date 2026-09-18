@@ -1371,6 +1371,19 @@ body {
   object-fit: contain;
 }
 
+/* Empty state: instead of a dark canvas rectangle, show a short hint. */
+.pair-canvas.is-empty::before {
+  content: attr(data-empty);
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 0 1rem;
+}
+
+.pair-canvas.is-empty canvas {
+  display: none;
+}
+
 .pair-split {
   flex: none;
   width: 9px;
@@ -1472,10 +1485,28 @@ body {
   min-height: 2.2rem; /* source card has no toggle: keep the head rows equal */
 }
 
-/* Narrow pair card: the toggle cannot fit beside the clamped title — it moves
-   to its own line instead of being clipped by the card edge. */
+/* Both pair heads share one height: the right one carries a title line plus
+   the toggle row, the left one has only a title. Equal heads put the two
+   canvases on the same top line. */
+.pair-left .viewer-head,
+.pair-right .viewer-head {
+  min-height: 3.1rem;
+}
+
+/* Pair card head: the toggle always wraps under the title — beside it the
+   230px control would squeeze the long «Цветовое сокращение…» heading into
+   a two-word column. Full-width title on line 1, toggle on line 2. */
 .pair-right .viewer-head {
   flex-wrap: wrap;
+}
+
+.pair-right .viewer-head h3 {
+  flex: 1 1 100%;
+}
+
+.pair-right .viewer-head .light-toggle {
+  order: 2;
+  margin-left: auto;
 }
 
 .viewer-head h3 {
@@ -1490,30 +1521,23 @@ body {
   display: flex;
 }
 
-/* The print-preview title is long: at pair-card width it would wrap to three
-   lines and push its canvas below the source canvas. Two lines max keeps the
-   two cards' tops aligned. */
+/* The print-preview title is long: full-width line (the toggle sits on its
+   own row below), clamped to one line — the tooltip carries the tail. */
 .pair-right .viewer-head h3 {
   font-size: 0.78rem;
-  flex: 1 1 0;
+  flex: 1 1 100%;
   min-width: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* Clamp hides the tail, so expose the full name on hover. */
+/* Clamp hides the tail of the long title; the browser tooltip carries it.
+   Deliberately no :hover unwrap — expanding the title reflows the card and
+   shrinks the preview canvas mid-hover (uneven preview sizes). */
 #viewer-quantized .viewer-head {
   position: relative;
-}
-
-#viewer-quantized .viewer-head h3:hover {
-  white-space: normal;
-}
-
-.pair-right .viewer-head {
-  align-self: flex-start;
 }
 
 .pair-left .viewer-head h3 {
@@ -1558,9 +1582,6 @@ body {
   flex: none; /* never squeeze into stacked 3-line labels in narrow cards */
 }
 
-.light-btn span {
-  white-space: nowrap;
-}
 
 .light-btn {
   appearance: none;
@@ -1569,10 +1590,11 @@ body {
   color: var(--muted);
   font: inherit;
   font-size: 0.75rem;
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.55rem; /* icon-only: square-ish, tooltip carries the name */
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
 }
 
@@ -1936,10 +1958,18 @@ body {
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; height: auto; }
   .sidebar-split { display: none; }
-  /* Narrow window: the pair stacks vertically; the horizontal splitter dies,
-     the vertical one keeps working between the pair and the 3D viewer. */
-  .viewer-pair { flex-direction: column; }
-  .pair-split { display: none; }
+  /* Narrow window: the pair stacks vertically regardless of the chosen layout
+     (stack or row) — these selectors match the data-layout rules' specificity
+     so the column direction wins inside the media query. The horizontal
+     splitter dies; the vertical one keeps working between pair and 3D. */
+  .viewers[data-layout='stack'] .viewer-pair,
+  .viewers[data-layout='row'] .viewer-pair {
+    flex-direction: column;
+  }
+  .viewers[data-layout='stack'] .pair-split,
+  .viewers[data-layout='row'] .pair-split {
+    display: none;
+  }
   .pair-left, .pair-right { flex: 1 1 auto; min-height: 180px; }
   .viewer3d-block { min-height: 300px; }
 }

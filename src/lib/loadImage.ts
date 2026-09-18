@@ -1,4 +1,4 @@
-import type { LoadedImage } from './types'
+import type { LoadedImage, SourcePreview } from './types'
 import { t, type Lang } from '../i18n'
 import { MAX_DIMENSION, fitResolution } from './printConsts'
 
@@ -61,7 +61,7 @@ export async function loadImageForPrint(
   printWidthMm: number,
   printHeightMm: number,
   lang: Lang = 'en',
-): Promise<{ image: LoadedImage; sourceWidth: number; sourceHeight: number }> {
+): Promise<{ image: LoadedImage; sourcePreview: SourcePreview; sourceWidth: number; sourceHeight: number }> {
   const err = (key: string, params?: Record<string, string>) => t(lang, key, params)
   if (!file.type.startsWith('image/')) {
     throw new Error(err('errNotAnImage', { name: file.name }))
@@ -87,7 +87,16 @@ export async function loadImageForPrint(
     const scale = Math.min(1, cap / Math.max(bitmap.width, bitmap.height))
     const outW = Math.max(1, Math.round(bitmap.width * scale))
     const outH = Math.max(1, Math.round(bitmap.height * scale))
-    return { image: rasterizeToSize(bitmap, outW, outH), sourceWidth: bitmap.width, sourceHeight: bitmap.height }
+    // The print pipeline works at nozzle-fit resolution, but the source
+    // preview keeps the original pixels (up to the absolute decode cap) so
+    // fine detail stays visible in the «Исходное» card. 2048 px bounds the
+    // preview buffer at ~16 MB RGBA — cheap next to the pipeline itself.
+    const PREVIEW_CAP = 2048
+    const previewScale = Math.min(1, PREVIEW_CAP / Math.max(bitmap.width, bitmap.height))
+    const source = previewScale < 1
+      ? rasterizeToSize(bitmap, Math.round(bitmap.width * previewScale), Math.round(bitmap.height * previewScale))
+      : rasterizeToSize(bitmap, bitmap.width, bitmap.height)
+    return { image: rasterizeToSize(bitmap, outW, outH), sourcePreview: source, sourceWidth: bitmap.width, sourceHeight: bitmap.height }
   } finally {
     bitmap.close()
   }

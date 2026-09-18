@@ -260,6 +260,14 @@ export const dict: Dict = {
     en: 'Merge near-duplicate colors',
     ru: 'Сливать близкие цвета',
   },
+  previewSourceEmpty: {
+    en: 'Load a picture to see it here',
+    ru: 'Загрузите картинку — она появится здесь',
+  },
+  previewQuantEmpty: {
+    en: 'The printable preview appears after loading',
+    ru: 'Предпросмотр печати появится после загрузки',
+  },
   mergeHint: {
     en: 'Adjacent bands whose colors are closer than the ΔE threshold become one filament — fewer swaps, same look.',
     ru: 'Соседние полосы с цветами ближе порога ΔE печатаются одним филаментом — меньше смен, тот же вид.',

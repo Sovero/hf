@@ -16,6 +16,17 @@ export interface LoadedImage {
 }
 
 /**
+ * Higher-resolution decode of the original file for the source preview:
+ * the print pipeline works at nozzle-fit resolution, which discards detail
+ * the user can still see in their picture. Capped at 2048 px per axis.
+ */
+export interface SourcePreview {
+  width: number
+  height: number
+  rgba: Uint8ClampedArray
+}
+
+/**
  * Result of quantization: the ordered filament palette plus, for every pixel,
  * which filament band it belongs to and its normalized relief position.
  */
