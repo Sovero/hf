@@ -406,6 +406,61 @@ body {
   outline-offset: 2px;
 }
 
+/* Bottom grip under the 3D block: drag down to extend the whole workspace
+   below the viewport edge (the page scrolls), double-click to reset. */
+.viewers-bottom-split {
+  flex: none;
+  height: 14px;
+  cursor: ns-resize;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  background-clip: content-box;
+  padding: 5px 0; /* slim grip: 3px visible strip centered in 14px hit area */
+  margin-top: 0.35rem;
+  transition: background-color 0.12s;
+  touch-action: none;
+  position: relative;
+}
+
+/* Invitation chevron: hints the grip is draggable, fades in once the user has dragged it once */
+.viewers-bottom-split svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 12px;
+  height: 12px;
+  color: color-mix(in srgb, var(--accent) 75%, transparent);
+  opacity: 0.9;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.viewers-bottom-split:hover svg,
+.viewers-bottom-split.dragging svg {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.viewers-bottom-split[data-dragged] svg {
+  opacity: 0.35;
+}
+
+.viewers-bottom-split:hover,
+.viewers-bottom-split.dragging {
+  background-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.viewers-bottom-split:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Extended-workspace mode: the app shell grows past the viewport bottom.
+   --viewers-extra (px) is set from JS while dragging; the body scrolls. */
+.layout.extended {
+  height: calc(100vh - var(--topbar-h, 64px) + var(--viewers-extra, 0px));
+}
+
 /* ---- Sidebar tabs ------------------------------------------------------- */
 
 /* Sticky tab strip: always visible while the panel content scrolls. */
@@ -1424,6 +1479,20 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* The 3D card fills the block: the block's height is set by the vertical
+   splitter (and the bottom grip), so the card must stretch with it and let
+   the canvas wrap absorb the space. */
+.viewer3d-block > .viewer-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer3d-block > .viewer-card .viewer3d-wrap {
+  flex: 1 1 auto;
 }
 
 .processing-overlay {

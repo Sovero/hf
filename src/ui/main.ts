@@ -3847,6 +3847,50 @@ function setupViewerSplitters() {
     el.addEventListener('dblclick', () => resetTo(apply, key))
   }
 
+  // ---- bottom grip: extend the whole workspace below the viewport edge ----
+  // Dragging down grows the app shell past 100vh (the page scrolls); the 3D
+  // block's flex share follows via the existing v-split, so both preview rows
+  // and the viewer get taller together. Double-click resets to fit-the-screen.
+  const bottomGrip = document.querySelector<HTMLElement>('.viewers-bottom-split')
+  const layoutEl = document.querySelector<HTMLElement>('.layout')
+  const BOTTOM_KEY = 'hf-bottom-extra' // extra px past the viewport bottom
+  const applyBottomExtra = (px: number) => {
+    const v = Math.min(1200, Math.max(0, Math.round(px)))
+    layoutEl?.style.setProperty('--viewers-extra', `${v}px`)
+    layoutEl?.classList.toggle('extended', v > 0)
+  }
+  if (bottomGrip && layoutEl) {
+    try {
+      if (localStorage.getItem('hf-bottom-hint-seen')) bottomGrip.dataset.dragged = '1'
+      const saved = Number(localStorage.getItem(BOTTOM_KEY))
+      if (Number.isFinite(saved) && saved > 0) applyBottomExtra(saved)
+    } catch { /* private mode */ }
+    // dy is an offset from drag start, so the baseline must be captured once
+    // per drag — reading the live value per move would compound it (down
+    // grows quadratically, up clamps to 0 instantly).
+    let dragStartExtra = 0
+    bottomGrip.addEventListener('pointerdown', () => {
+      // The CSS value carries a "px" suffix — parseFloat it (Number() would
+      // return NaN and silently reset the baseline to 0 every drag).
+      dragStartExtra = parseFloat(layoutEl.style.getPropertyValue('--viewers-extra')) || 0
+    })
+    drag(bottomGrip, (_dx, dy, _rect) => {
+      const v = Math.min(1200, Math.max(0, dragStartExtra + dy))
+      applyBottomExtra(v)
+      // Once the user has actually resized, dim the invitation chevron so it
+      // stops begging for attention.
+      if (!bottomGrip.dataset.dragged) {
+        bottomGrip.dataset.dragged = '1'
+        try { localStorage.setItem('hf-bottom-hint-seen', '1') } catch { /* private mode */ }
+      }
+      try { localStorage.setItem(BOTTOM_KEY, String(v)) } catch { /* private mode */ }
+    })
+    bottomGrip.addEventListener('dblclick', () => {
+      applyBottomExtra(0)
+      try { localStorage.removeItem(BOTTOM_KEY) } catch { /* private mode */ }
+    })
+  }
+
   // ---- layout schemes: stacked (default) / two side by side / all in a row --
   const viewers = document.querySelector<HTMLElement>('.viewers')
   const layoutStrip = document.querySelector<HTMLElement>('.viewers-layout')

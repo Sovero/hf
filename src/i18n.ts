@@ -616,6 +616,7 @@ export const dict: Dict = {
   pairSplitTitle: { en: 'Drag to resize the two previews', ru: 'Потяните, чтобы изменить ширину превью' },
   pairVsplitTitle: { en: 'Drag to resize the previews and the 3D viewer', ru: 'Потяните, чтобы изменить высоту превью и 3D-вида' },
   sidebarSplitTitle: { en: 'Drag to resize the sidebar; double-click resets', ru: 'Потяните, чтобы изменить ширину панели; двойной клик — сброс' },
+  bottomSplitTitle: { en: 'Drag to resize the workspace vertically; double-click resets', ru: 'Потяните, чтобы изменить высоту рабочей области; двойной клик — сброс' },
   viewersLayoutAria: { en: 'Preview layout', ru: 'Расположение окон предпросмотра' },
   layoutStackTitle: { en: 'Previews stacked, 3D below', ru: 'Превью друг над другом, 3D внизу' },
   layoutRowTitle: { en: 'Two previews side by side, 3D below', ru: 'Два превью рядом, 3D внизу' },
