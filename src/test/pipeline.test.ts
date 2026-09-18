@@ -26,7 +26,8 @@ describe('print resolution fit', () => {
   })
 
   it('caps at MAX_DIMENSION and floors at 16 px', () => {
-    expect(fitResolution(400)).toBeLessThanOrEqual(512)
+    expect(fitResolution(2000)).toBeLessThanOrEqual(1024)
+    expect(fitResolution(400)).toBe(1000)
     expect(fitResolution(5)).toBe(16)
   })
 })
