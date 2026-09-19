@@ -48,7 +48,24 @@ shown in the app's top bar next to the title.
   Ubuntu, creates the source and deploy archives, and builds the Windows
   Electron installer on `windows-latest`. The workflow adds the installer,
   `latest.yml`, blockmap and both ZIP archives to a draft GitHub Release;
-  publish the draft after reviewing the artifacts.
+  publish the draft after reviewing the artifacts. The `prerelease` flag is set
+  from the tag automatically (on whenever the tag contains a `-`).
+- **Stable vs. pre-release channel:** the desktop app follows the repository's
+  *latest* release only — it never opts into pre-releases (`allowPrerelease =
+  false`, channel `latest.yml`). `releases/latest` skips pre-releases, so
+  **every RC must be published as a GitHub pre-release**:
+
+  ```bash
+  # RC — the tag carries a pre-release identifier (v0.8.3-rc.5):
+  gh release edit "v$VERSION" --draft=false --prerelease
+  # Stable — a plain version (v0.8.3):
+  gh release edit "v$VERSION" --draft=false
+  ```
+
+  Publishing an RC as a normal release makes it the *latest* release and offers
+  it to every stable installation (this happened once with `v0.8.3-rc.4`; it is
+  now a pre-release again). RC installs receive the next **stable** release when
+  it is published, while stable installs never see an RC.
 - `install.bat` compares your local version (from `package.json`) with the
   **latest GitHub release** on every run and offers to download and apply the
   update in place (`update.ps1` does the actual API calls). No need to

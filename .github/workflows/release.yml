@@ -63,6 +63,11 @@ jobs:
           draft: true
           files: hueforge-web-*.zip
           generate_release_notes: true
+          # A prerelease tag (v0.8.3-rc.4) must become a GitHub *pre-release*.
+          # The desktop app polls `latest.yml` from the repository's latest
+          # release (`releases/latest`, which skips pre-releases), so publishing
+          # an RC as a normal release would push it to every stable install.
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   windows-installer:
     name: Windows installer (Electron)

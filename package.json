@@ -15,8 +15,8 @@
     "pack-deploy": "node scripts/pack-deploy.mjs",
     "electron:dev": "electron .",
     "electron:start": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win --x64",
-    "dist:dir": "npm run build && electron-builder --win --x64 --dir"
+    "dist": "npm run build && node scripts/electron-builder-resilient.mjs --win --x64",
+    "dist:dir": "npm run build && node scripts/electron-builder-resilient.mjs --win --x64 --dir"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
