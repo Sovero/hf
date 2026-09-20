@@ -8,8 +8,10 @@
  * - copies every release body verbatim (demoted by one heading level, minus the
  *   body title when it only repeats the product and version);
  * - lists the releases in an index table with date and channel;
- * - falls back to the commit subjects between two tags for releases that carry
- *   no notes of their own (GitHub's auto-generated "Full Changelog" stubs).
+ * - for releases that carry no notes of their own (GitHub's auto-generated
+ *   "Full Changelog" stubs) builds categorized notes out of the commits between
+ *   the tags — grouped by type, each entry linked to its commit — instead of
+ *   dumping a flat list of subjects.
  *
  * It only rewrites the region between the `releases:start` / `releases:end`
  * markers, so the hand-written header above stays untouched.
@@ -28,8 +30,62 @@ const START = '<!-- releases:start -->'
 const END = '<!-- releases:end -->'
 
 /** Commit subjects that only shuffle version numbers are noise in a changelog. */
-const NOISE = /^(release: prepare\b|chore: (bump|sync|cut)\b)/i
-const MAX_FALLBACK_LINES = 25
+const NOISE = [
+  /^release:?\s+prepare\b/i,
+  /^release\s+v?\d+\.\d+\.\d+/i,
+  /^(?:chore|build|ci):\s+(?:bump|sync|cut)\b/i,
+  /^bump (?:the )?version\b/i,
+  /^v?\d+\.\d+\.\d+\s*(?:\(|:|$)/i,
+]
+
+export const isNoise = (subject) => NOISE.some((re) => re.test(subject))
+
+/** Reader-facing sections, in the order they are rendered. */
+const SECTIONS = [
+  ['breaking', '⚠️ Ломающие изменения'],
+  ['feat', '✨ Новое'],
+  ['fix', '🐛 Исправления'],
+  ['perf', '⚡ Производительность'],
+  ['ui', '🎨 Интерфейс и полировка'],
+  ['internal', '♻️ Внутреннее'],
+  ['docs', '📚 Документация'],
+  ['tools', '🔧 Сборка, CI и тесты'],
+  ['other', 'Прочие изменения'],
+]
+
+/** Conventional-commit type → section. An unknown type falls through to `other`. */
+const TYPE_SECTION = {
+  feat: 'feat', feature: 'feat',
+  fix: 'fix', bugfix: 'fix', hotfix: 'fix', revert: 'fix',
+  perf: 'perf', performance: 'perf',
+  ui: 'ui', style: 'ui', design: 'ui',
+  refactor: 'internal', chore: 'internal',
+  docs: 'docs', doc: 'docs',
+  test: 'tools', tests: 'tools', ci: 'tools', build: 'tools', deps: 'tools',
+}
+
+/**
+ * The oldest commits are plain imperative sentences rather than typed ones, so
+ * they are read by their leading verb. Only unambiguous verbs are listed —
+ * anything else goes to `other`, which is honest and never misfiles.
+ */
+const VERB_SECTION = [
+  [
+    /(?:\bci\b|github actions|workflow|installer|electron-builder|package-lock|make-icon|deploy (?:package|script)|build script)/i,
+    'tools',
+  ],
+  [/^(?:add|implement|introduce|support|enable|allow|ship|attach|bring|parse)\b/i, 'feat'],
+  [/^(?:fix|correct|repair|harden|avoid|prevent|revert)\b/i, 'fix'],
+  [
+    /^(?:show|hide|style|translate|center|space|size|align|left-align|tint|wrap|shorten|compact|restructure|fit|mirror|polish)\b/i,
+    'ui',
+  ],
+  [/^(?:document|expand|describe)\b/i, 'docs'],
+  [/^(?:refactor|rename|clean)\b/i, 'internal'],
+]
+
+export const MAX_PER_SECTION = 20
+const CONVENTIONAL = /^(?<type>[a-z]+)(?:\((?<scope>[^)]+)\))?(?<breaking>!)?:\s*(?<rest>\S.*)$/i
 
 const sh = (cmd, args) =>
   execFileSync(cmd, args, { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim()
@@ -59,12 +115,82 @@ function normalizeBody(body) {
     .trim()
 }
 
-function commitSubjects(fromTag, toTag) {
+/** Commits of `fromTag..toTag` (`fromTag` null = everything up to the tag). */
+function commitsIn(fromTag, toTag) {
   const range = fromTag ? `${fromTag}..${toTag}` : toTag
-  return git('log', '--no-merges', '--pretty=%s', range)
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((s) => s && !NOISE.test(s))
+  return git('log', '--no-merges', '--pretty=format:%h%x1f%s%x1f%b%x1e', range)
+    .split('\x1e')
+    .map((raw) => raw.replace(/^\n+|\n+$/g, ''))
+    .filter(Boolean)
+    .map((raw) => {
+      const [hash, subject = '', body = ''] = raw.split('\x1f')
+      return { hash, subject: subject.trim(), body }
+    })
+    .filter((commit) => commit.subject && !isNoise(commit.subject))
+}
+
+const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1)
+
+/** Russian counts need their own forms: 1 коммит, 2 коммита, 5 коммитов. */
+function count(n, forms) {
+  const withinHundred = n % 100
+  if (withinHundred >= 11 && withinHundred <= 14) return forms[2]
+  const withinTen = n % 10
+  if (withinTen === 1) return forms[0]
+  if (withinTen >= 2 && withinTen <= 4) return forms[1]
+  return forms[2]
+}
+
+/** One commit → one changelog entry: which section it belongs to and how it reads. */
+export function entryOf(commit) {
+  const typed = CONVENTIONAL.exec(commit.subject)
+  const breaking =
+    Boolean(typed?.groups?.breaking) || /^BREAKING[ -]CHANGE:/m.test(commit.body)
+
+  if (typed) {
+    const { type, scope, rest } = typed.groups
+    const prefix = scope ? `**${scope}**: ` : ''
+    const section = breaking ? 'breaking' : (TYPE_SECTION[type.toLowerCase()] ?? 'other')
+    return { section, text: `${prefix}${cap(rest)}`, hash: commit.hash }
+  }
+
+  const section = breaking
+    ? 'breaking'
+    : (VERB_SECTION.find(([re]) => re.test(commit.subject))?.[1] ?? 'other')
+  return { section, text: commit.subject, hash: commit.hash }
+}
+
+/**
+ * Notes for a release that has none of its own. The commits behind it are the
+ * only honest source, but a reader wants categories and a way back to the
+ * change — so they are grouped and linked instead of dumped verbatim.
+ */
+export function notesFromCommits(commits, { fromTag, toTag, widened = false, repoUrl }) {
+  const entries = commits.map(entryOf)
+  const range = widened
+    ? `\`${toTag}\` (от \`${fromTag}\`)`
+    : fromTag
+      ? `\`${fromTag}\` … \`${toTag}\``
+      : `\`${toTag}\``
+  const notes = [
+    `_Заметок к этому релизу нет — разделы собраны из ${commits.length} ` +
+      `${count(commits.length, ['коммит', 'коммита', 'коммитов'])} за ${range}._`,
+  ]
+
+  for (const [section, title] of SECTIONS) {
+    const items = entries.filter((entry) => entry.section === section)
+    if (items.length === 0) continue
+
+    notes.push('', `### ${title}`)
+    for (const entry of items.slice(0, MAX_PER_SECTION)) {
+      notes.push(`- ${entry.text} ([${entry.hash}](${repoUrl}/commit/${entry.hash}))`)
+    }
+    if (items.length > MAX_PER_SECTION) {
+      notes.push(`- …и ещё ${items.length - MAX_PER_SECTION}`)
+    }
+  }
+
+  return notes.join('\n')
 }
 
 /**
@@ -72,20 +198,20 @@ function commitSubjects(fromTag, toTag) {
  * range to the previous release empty. Widen the range until some real work
  * shows up, but stay honest about where the range starts.
  */
-function fallbackBody(previousTags, toTag) {
-  for (const [depth, fromTag] of previousTags.entries()) {
-    const subjects = commitSubjects(fromTag, toTag)
-    if (subjects.length === 0) continue
+function fallbackBody(previousTags, toTag, repoUrl) {
+  // The very first release has nothing before it — that range is its whole history.
+  const candidates = previousTags.length > 0 ? previousTags : [null]
 
-    const scope = depth === 0 ? '' : ` (с ${fromTag})`
-    const shown = subjects.slice(0, MAX_FALLBACK_LINES)
-    const more = subjects.length - shown.length
-    const notes = [
-      `Заметок к этому релизу нет — изменения по истории коммитов${scope}:`,
-      '',
-      ...shown.map((s) => `- ${s}`),
-      ...(more > 0 ? [`- …и ещё ${more}`] : []),
-    ].join('\n')
+  for (const [depth, fromTag] of candidates.entries()) {
+    const commits = commitsIn(fromTag, toTag)
+    if (commits.length === 0) continue
+
+    const notes = notesFromCommits(commits, {
+      fromTag,
+      toTag,
+      widened: depth > 0,
+      repoUrl,
+    })
     return { notes, fromTag }
   }
   return {
@@ -113,7 +239,7 @@ function channelOf(release, latestTag) {
 function section(release, previousTags, repoUrl, latestTag) {
   const { tag_name: tag, html_url: url } = release
   const body = release.body ?? ''
-  const fallback = isStub(body) ? fallbackBody(previousTags, tag) : null
+  const fallback = isStub(body) ? fallbackBody(previousTags, tag, repoUrl) : null
   const notes = fallback ? fallback.notes : normalizeBody(body)
   // The compare link must cover the range the notes were actually taken from.
   const previousTag = fallback?.fromTag ?? previousTags[0]
@@ -191,4 +317,7 @@ function main() {
   console.log(`markers: ${(out.match(/<!-- releases:(?:start|end) -->/g) ?? []).join(' ... ')}`)
 }
 
-main()
+// Importable for tests — `main()` only runs when invoked as a script.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main()
+}

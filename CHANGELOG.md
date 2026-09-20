@@ -23,8 +23,10 @@ GitHub, но внутри репозитория — ноты версий чи�
 3. Закоммитьте `CHANGELOG.md` вместе с бампом версии.
 
 Раздел ниже генерируется из релизов GitHub: тела релизов переносятся дословно,
-ссылками и разметкой. Править вручную нужно только этот заголовок — иначе
-правки затрёт следующая синхронизация.
+ссылками и разметкой. Для релизов, у которых своих нот нет, разделы собираются
+из коммитов между тегами — по типам (`feat`, `fix`, `ci`, …), с ссылкой на
+каждый коммит и с указанием диапазона, за который они взяты. Править вручную
+нужно только этот заголовок — иначе правки затрёт следующая синхронизация.
 
 <!-- releases:start -->
 
@@ -225,9 +227,10 @@ This is a release candidate: please smoke-test the installer, the height-map rel
 
 ## v0.8.2 — 2026-09-14 · Стабильный
 
-Заметок к этому релизу нет — изменения по истории коммитов:
+_Заметок к этому релизу нет — разделы собраны из 1 коммит за `v0.8.1` … `v0.8.2`._
 
-- feat: add frameless HueForge Desktop window
+### ✨ Новое
+- Add frameless HueForge Desktop window ([47f955f](https://github.com/Sovero/hf/commit/47f955f))
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.8.1...v0.8.2
 
@@ -239,9 +242,10 @@ This is a release candidate: please smoke-test the installer, the height-map rel
 
 ## v0.8.1 — 2026-09-12 · Стабильный
 
-Заметок к этому релизу нет — изменения по истории коммитов:
+_Заметок к этому релизу нет — разделы собраны из 1 коммит за `v0.8.0` … `v0.8.1`._
 
-- docs: update release docs for stable v0.8.0
+### 📚 Документация
+- Update release docs for stable v0.8.0 ([07285b6](https://github.com/Sovero/hf/commit/07285b6))
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.8.0...v0.8.1
 
@@ -253,18 +257,25 @@ This is a release candidate: please smoke-test the installer, the height-map rel
 
 ## v0.8.0 — 2026-09-11 · Стабильный
 
-Заметок к этому релизу нет — изменения по истории коммитов (с v0.7.9):
+_Заметок к этому релизу нет — разделы собраны из 10 коммитов за `v0.8.0` (от `v0.7.9`)._
 
-- ci: build the Windows installer on a native windows runner
-- ci: use electron-builder's portable wine toolset for NSIS on linux
-- ci: skip Windows code signing in electron-builder
-- fix: build ICO directory as one contiguous block in make-icon
-- fix: write correct ICO header fields in make-icon (type=1, count)
-- fix: harden desktop export and auto-update for v0.8.0-rc.1
-- chore: update package-lock.json for electron deps
-- feat: add Electron desktop app with auto-update and printability warn-only fix
-- Parse reference 3MF in a Web Worker and stream vertex bounds
-- Fix reference 3MF UI defects found in review
+### ✨ Новое
+- Add Electron desktop app with auto-update and printability warn-only fix ([8dbbd0b](https://github.com/Sovero/hf/commit/8dbbd0b))
+- Parse reference 3MF in a Web Worker and stream vertex bounds ([7ca41c1](https://github.com/Sovero/hf/commit/7ca41c1))
+
+### 🐛 Исправления
+- Build ICO directory as one contiguous block in make-icon ([ee0c56b](https://github.com/Sovero/hf/commit/ee0c56b))
+- Write correct ICO header fields in make-icon (type=1, count) ([25204ec](https://github.com/Sovero/hf/commit/25204ec))
+- Harden desktop export and auto-update for v0.8.0-rc.1 ([c16c7b5](https://github.com/Sovero/hf/commit/c16c7b5))
+- Fix reference 3MF UI defects found in review ([1862fb7](https://github.com/Sovero/hf/commit/1862fb7))
+
+### ♻️ Внутреннее
+- Update package-lock.json for electron deps ([f297cc9](https://github.com/Sovero/hf/commit/f297cc9))
+
+### 🔧 Сборка, CI и тесты
+- Build the Windows installer on a native windows runner ([e52b489](https://github.com/Sovero/hf/commit/e52b489))
+- Use electron-builder's portable wine toolset for NSIS on linux ([6f441c6](https://github.com/Sovero/hf/commit/6f441c6))
+- Skip Windows code signing in electron-builder ([79b386b](https://github.com/Sovero/hf/commit/79b386b))
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.7.9...v0.8.0
 
@@ -755,13 +766,15 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.2.1 — 2026-09-03 · Стабильный
 
-Заметок к этому релизу нет — изменения по истории коммитов:
+_Заметок к этому релизу нет — разделы собраны из 4 коммита за `v0.2.0` … `v0.2.1`._
 
-- Bump version to 0.2.1
-- Add one-time first-run language choice banner
-- Translate nearest-filament names in the palette legend
-- Add English/Russian interface with a language switcher
-- Add token-based self-update for the private repository
+### ✨ Новое
+- Add one-time first-run language choice banner ([99ae8b4](https://github.com/Sovero/hf/commit/99ae8b4))
+- Add English/Russian interface with a language switcher ([52ee5af](https://github.com/Sovero/hf/commit/52ee5af))
+- Add token-based self-update for the private repository ([8017bc5](https://github.com/Sovero/hf/commit/8017bc5))
+
+### 🎨 Интерфейс и полировка
+- Translate nearest-filament names in the palette legend ([08aad76](https://github.com/Sovero/hf/commit/08aad76))
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.2.0...v0.2.1
 
@@ -773,7 +786,14 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.2.0 — 2026-09-03 · Стабильный
 
-Заметок к этому релизу нет, отдельных изменений относительно предыдущего тоже.
+_Заметок к этому релизу нет — разделы собраны из 3 коммита за `v0.2.0`._
+
+### 🔧 Сборка, CI и тесты
+- Add GitHub Actions CI workflow ([d657b88](https://github.com/Sovero/hf/commit/d657b88))
+
+### Прочие изменения
+- Security hardening, semver 0.2.0, and release flow ([48e97a1](https://github.com/Sovero/hf/commit/48e97a1))
+- Initial commit: HueForge Web — image to multi-layer 3D-printable filament paintings ([3a741ca](https://github.com/Sovero/hf/commit/3a741ca))
 
 **Полный список изменений**: https://github.com/Sovero/hf/commits/v0.2.0
 
