@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "serve": "node server.mjs",
     "pack-deploy": "node scripts/pack-deploy.mjs",
+    "changelog:sync": "node scripts/sync-changelog.mjs",
+    "release:publish": "node scripts/release-publish.mjs",
     "electron:dev": "electron .",
     "electron:start": "npm run build && electron .",
     "dist": "npm run build && node scripts/electron-builder-resilient.mjs --win --x64",

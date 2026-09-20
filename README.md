@@ -50,6 +50,12 @@ shown in the app's top bar next to the title.
   `latest.yml`, blockmap and both ZIP archives to a draft GitHub Release;
   publish the draft after reviewing the artifacts. The `prerelease` flag is set
   from the tag automatically (on whenever the tag contains a `-`).
+- **Publishing locally** (`npm run dist` → `npm run release:publish`) is the path
+  to use while the Actions billing is blocked: the second command derives the
+  channel flags from the tag itself — pre-release for `vX.Y.Z-rc.N`, latest for
+  a stable version — uploads the installer, blockmap and `latest.yml`, checks
+  them against the build, and **exits non-zero if `releases/latest` points at a
+  candidate**. `--dry-run` prints the mutations without performing them.
 - **Stable vs. pre-release channel:** the desktop app follows the repository's
   *latest* release only — it never opts into pre-releases (`allowPrerelease =
   false`, channel `latest.yml`). `releases/latest` skips pre-releases, so
@@ -71,6 +77,11 @@ shown in the app's top bar next to the title.
   update in place (`update.ps1` does the actual API calls). No need to
   re-download the zip for updates — unless a new `install.bat`/`start.bat`/
   `update.ps1` ships, in which case a fresh unzip applies those.
+- **Release notes live in the repo:** [CHANGELOG.md](CHANGELOG.md) mirrors every
+  release — version, date, channel and the full notes — so the history is
+  readable from the code, not only from the release pages. `npm run
+  changelog:sync` regenerates it from the GitHub releases (needs an
+  authenticated `gh`); commit it along with the version bump.
 
 ## How to use
 
