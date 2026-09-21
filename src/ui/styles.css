@@ -1099,6 +1099,95 @@ body {
   border-radius: 3px;
 }
 
+/* ---- Palette row reordering ---------------------------------------------- */
+
+/* Grab handle — ⠿ braille dots; hover hints "this row moves". */
+.palette-grab {
+  flex: none;
+  width: 1.1rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: grab;
+  font-size: 0.85rem;
+  line-height: 1;
+  touch-action: none;
+}
+
+.palette-grab:hover,
+.palette-row:focus-within .palette-grab {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.palette-grab:active {
+  cursor: grabbing;
+}
+
+/* The row being dragged fades; the ghost image carries itself. */
+.palette-row.is-dragging {
+  opacity: 0.35;
+}
+
+/* Insertion line between rows while dragging (flex column keeps the gap). */
+.palette-drop-line {
+  height: 2px;
+  margin: -1px 0;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: drop-line-in 0.15s ease-out;
+}
+
+@keyframes drop-line-in {
+  from {
+    transform: scaleY(0.3);
+    opacity: 0;
+  }
+  to {
+  transform: scaleY(1);
+  opacity: 1;
+  }
+}
+
+/* Print-order steppers: hidden on edge rows via [hidden]; Alt on click
+   swaps sheet positions instead (the title says so). */
+.palette-move {
+  flex: none;
+  width: 1.35rem;
+  height: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.palette-move:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.palette-move[hidden] {
+  display: none;
+}
+
+/* Alt is pressed: buttons trade sheets, not filaments — show it in place. */
+.palette-row:has(.palette-move:hover:active) {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette-drop-line {
+    animation: none;
+  }
+}
+
 .palette-label {
   flex: 1;
   min-width: 0;

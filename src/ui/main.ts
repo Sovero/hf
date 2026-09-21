@@ -1447,6 +1447,143 @@ function updateCatalogBtn() {
   catalogBtn.title = tr(catalogActive ? 'catalogResetHelp' : 'catalogPickHelp')
 }
 
+// ---- Palette row reordering ----------------------------------------------
+//
+// A palette row is a print slot: its position owns the sheet (where the band
+// sits in the height stack) and the print-order number. Reordering moves the
+// whole row content — color, τ, filament assignment and the sheet's custom
+// thickness — to a new position, and the quantizer rebuilds the picture
+// around the new order. Alt swaps the sheet thicknesses instead, keeping
+// every filament in its row.
+
+/**
+ * Exchange the content of two palette slots and rebuild everything from the
+ * swapped state. Default (drag, plain click): the plastic moves with its
+ * sheet — color, τ, ★ assignment and the slot's custom thickness travel
+ * together. With `sheetsOnly` (Alt) the filaments stay in their rows and only
+ * the sheet thickness values trade places; without custom heights there is
+ * nothing to trade and the call reports a no-op.
+ *
+ * The quantizer rebuilds geometry from the swapped palette, so previews, the
+ * 3D view, the export schedule and printability all follow one code path.
+ * Returns false when nothing changed (bad indices, empty Alt swap).
+ */
+function swapPaletteSlots(a: number, b: number, sheetsOnly = false): boolean {
+  if (!current || a === b) return false
+  const n = current.quantized.palette.length
+  if (a < 0 || b < 0 || a >= n || b >= n) return false
+  const q = current.quantized
+  const heightsOk = !!q.bandHeightsMm && q.bandHeightsMm.length === n
+  // Alt trades sheet positions; equal bands have nothing to trade.
+  if (sheetsOnly && !heightsOk) return false
+  const swapIn = (arr: unknown[]) => {
+    ;[arr[a], arr[b]] = [arr[b], arr[a]]
+  }
+  if (!sheetsOnly) {
+    // The plastic moves with its sheet: color, τ and assignment follow.
+    swapIn(q.palette)
+    if (q.tauMm && q.tauMm.length === n) swapIn(q.tauMm)
+    swapIn(filamentAssignments)
+    // Catalog mode quantizes against the assigned spools, so the swap must
+    // survive the re-quantize: keep the mode on only while every slot still
+    // carries a real filament.
+    if (catalogActive && filamentAssignments.some((id) => !id)) {
+      catalogActive = false
+      updateCatalogBtn()
+    }
+  }
+  if (heightsOk) {
+    swapIn(q.bandHeightsMm!)
+    if (bandHeights && bandHeights.length === n) {
+      bandHeights = [...bandHeights]
+      swapIn(bandHeights)
+    }
+  }
+  drawQuantized()
+  drawLayerView()
+  rebuildNow(false)
+  // Rows, order numbers, thickness labels and the print schedule follow.
+  renderPalette()
+  syncMaxInput()
+  return true
+}
+
+/** Row-drag order permutation → content swaps through `swapPaletteSlots`. */
+function applyRowPermutation(perm: number[]) {
+  if (!current) return
+  const n = current.quantized.palette.length
+  if (perm.length !== n || perm.some((v, i) => v < 0 || v >= n || perm.indexOf(v) !== i)) return
+  // perm[p] = the slot whose content must end up in row position p. Decompose
+  // into content exchanges so every intermediate state stays printable.
+  const at = Array.from({ length: n }, (_, i) => i) // at[p] = slot currently at p
+  for (let p = 0; p < n; p++) {
+    const j = at.indexOf(perm[p])
+    if (j === p) continue
+    ;[at[p], at[j]] = [at[j], at[p]]
+    swapPaletteSlots(p, j)
+  }
+}
+
+/**
+ * Row order after moving slot `from` to the position "before row `before`"
+ * (rows keep their original indices while dragging — the DOM never reflows
+ * mid-drag, the drop line just travels). Result: result[p] = the slot whose
+ * content ends up at row p.
+ */
+function movePermutation(n: number, from: number, before: number): number[] {
+  const order = Array.from({ length: n }, (_, k) => k)
+  order.splice(from, 1)
+  order.splice(before <= from ? before : before - 1, 0, from)
+  return order
+}
+
+/**
+ * FLIP-animate the palette rows through a re-render: src[p] is the old row
+ * index whose content the new row p now shows, so each new row starts from
+ * where its content used to sit. Skipped entirely when the user prefers
+ * reduced motion.
+ */
+function flipPaletteRows(src: number[], action: () => void) {
+  const rowsOf = () => [...paletteList.querySelectorAll<HTMLElement>(':scope > .palette-row')]
+  const before = rowsOf().map((r) => r.getBoundingClientRect())
+  action()
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  const after = rowsOf()
+  for (let p = 0; p < after.length && p < src.length; p++) {
+    const old = before[src[p]]
+    if (!old) continue
+    const dy = old.top - after[p].getBoundingClientRect().top
+    if (Math.abs(dy) < 1) continue
+    after[p].animate(
+      [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
+      { duration: 220, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' },
+    )
+  }
+}
+
+/** Drag-and-drop state: the slot being dragged and the active drop line. */
+let dragFromSlot: number | null = null
+let dropBefore: number | null = null
+let dropMarker: HTMLDivElement | null = null
+
+/** Show the insertion line "before row `before`" (n = after the last row). */
+function setDropMarker(before: number) {
+  if (dropBefore === before) return
+  clearDropMarker()
+  dropBefore = before
+  dropMarker = document.createElement('div')
+  dropMarker.className = 'palette-drop-line'
+  const rows = [...paletteList.children]
+  if (before >= rows.length) paletteList.appendChild(dropMarker)
+  else paletteList.insertBefore(dropMarker, rows[before])
+}
+
+function clearDropMarker() {
+  dropMarker?.remove()
+  dropMarker = null
+  dropBefore = null
+}
+
 // ---- Undo/redo history (Ctrl+Z / Ctrl+Y) --------------------------------
 //
 // A snapshot captures the editor state that settles after each coherent
@@ -1722,6 +1859,48 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault()
     void doRedo()
   }
+})
+
+// Palette reordering from the keyboard: Alt+↑/↓ steps the focused slot
+// through the print order (the same swap the row buttons do), Ctrl+Arrow
+// jumps it to the top/bottom in one go. Plain arrows stay native — sliders
+// and number inputs inside the rows keep their keyboard behavior.
+document.addEventListener('keydown', (e) => {
+  if (!e.altKey || !(e.key === 'ArrowUp' || e.key === 'ArrowDown')) return
+  const el = e.target as HTMLElement | null
+  const row = el?.closest?.('.palette-row') as HTMLElement | null
+  if (!row) return
+  const rows = [...paletteList.querySelectorAll<HTMLElement>(':scope > .palette-row')]
+  const i = rows.indexOf(row)
+  const n = current?.quantized.palette.length ?? 0
+  if (i < 0 || n < 2) return
+  e.preventDefault()
+  const j = e.key === 'ArrowUp' ? i - 1 : i + 1
+  if (j < 0 || j >= n) return
+  if (!swapPaletteSlots(i, j, false)) return
+  showStatus(tr('paletteReordered'))
+  noteSettled()
+  // Focus follows the moved slot so repeated presses keep walking it — the
+  // rows are re-created by the swap, so query them afresh.
+  paletteList.querySelector<HTMLElement>(':scope > .palette-row:nth-child(' + (j + 1) + ') .palette-picker')?.focus()
+})
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || !(e.key === 'ArrowUp' || e.key === 'ArrowDown')) return
+  const el = e.target as HTMLElement | null
+  const row = el?.closest?.('.palette-row') as HTMLElement | null
+  if (!row) return
+  const rows = [...paletteList.querySelectorAll<HTMLElement>(':scope > .palette-row')]
+  const i = rows.indexOf(row)
+  const n = current?.quantized.palette.length ?? 0
+  if (i < 0 || n < 2) return
+  e.preventDefault()
+  const to = e.key === 'ArrowUp' ? 0 : n - 1
+  if (to === i) return
+  const perm = movePermutation(n, i, to === 0 ? 0 : n)
+  flipPaletteRows(perm, () => applyRowPermutation(perm))
+  showStatus(tr('paletteReordered'))
+  noteSettled()
+  paletteList.querySelector<HTMLElement>(':scope > .palette-row:nth-child(' + (to + 1) + ') .palette-picker')?.focus()
 })
 
 refreshHistory()
@@ -2500,6 +2679,62 @@ function renderPalette() {
     const rowMain = document.createElement('div')
     rowMain.className = 'palette-row-main'
 
+    // Grab handle: drag the row to a new position to reorder the palette.
+    // Rows themselves are the drop zones — the insertion line travels
+    // between them (see the dragover/drop listeners right below).
+    const handle = document.createElement('button')
+    handle.type = 'button'
+    handle.className = 'palette-grab'
+    handle.textContent = '⠿'
+    handle.draggable = true
+    handle.title = tr('paletteReorderHint')
+    handle.ariaLabel = tr('paletteReorderHint')
+    handle.addEventListener('dragstart', (e) => {
+      dragFromSlot = i
+      const dt = e.dataTransfer
+      if (dt) {
+        dt.effectAllowed = 'move'
+        try {
+          dt.setData('text/plain', String(i))
+          dt.setDragImage(row, 24, 12)
+        } catch {
+          /* synthetic drags (tests) have no drag session for setDragImage */
+        }
+      }
+      row.classList.add('is-dragging')
+    })
+    handle.addEventListener('dragend', () => {
+      dragFromSlot = null
+      clearDropMarker()
+      row.classList.remove('is-dragging')
+    })
+    row.addEventListener('dragover', (e) => {
+      if (dragFromSlot === null) return
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+      const rect = row.getBoundingClientRect()
+      const before = e.clientY < rect.top + rect.height / 2 ? i : i + 1
+      // No line when the drop would land where the row already is.
+      if (before === dragFromSlot || before === dragFromSlot + 1) clearDropMarker()
+      else setDropMarker(before)
+    })
+    row.addEventListener('drop', (e) => {
+      if (dragFromSlot === null) return
+      e.preventDefault()
+      const from = dragFromSlot
+      dragFromSlot = null
+      clearDropMarker()
+      row.classList.remove('is-dragging')
+      const n = current!.quantized.palette.length
+      const rect = row.getBoundingClientRect()
+      const before = e.clientY < rect.top + rect.height / 2 ? i : i + 1
+      if (before === from || before === from + 1) return
+      const perm = movePermutation(n, from, before)
+      flipPaletteRows(perm, () => applyRowPermutation(perm))
+      showStatus(tr('paletteReordered'))
+      noteSettled()
+    })
+
     // Native color picker styled as a swatch; live previews while dragging.
     const picker = document.createElement('input')
     picker.type = 'color'
@@ -2557,6 +2792,38 @@ function renderPalette() {
       }
       popAnchor = libBtn
       openLibraryPopover(i, libBtn)
+    })
+
+    // Print-order steppers: a plain click swaps this filament with the
+    // neighbor — the slot thickness rides along, so the picture re-slices
+    // around the new order. Alt+click trades the sheets' positions instead
+    // (every filament keeps its row; only the sheet thicknesses exchange).
+    // Buttons hide on the edge rows: #1 has no up-step, the last row no
+    // down-step.
+    const moveUp = document.createElement('button')
+    moveUp.type = 'button'
+    moveUp.className = 'palette-move'
+    moveUp.textContent = '↑'
+    moveUp.hidden = i === 0
+    const neighborUp = `${i} ⇄ ${i - 1}`
+    moveUp.title = tr('paletteMoveUp', { a: `#${i + 1}`, b: `#${i}` })
+    moveUp.ariaLabel = `${tr('paletteMoveUp', { a: `#${i + 1}`, b: `#${i}` })} (${neighborUp})`
+    moveUp.addEventListener('click', (e) => {
+      if (!swapPaletteSlots(i, i - 1, e.altKey)) return
+      showStatus(tr(e.altKey ? 'paletteReorderedAlt' : 'paletteReordered'))
+      noteSettled()
+    })
+    const moveDown = document.createElement('button')
+    moveDown.type = 'button'
+    moveDown.className = 'palette-move'
+    moveDown.textContent = '↓'
+    moveDown.hidden = i === current!.quantized.palette.length - 1
+    moveDown.title = tr('paletteMoveDown', { a: `#${i + 1}`, b: `#${i + 2}` })
+    moveDown.ariaLabel = `${tr('paletteMoveDown', { a: `#${i + 1}`, b: `#${i + 2}` })} (${i} ⇄ ${i + 1})`
+    moveDown.addEventListener('click', (e) => {
+      if (!swapPaletteSlots(i, i + 1, e.altKey)) return
+      showStatus(tr(e.altKey ? 'paletteReorderedAlt' : 'paletteReordered'))
+      noteSettled()
     })
 
     // Per-filament opacity length τ (mm) — fitted from a calibration swatch
@@ -2653,7 +2920,7 @@ function renderPalette() {
       showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }))
     })
 
-    rowMain.append(picker, heightSlider, heightVal, tauInput, libBtn, reset)
+    rowMain.append(handle, picker, heightSlider, heightVal, tauInput, libBtn, moveUp, moveDown, reset)
     row.append(rowMain, label)
     paletteList.appendChild(row)
   }

@@ -490,6 +490,26 @@ export const dict: Dict = {
     en: 'Reset to the auto-detected color',
     ru: 'Вернуть автоматически подобранный цвет',
   },
+  paletteMoveUp: {
+    en: 'Move this filament up in the print order ({a} ⇄ {b}). Alt+click swaps the sheet positions instead — Alt+↑/↓. Drag the handle to reorder.',
+    ru: 'Поднять этот филамент на ступень печати ({a} ⇄ {b}). Alt+щелчок — поменять местами сами позиции листов. Перетаскивайте за рукоятку.',
+  },
+  paletteMoveDown: {
+    en: 'Move this filament down in the print order ({a} ⇄ {b}). Alt+click swaps the sheet positions instead — Alt+↓/↑. Drag the handle to reorder.',
+    ru: 'Опустить этот филамент на ступень печати ({a} ⇄ {b}). Alt+щелчок — поменять местами сами позиции листов. Перетаскивание за рукоятку.',
+  },
+  paletteReordered: {
+    en: 'Order changed — the print schedule and heights follow the rows. Ctrl+Z undoes.',
+    ru: 'Порядок изменён — расписание смен филамента и высоты следуют за строками. Ctrl+Z отменяет.',
+  },
+  paletteReorderedAlt: {
+    en: 'Sheet positions swapped — each filament keeps its color and τ, the sheets trade places. Ctrl+Z undoes.',
+    ru: 'Позиции листов поменяны — филамент сохраняет цвет и τ, листы меняются местами. Ctrl+Z отменяет.',
+  },
+  paletteReorderHint: {
+    en: 'Drag rows to reorder filaments; every swap re-slices the model.',
+    ru: 'Перетаскивайте строки, чтобы менять филаменты местами; каждый своп пересобирает модель.',
+  },
   paletteHeight: {
     en: 'Band thickness (mm): how thick this color prints. The total model height is base + the sum of all bands; the max-height field follows while any band has its own height.',
     ru: 'Толщина полосы (мм): насколько толсто печатается этот цвет. Общая высота модели = основание + сумма всех полос; поле «Макс. высота» следует за ней, пока заданы свои высоты.',
