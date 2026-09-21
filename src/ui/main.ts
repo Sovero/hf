@@ -1666,6 +1666,7 @@ function captureSnapshot(): EditorSnapshot | null {
     maxMm: opts.maxHeightMm,
     layerMm: opts.layerMm,
     dither: Math.round(opts.dither * 100),
+    smooth: Math.round(opts.smooth * 100),
     contrast: Math.round(opts.contrast * 100),
     power: Math.round(opts.power * 100),
     darkIsTall: opts.darkIsTall,
@@ -4153,6 +4154,7 @@ function saveProject() {
         maxMm: opts.maxHeightMm,
         layerMm: opts.layerMm,
         dither: opts.dither * 100,
+        smooth: Math.round(opts.smooth * 100),
         contrast: Math.round(opts.contrast * 100),
         power: Math.round(opts.power * 100),
         darkIsTall,
@@ -4178,6 +4180,10 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   colorsValue.value = colorsSlider.value
   ditherSlider.value = String(clamp(s.dither, 0, 100, 0))
   ditherValue.textContent = `${ditherSlider.value}%`
+  if (s.smooth !== undefined) {
+    smoothSlider.value = String(clamp(s.smooth, 0, 100, 30))
+    smoothValue.textContent = `${smoothSlider.value}%`
+  }
   contrastSlider.value = String(clamp(s.contrast ?? 100, 0, 300, 100))
   powerSlider.value = String(clamp(s.power ?? 100, 20, 300, 100))
   // Styles carried by the project are registered in this browser too (by id, so

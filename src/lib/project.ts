@@ -46,6 +46,8 @@ export interface ProjectSettings {
   power?: number
   /** ΔE merge threshold for adjacent near-duplicate bands; 0 = off. */
   mergeDeltaE?: number
+  /** Edge-preserving smoothing (percent, 0 = off); absent = not specified (old projects). */
+  smooth?: number
   darkIsTall: boolean
   backlight: boolean
   /** Per-band sheet thickness in mm (palette order); absent = equal bands. */
@@ -184,6 +186,14 @@ export function parseProjectFile(text: string): ProjectFile {
       throw new ProjectFileError('settings.mergeDeltaE must be a number in 0..40')
     }
     settings.mergeDeltaE = s.mergeDeltaE as number
+  }
+  // Optional edge-preserving smoothing in percent 0..100; absent = not
+  // specified (older project files open with the current slider value).
+  if (s.smooth !== undefined) {
+    if (!isFiniteNumber(s.smooth) || (s.smooth as number) < 0 || (s.smooth as number) > 100) {
+      throw new ProjectFileError('settings.smooth must be a number in 0..100')
+    }
+    settings.smooth = s.smooth as number
   }
   // Optional per-band thicknesses: one positive finite number per color.
   if (s.bandHeightsMm !== undefined) {

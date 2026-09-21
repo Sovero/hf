@@ -37,6 +37,16 @@ function sample(): ProjectFile {
 }
 
 describe('project save/load', () => {
+  it('roundtrips smooth strength and leaves old files without the field', () => {
+    const withSmooth = parseProjectFile(
+      JSON.stringify({ ...sample(), settings: { ...sample().settings, smooth: 45 } }),
+    )
+    expect(withSmooth.settings.smooth).toBe(45)
+
+    const old = sample()
+    expect((old.settings as ProjectSettings).smooth).toBeUndefined()
+  })
+
   it('roundtrips through JSON without loss', () => {
     const project = sample()
     const parsed = parseProjectFile(JSON.stringify(project))
