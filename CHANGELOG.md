@@ -130,22 +130,22 @@ GitHub, но внутри репозитория — ноты версий чи�
 
 ## v0.8.3-rc.3 — 2026-09-17 · Pre-release
 
-Release candidate v0.8.3-rc.3 — interface consistency iteration.
+Кандидат в релиз v0.8.3-rc.3 — итерация единообразия интерфейса.
 
-### Highlights
+### Главное
 
-- **Uniform panel heads** — every section across all three tabs now shares one grid format: icon and title on line 1 with the help button pinned to the right edge; status badges move to line 2 under the title and never push the help button around.
-- **Icon status buttons** — text badges («All checks passed», «Not loaded», palette count) became compact circular status icons with localized tooltips; color semantics preserved (green ok, amber partial, red error).
-- **Palette collapse removed** — the chevron and the collapsed state are gone; the palette list is always visible, along with its storage key and strings.
-- **One style for toggles** — the ΔE merge checkbox follows the depth-mode option treatment (same text size, hover and checked highlight); checkbox/radio rows share equal heights and exact centering.
-- **Calibration controls aligned** — the τ-calibration select, swatch STL button, and file picker now share one 2rem height and 6px radius, reading as a single control group.
-- **Resizable preview layout** — source and quantized previews sit side by side with a width splitter, a height splitter between the previews and the 3D view, double-click resets to 50/50, and three layout presets (stacked, row, all-in-a-row) are available as icon buttons.
+- **Единый формат шапок** — у каждого раздела всех трёх вкладок теперь одна сетка: иконка и заголовок в первой строке, кнопка «?» прижата к правому краю; бейджи состояния переехали во вторую строку под заголовок и больше не сдвигают «?».
+- **Кнопки-состояния с иконками** — текстовые бейджи («Все проверки пройдены», «Не загружен», число цветов) стали компактными круглыми иконками с локализованными подсказками; смысл цветов сохранён (зелёный — ок, янтарный — частично, красный — ошибка).
+- **Сворачивание палитры убрано** — шеврон и свёрнутое состояние удалены; список палитры виден всегда, вместе со своим ключом хранения и строками.
+- **Единый стиль переключателей** — чекбокс объединения по ΔE приведён к виду опций режима глубины (тот же размер текста, подсветка при наведении и выборе); строки чекбоксов и радио выровнены по высоте и центрированы.
+- **Калибровка выровнена** — выбор цвета для калибровки τ, кнопка образца STL и выбор файла теперь одной высоты (2rem) и радиуса (6px) и читаются как одна группа управления.
+- **Растягиваемая раскладка превью** — исходное превью и квантованное стоят рядом со сплиттером ширины, между превью и 3D-видом есть сплиттер высоты, двойной щелчок возвращает 50/50, а три шаблона раскладки (друг над другом, в ряд, всё в ряд) доступны иконками.
 
-### Between v0.8.3-rc.2 and this RC
+### Между v0.8.3-rc.2 и этим RC
 
-Same code base as rc.2 plus the interface-consistency commits `3c76a1e` (side-by-side previews with resizable splitters) and `9c3a774` (uniform panel heads and controls).
+Та же кодовая база, что в rc.2, плюс коммиты единообразия интерфейса `3c76a1e` (превью рядом с растягиваемыми сплиттерами) и `9c3a774` (единые шапки и контролы).
 
-### Full Changelog
+### Полный список изменений
 
 https://github.com/Sovero/hf/compare/v0.8.3-rc.2...v0.8.3-rc.3
 
@@ -157,26 +157,26 @@ https://github.com/Sovero/hf/compare/v0.8.3-rc.2...v0.8.3-rc.3
 
 ## v0.8.3-rc.2 — 2026-09-17 · Черновик
 
-Release candidate v0.8.3-rc.2 — interface polish iteration.
+Кандидат в релиз v0.8.3-rc.2 — итерация полировки интерфейса.
 
-### Highlights
+### Главное
 
-- **Sidebar section icons** — every numbered panel heading now has a pictogram in the same accent stroke style as the export buttons (image frame, palette, relief steps, dimension arrows, printer, clock, 3D cube, export arrow). Numbers stay.
-- **Depth mode is its own card** — separated from the Colors section, consistent with the other numbered cards.
-- **Quieter depth options** — "Light/Dark = tall" rows are normal weight and muted; the selected row gets a soft highlight instead of bold contrast.
-- **Check-tab badge** — the Check tab shows the current palette color count (hidden until a palette exists).
-- **Stable view cube** — removed the hover spin animation that flickered under the cursor; back to a steady face highlight.
-- **Themed text selection** — accent tint instead of the browser's default blue, and clickable labels no longer highlight on double-click.
+- **Иконки в заголовках разделов** — у каждого пронумерованного блока появился пиктограф в том же стиле обводки, что у кнопок экспорта (рамка изображения, палитра, ступени рельефа, стрелки размера, принтер, часы, 3D-куб, стрелка экспорта). Номера остались.
+- **Режим глубины — отдельная карточка** — вынесен из раздела цветов, как и другие пронумерованные блоки.
+- **Спокойнее варианты глубины** — строки «Светлые/тёмные выше» набраны обычным начертанием и приглушённым цветом; выбранная строка получает мягкую подсветку вместо жирного контраста.
+- **Бейдж на вкладке «Проверка»** — вкладка показывает текущее число цветов палитры (скрыт, пока палитры нет).
+- **Стабильный кубик вида** — убрана анимация вращения при наведении, из-за которой подсветка граней мельтешила под курсором; вернулась ровная подсветка грани.
+- **Выделение текста в теме** — акцентная подкраска вместо системного синего, а кликабельные подписи больше не выделяются двойным щелчком.
 
-### Between v0.8.3-rc.1 and this RC
+### Между v0.8.3-rc.1 и этим RC
 
-Same code base as rc.1 (brightness-driven height-map surface, reference STL/3MF comparison, auto-update fix for the private repo) plus the UI polish commit `84d4175`.
+Та же кодовая база, что в rc.1 (поверхность как карта высот по яркости, сравнение с эталонным STL/3MF, исправленное автообновление для приватного репозитория), плюс коммит полировки интерфейса `84d4175`.
 
-### Full Changelog
+### Полный список изменений
 
 https://github.com/Sovero/hf/compare/v0.8.2...v0.8.3-rc.2
 
-Страница релиза: https://github.com/Sovero/hf/releases/tag/untagged-86c4fc5915773d98c7fa
+Страница релиза: https://github.com/Sovero/hf/releases/tag/untagged-b9ec2e502b32e8983e74
 
 ---
 
@@ -184,42 +184,42 @@ https://github.com/Sovero/hf/compare/v0.8.2...v0.8.3-rc.2
 
 ## v0.8.3-rc.1 — 2026-09-16 · Черновик
 
-Release candidate v0.8.3-rc.1 (target: main).
+Кандидат в релиз v0.8.3-rc.1 (цель: main).
 
-### Highlights
+### Главное
 
-#### Surface geometry reworked to a true height map
-- The printed top surface is now a **shared-vertex height map**, matching the original HueForge mesher: neighboring cells share grid vertices, so tonal changes print as **sloped faces** instead of per-cell staircases.
-- Vertical walls remain **only on the outer contour**; the interior can no longer pinch or show step artifacts.
-- Heights snap to **whole print layers** (no invented half-steps); flat areas keep their exact extent, one-cell dark lines stay grooves.
-- Mesh stays watertight with **no T-junctions**; verified over random and structured height fields (every edge shared by exactly two triangles, correct volumes).
-- "Brightness drives height" (from v0.8.3 line of work): each pixel's luminance sets its layer; per-color band ownership of the total height is preserved.
+#### Поверхность переработана в настоящую карту высот
+- Верхняя поверхность печати теперь — **карта высот с общими вершинами**: соседние ячейки делят вершины сетки, поэтому тональные переходы печатаются **наклонными гранями**, а не ступеньками по ячейкам — как в исходном мешере HueForge.
+- Вертикальные стенки остались **только по внешнему контуру**; внутри поверхность больше не пережимается и не показывает артефактов ступеней.
+- Высоты привязаны к **целым слоям печати** (никаких выдуманных полушагов); плоские участки сохраняют точные размеры, однопиксельные тёмные линии остаются канавками.
+- Меш остаётся водонепроницаемым и **без T-стыков** — проверено на случайных и структурных полях высот (каждое ребро принадлежит ровно двум треугольникам, объёмы верны).
+- **Яркость задаёт высоту**: уровень слоя определяет яркость пикселя, а принадлежность полосы цвета к общей высоте сохраняется.
 
-#### Reference comparison built in
-- Drop a reference **`.stl`** (or `.3mf`) into the Reference panel: the app measures grid pitch, height steps, level count, triangle count and surface-form shares (plateaus / sloped / vertical), and shows a **line-by-line discrepancy table** with ✓ ≈ ✕ marks.
+#### Встроенное сравнение с эталоном
+- Перетащите эталонный **`.stl`** (или `.3mf`) в панель эталона: приложение измеряет шаг сетки, шаги высоты, число уровней, число треугольников и доли форм поверхности (плато / склоны / вертикали) и показывает **таблицу расхождений построчно** с отметками ✓ ≈ ✕.
 
-#### Left panel reorganized into tabs
-- Four context tabs — **Image / Relief / Check / Export** — with a sticky WAI-ARIA tab strip (keyboard arrows supported).
-- The active tab persists across restarts; the guided tour automatically opens the tab owning the spotlighted section.
+#### Левая панель разбита на вкладки
+- Четыре вкладки по смыслу — **Изображение / Рельеф / Проверка / Экспорт** — с закреплённой строкой вкладок на WAI-ARIA (работают стрелки клавиатуры).
+- Активная вкладка сохраняется между запусками; обучающий тур сам открывает вкладку с нужным разделом.
 
-#### Auto-update fixed for the private repository
-- electron-updater only enables `PrivateGitHubProvider` via the publish config or `GH_TOKEN`; update checks previously hit 404. The stored token is now passed through `GH_TOKEN`, and an externally provided token is preserved.
+#### Исправлено автообновление на приватном репозитории
+- electron-updater включает `PrivateGitHubProvider` только через publish-конфиг или `GH_TOKEN`; проверки обновлений раньше упирались в 404. Теперь сохранённый токен передаётся через `GH_TOKEN`, а внешне заданный токен не теряется.
 
-#### Smaller fixes
-- ΔE map no longer freezes the UI: CIEDE2000 is computed lazily with caching, overlay bounds in one pass, and the heat-map overlay is no longer discarded right after creation.
-- ViewCube labels reduced (~0.20 of a face) so they no longer crowd the cube.
-- CI: Actions bumped to Node 24 runtimes.
+#### Мелкие исправления
+- Карта ΔE больше не подвешивает интерфейс: CIEDE2000 считается лениво и с кэшем, границы наложения — за один проход, а тепловая карта не удаляется сразу после создания.
+- Подписи на ViewCube уменьшены (~0,20 грани), чтобы не тесниться на кубике.
+- CI: Actions переведены на рантайм Node 24.
 
-### Artifacts
-- `hueforge-desktop-setup-0.8.3-rc.1.exe` — Windows installer (NSIS, x64) with built-in auto-update *(attached by CI)*
-- `latest.yml` + blockmap — electron-updater manifests *(attached by CI)*
-- deploy bundle — self-contained server+browser package *(attached by CI)*
+### Артефакты
+- `hueforge-desktop-setup-0.8.3-rc.1.exe` — установщик Windows (NSIS, x64) со встроенным автообновлением *(приложен CI)*
+- `latest.yml` + blockmap — манифесты electron-updater *(приложены CI)*
+- deploy-пакет — самодостаточный сервер + браузер *(приложен CI)*
 
-This is a release candidate: please smoke-test the installer, the height-map relief in the slicer, and the update check before promoting to a stable v0.8.3.
+Это кандидат в релиз: проверьте установщик, рельеф-карту высот в слайсере и проверку обновлений, прежде чем выпускать стабильный v0.8.3.
 
-**Full Changelog**: https://github.com/Sovero/hf/compare/v0.8.2...v0.8.3-rc.1
+**Полный список изменений**: https://github.com/Sovero/hf/compare/v0.8.2...v0.8.3-rc.1
 
-Страница релиза: https://github.com/Sovero/hf/releases/tag/untagged-12d53ab673ad14a2f9b2
+Страница релиза: https://github.com/Sovero/hf/releases/tag/untagged-8ef2e552a586685465bd
 
 ---
 
@@ -227,10 +227,16 @@ This is a release candidate: please smoke-test the installer, the height-map rel
 
 ## v0.8.2 — 2026-09-14 · Стабильный
 
-_Заметок к этому релизу нет — разделы собраны из 1 коммит за `v0.8.1` … `v0.8.2`._
+### Что изменилось
 
-### ✨ Новое
-- Add frameless HueForge Desktop window ([47f955f](https://github.com/Sovero/hf/commit/47f955f))
+- **Безрамочное окно HueForge Desktop** — настольное приложение перешло на окно без системной рамки: собственные кнопки заголовка (свернуть, развернуть, закрыть) в оформлении приложения, перетаскивание окна за заголовок.
+
+### Артефакты
+
+- `hueforge-desktop-setup-0.8.2.exe` + blockmap — установщик Windows (NSIS, x64) со встроенным автообновлением
+- `latest.yml` — манифест electron-updater
+- `hueforge-web-v0.8.2.zip` — архив исходников для `install.bat`
+- `hueforge-web-deploy-v0.8.2.zip` — самодостаточный пакет «сервер + браузер»
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.8.1...v0.8.2
 
@@ -242,10 +248,14 @@ _Заметок к этому релизу нет — разделы собра�
 
 ## v0.8.1 — 2026-09-12 · Стабильный
 
-_Заметок к этому релизу нет — разделы собраны из 1 коммит за `v0.8.0` … `v0.8.1`._
+Выпуск без изменений в самом приложении: между v0.8.0 и v0.8.1 обновлена только документация релиза и подготовлена версия.
 
-### 📚 Документация
-- Update release docs for stable v0.8.0 ([07285b6](https://github.com/Sovero/hf/commit/07285b6))
+### Артефакты
+
+- `hueforge-web-setup-0.8.1.exe` + blockmap — установщик Windows (NSIS, x64) со встроенным автообновлением
+- `latest.yml` — манифест electron-updater
+- `hueforge-web-v0.8.1.zip` — архив исходников для `install.bat`
+- `hueforge-web-deploy-v0.8.1.zip` — самодостаточный пакет «сервер + браузер»
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.8.0...v0.8.1
 
@@ -257,25 +267,21 @@ _Заметок к этому релизу нет — разделы собра�
 
 ## v0.8.0 — 2026-09-11 · Стабильный
 
-_Заметок к этому релизу нет — разделы собраны из 10 коммитов за `v0.8.0` (от `v0.7.9`)._
+Первый выпуск с настольным приложением.
 
-### ✨ Новое
-- Add Electron desktop app with auto-update and printability warn-only fix ([8dbbd0b](https://github.com/Sovero/hf/commit/8dbbd0b))
-- Parse reference 3MF in a Web Worker and stream vertex bounds ([7ca41c1](https://github.com/Sovero/hf/commit/7ca41c1))
+### Главное
 
-### 🐛 Исправления
-- Build ICO directory as one contiguous block in make-icon ([ee0c56b](https://github.com/Sovero/hf/commit/ee0c56b))
-- Write correct ICO header fields in make-icon (type=1, count) ([25204ec](https://github.com/Sovero/hf/commit/25204ec))
-- Harden desktop export and auto-update for v0.8.0-rc.1 ([c16c7b5](https://github.com/Sovero/hf/commit/c16c7b5))
-- Fix reference 3MF UI defects found in review ([1862fb7](https://github.com/Sovero/hf/commit/1862fb7))
+- **Настольное приложение HueForge Desktop (Electron)** — нативное окно, установщик NSIS (x64), автообновление через релизы GitHub, нативные диалоги сохранения.
+- **Разбор эталонного 3MF в Web Worker** — габариты вершин передаются потоком, поэтому интерфейс не блокируется на больших файлах; дефекты интерфейса, найденные при обзоре, исправлены.
+- **Проверка печатаемости**: хрупкие изолированные участки теперь только предупреждение — это свойство изображения, автоправкой его не исправить.
+- **Сборка установщика в CI** — на нативном раннере Windows, без подписи кода; исправлена сборка ICO (каталог записывается одним непрерывным блоком, поля заголовка корректны), укреплены экспорт и автообновление настольной версии.
 
-### ♻️ Внутреннее
-- Update package-lock.json for electron deps ([f297cc9](https://github.com/Sovero/hf/commit/f297cc9))
+### Артефакты
 
-### 🔧 Сборка, CI и тесты
-- Build the Windows installer on a native windows runner ([e52b489](https://github.com/Sovero/hf/commit/e52b489))
-- Use electron-builder's portable wine toolset for NSIS on linux ([6f441c6](https://github.com/Sovero/hf/commit/6f441c6))
-- Skip Windows code signing in electron-builder ([79b386b](https://github.com/Sovero/hf/commit/79b386b))
+- `hueforge-web-setup-0.8.0.exe` + blockmap — установщик Windows (NSIS, x64) со встроенным автообновлением
+- `latest.yml` — манифест electron-updater
+- `hueforge-web-v0.8.0.zip` — архив исходников для `install.bat`
+- `hueforge-web-deploy-v0.8.0.zip` — самодостаточный пакет «сервер + браузер»
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.7.9...v0.8.0
 
@@ -287,22 +293,22 @@ _Заметок к этому релизу нет — разделы собра�
 
 ## v0.8.0-rc.1 — 2026-09-11 · Pre-release
 
-Release candidate v0.8.0-rc.1 (target: main).
+Кандидат в релиз v0.8.0-rc.1 (цель: main).
 
-### Highlights
-- **Electron desktop app**: native window, NSIS installer, auto-update via electron-updater (GitHub Releases, token through safeStorage for the private repo)
-- **Reference 3MF parsing in a Web Worker** with streaming vertex bounds and entry/size limits checked before inflate (zip-bomb safe)
-- **Printability**: fragile isolated regions are warn-only by design (art-specific, not settings-fixable); auto-fixes remain for bands / resolution / swaps
-- **Export reliability**: every save waits for the actual result of the native Save As dialog / browser download and reports saved / canceled / error
-- Process-flow + architecture diagrams in docs/ for review
+### Главное
+- **Настольное приложение на Electron**: нативное окно, установщик NSIS, автообновление через electron-updater (релизы GitHub; токен для приватного репозитория хранится в safeStorage)
+- **Разбор эталонного 3MF в Web Worker** с потоковой выдачей габаритов вершин и проверкой лимитов на записи и размер до распаковки (защита от zip-бомб)
+- **Печатаемость**: хрупкие изолированные области — только предупреждение, по замыслу (это свойство изображения, а не настройки); автоправки остались для полос, разрешения и смен филамента
+- **Надёжность экспорта**: каждое сохранение дожидается настоящего результата нативного диалога «Сохранить как» или загрузки в браузере и сообщает: сохранено / отменено / ошибка
+- Схемы процесса и архитектуры в `docs/` — для обзора
 
-### Artifacts
-- `hueforge-web-setup-0.8.0-rc.1.exe` — Windows installer (NSIS, x64) with built-in auto-update
-- `latest.yml` + blockmap — electron-updater manifests
-- `hueforge-web-v0.8.0-rc.1.zip` — source archive for install.bat
-- `hueforge-web-deploy-v0.8.0-rc.1.zip` — self-contained server+browser package (built by CI, attached automatically)
+### Артефакты
+- `hueforge-web-setup-0.8.0-rc.1.exe` — установщик Windows (NSIS, x64) со встроенным автообновлением
+- `latest.yml` + blockmap — манифесты electron-updater
+- `hueforge-web-v0.8.0-rc.1.zip` — архив исходников для `install.bat`
+- `hueforge-web-deploy-v0.8.0-rc.1.zip` — самодостаточный сервер + браузер (собран CI и приложен автоматически)
 
-This is a release candidate: please smoke-test the installer and the update check before promoting to a stable tag.
+Это кандидат в релиз: проверьте установщик и проверку обновлений, прежде чем выпускать стабильный тег.
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.7.9...v0.8.0-rc.1
 
@@ -629,18 +635,18 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.6.0 — 2026-09-08 · Стабильный
 
-### What changed
+### Что изменилось
 
-- **Backlight viewing mode** — a Front-lit / Backlight toggle on the print-preview card. Backlight folds incident white light through the whole sheet stack (transmission only, no opaque base reflection), so thin dark areas glow where light leaks through — the classic HueForge lamp/window display. The base slab participates in the fold, per-filament τ values apply in both modes, the choice persists across sessions, and the canvas backdrop darkens in backlit mode.
-- **Export buttons re-laid out** — a responsive 2-column grid replaces the cramped single row: uniform one-line buttons for STL / 3MF / Describe.txt / Slicer bundle, with the Open-in-slicer row on its own line.
-- **Calibration panel appears only when it can work** — the per-filament opacity calibration (color picker, swatch STL, photo fit) stays hidden until an image is loaded, instead of showing an empty select and a dangling file input.
+- **Режим просмотра «на просвет»** — переключатель «Со стороны света / На просвет» на карточке предпросмотра печати. «На просвет» пропускает падающий белый свет через всю стопку листов (только пропускание, без отражения от непрозрачной подложки), поэтому тонкие тёмные участки светятся там, где свет сквозь них проходит — классическая картина HueForge у лампы или окна. Базовая плита участвует в расчёте, значения τ по филаментам работают в обоих режимах, выбор сохраняется между сессиями, а фон полотна в режиме «на просвет» темнеет.
+- **Перекомпонованы кнопки экспорта** — тесную строку заменила адаптивная сетка в две колонки: ровные кнопки в одну строку для STL / 3MF / Describe.txt / набора для слайсера, а строка «Открыть в слайсере» — отдельной линией.
+- **Панель калибровки появляется только тогда, когда может работать** — калибровка непрозрачности по филаментам (выбор цвета, образец STL, подбор по фото) скрыта, пока изображение не загружено, вместо пустого списка и висящего выбора файла.
 
-### Upgrade
+### Обновление
 
-- **Existing installs:** run `update.ps1` — it picks up v0.6.0 (Latest) automatically.
-- **New PC:** download `hueforge-web-deploy-v0.6.0.zip`, unpack, double-click `deploy.bat` (only Node.js needed). For the "Open in slicer" hand-off, run `deploy-slicer.bat` instead.
+- **Уже установлено:** запустите `update.ps1` — он сам подхватит v0.6.0 (Latest).
+- **Новый ПК:** скачайте `hueforge-web-deploy-v0.6.0.zip`, распакуйте и запустите `deploy.bat` (нужен только Node.js). Для передачи в слайсер запускайте `deploy-slicer.bat`.
 
-**Full changelog:** https://github.com/Sovero/hf/compare/v0.5.1...v0.6.0
+**Полный список изменений:** https://github.com/Sovero/hf/compare/v0.5.1...v0.6.0
 
 Страница релиза: https://github.com/Sovero/hf/releases/tag/v0.6.0
 
@@ -650,16 +656,16 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.5.1 — 2026-09-08 · Стабильный
 
-### What changed
+### Что изменилось
 
-- **Dither-aware printability warning** — the fragile-speck check now judges the pre-dither label map when Floyd–Steinberg dithering is active. Intentional dither dots at band boundaries no longer trigger a warning storm; the check explains this in both languages (a note on warnings, and on the all-clear detail).
+- **Предупреждение о печатаемости учитывает дизеринг** — проверка хрупких точек теперь смотрит на карту меток до дизеринга, когда включён дизеринг Флойда–Стейнберга. Намеренные точки дизеринга на границах полос больше не вызывают лавину предупреждений; проверка поясняет это на обоих языках (примечание к предупреждениям и уточнение в сообщении «всё в порядке»).
 
-### Upgrade
+### Обновление
 
-- **Existing installs:** run `update.ps1` — it picks up v0.5.1 (Latest) automatically.
-- **New PC:** download `hueforge-web-deploy-v0.5.1.zip`, unpack, double-click `deploy.bat` (only Node.js needed). For the "Open in slicer" hand-off, run `deploy-slicer.bat` instead.
+- **Уже установлено:** запустите `update.ps1` — он сам подхватит v0.5.1 (Latest).
+- **Новый ПК:** скачайте `hueforge-web-deploy-v0.5.1.zip`, распакуйте и запустите `deploy.bat` (нужен только Node.js). Для передачи в слайсер запускайте `deploy-slicer.bat`.
 
-**Full changelog:** https://github.com/Sovero/hf/compare/v0.5.0...v0.5.1
+**Полный список изменений:** https://github.com/Sovero/hf/compare/v0.5.0...v0.5.1
 
 Страница релиза: https://github.com/Sovero/hf/releases/tag/v0.5.1
 
@@ -669,18 +675,18 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.5.0 — 2026-09-07 · Стабильный
 
-### What changed
+### Что изменилось
 
-#### Added
-- **Floyd–Steinberg dithering** — a strength slider (0–100%, persisted) in the Colors panel. Band boundaries become smooth dithered gradients mixing the two adjacent filaments instead of hard steps; filament colors and the swap schedule stay unchanged. Applies to previews, mesh, STL/3MF and Describe via the same indexMap.
-- **Open in slicer (opt-in)** — with the server started via `deploy-slicer.bat` (or `--allow-slicer` / `HF_ALLOW_SLICER=1`), an "Open in slicer" button in Export sends the exported 3MF straight to a slicer installed on this PC (Bambu Studio / OrcaSlicer / PrusaSlicer, auto-discovered; custom path via `HF_SLICER_PATH`). CSRF-guarded, loopback-only, off by default.
+#### Добавлено
+- **Дизеринг Флойда–Стейнберга** — в разделе цветов появился ползунок силы (0–100%, сохраняется). Границы полос становятся плавными дизеренговыми градиентами из двух соседних филаментов вместо жёстких ступеней; цвета филаментов и расписание смен не меняются. Работает в предпросмотрах, меше, STL/3MF и Describe через одну и ту же карту индексов.
+- **Открытие в слайсере (по желанию)** — если сервер запущен через `deploy-slicer.bat` (или с `--allow-slicer` / `HF_ALLOW_SLICER=1`), в экспорте появляется кнопка «Открыть в слайсере» и отправляет собранный 3MF прямо в слайсер на этом ПК (Bambu Studio / OrcaSlicer / PrusaSlicer, находятся автоматически; свой путь — через `HF_SLICER_PATH`). Защита от CSRF, только loopback, по умолчанию выключено.
 
-### Upgrade
+### Обновление
 
-- **Existing installs:** run `update.ps1` (or `install.bat`) to pull `v0.5.0`.
-- **Fresh PC:** download **`hueforge-web-deploy-v0.5.0.zip`**, unzip, double-click `deploy.bat` (or `deploy-slicer.bat` for the slicer hand-off) — only Node.js required.
+- **Уже установлено:** запустите `update.ps1` (или `install.bat`), чтобы подтянуть `v0.5.0`.
+- **Новый ПК:** скачайте **`hueforge-web-deploy-v0.5.0.zip`**, распакуйте и запустите `deploy.bat` (или `deploy-slicer.bat` для передачи в слайсер) — нужен только Node.js.
 
-**Full Changelog**: https://github.com/Sovero/hf/compare/v0.4.0...v0.5.0
+**Полный список изменений**: https://github.com/Sovero/hf/compare/v0.4.0...v0.5.0
 
 Страница релиза: https://github.com/Sovero/hf/releases/tag/v0.5.0
 
@@ -690,22 +696,22 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.4.0 — 2026-09-07 · Стабильный
 
-### What changed
+### Что изменилось
 
-#### Added
-- **PrusaSlicer slicer bundle** — one-click ZIP export: `config.ini` (layer height, 100% infill, no supports) with **M600 color changes prewired** as conditional layer-change G-code (*File → Import → Import Config…* and slice — swaps fire automatically), plus an optional Node post-processing script with a Windows `.bat` wrapper and a bilingual README.
-- **Per-filament opacity (τ) with calibration** — real spools differ; now every palette color has its own opacity length. Print the generated stepped **calibration swatch** (base slab + 7 steps of one color, one filament swap), photograph it, click the base and each step — the app fits τ from your photo (exposure-corrected, median-robust) and the previews match the real spool.
-- **Translucent print preview** — the main color-reduced preview now shows the true transmitted blend of each column (thin top sheets let the layers below shine through), not opaque band colors.
+#### Добавлено
+- **Набор для PrusaSlicer** — экспорт ZIP одним нажатием: `config.ini` (высота слоя, заполнение 100%, без поддержек) с **уже прописанными сменами цвета M600** в виде условного G-кода смены слоя (*Файл → Импорт → Импорт конфигурации…* и слайсинг — смены срабатывают сами), плюс необязательный постобрабатывающий скрипт для Node с обёрткой `.bat` для Windows и README на двух языках.
+- **Непрозрачность каждого филамента (τ) с калибровкой** — реальные катушки различаются, поэтому у каждого цвета палитры теперь своя длина пропускания. Напечатайте сгенерированный ступенчатый **образец калибровки** (базовая плита + 7 ступеней одного цвета, одна смена филамента), сфотографируйте его, щёлкните по основанию и каждой ступени — приложение подберёт τ по вашему фото (с коррекцией экспозиции и устойчивой медианой), и предпросмотры совпадут с реальной катушкой.
+- **Просвечивающий предпросмотр печати** — основной предпросмотр сокращённых цветов теперь показывает реальный смешанный цвет каждого столбца (тонкие верхние листы пропускают нижележащие слои), а не плоские цвета полос.
 
-#### Changed
-- **Describe.txt and the slicer bundle share one swap schedule** — bands thinner than a layer collapse into a single swap (the unreachable sub-layer color is marked "never printed"), so every export agrees layer-for-layer.
+#### Изменено
+- **Describe.txt и набор для слайсера используют одно расписание смен** — полосы тоньше слоя сворачиваются в одну смену (недостижимый подслойный цвет помечается «никогда не печатается»), поэтому все экспорты совпадают слой в слой.
 
-### Upgrade
+### Обновление
 
-- **Existing installs:** run `update.ps1` (or `install.bat`) to pull `v0.4.0`.
-- **Fresh PC:** download **`hueforge-web-deploy-v0.4.0.zip`**, unzip, double-click `deploy.bat` — only Node.js required.
+- **Уже установлено:** запустите `update.ps1` (или `install.bat`), чтобы подтянуть `v0.4.0`.
+- **Новый ПК:** скачайте **`hueforge-web-deploy-v0.4.0.zip`**, распакуйте и запустите `deploy.bat` — нужен только Node.js.
 
-**Full Changelog**: https://github.com/Sovero/hf/compare/v0.3.1...v0.4.0
+**Полный список изменений**: https://github.com/Sovero/hf/compare/v0.3.1...v0.4.0
 
 Страница релиза: https://github.com/Sovero/hf/releases/tag/v0.4.0
 
@@ -715,20 +721,20 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.3.1 — 2026-09-07 · Стабильный
 
-### What changed
+### Что изменилось
 
-#### Fixed
-- **Section titles left-aligned** — after the hide-button removal, `justify-content: space-between` flung every panel title to the right edge; titles now sit next to their number again, badges stay pinned right.
+#### Исправлено
+- **Заголовки разделов выровнены по левому краю** — после удаления кнопки скрытия `justify-content: space-between` отбрасывал заголовки панелей к правому краю; теперь заголовки снова стоят рядом со своим номером, а бейджи прижаты вправо.
 
-#### Changed
-- **All sections always expanded** — the collapsing/chevron machinery introduced in v0.3.0 is removed entirely: every sidebar panel and every viewer card (Source, Color-reduced, Layer view, 3D) renders fully open, with no click affordance. Status badges (Reference "Не загружен", printability warnings) remain in the headers.
+#### Изменено
+- **Все разделы всегда развёрнуты** — механика сворачивания и шевронов, добавленная в v0.3.0, убрана полностью: каждая панель левой колонки и каждая карточка просмотра (Исходное, Сокращённые цвета, Вид по слоям, 3D) отрисовываются целиком, без подсказки о клике. Бейджи состояния («Эталон — не загружен», предупреждения о печатаемости) остались в шапках.
 
-### Upgrade
+### Обновление
 
-- **Existing installs:** run `update.ps1` (or `install.bat`) to pull `v0.3.1`.
-- **Fresh PC:** download **`hueforge-web-deploy-v0.3.1.zip`**, unzip, double-click `deploy.bat` — only Node.js required.
+- **Уже установлено:** запустите `update.ps1` (или `install.bat`), чтобы подтянуть `v0.3.1`.
+- **Новый ПК:** скачайте **`hueforge-web-deploy-v0.3.1.zip`**, распакуйте и запустите `deploy.bat` — нужен только Node.js.
 
-**Full Changelog**: https://github.com/Sovero/hf/compare/v0.3.0...v0.3.1
+**Полный список изменений**: https://github.com/Sovero/hf/compare/v0.3.0...v0.3.1
 
 Страница релиза: https://github.com/Sovero/hf/releases/tag/v0.3.1
 
@@ -738,25 +744,25 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.3.0 — 2026-09-07 · Стабильный
 
-### 🚀 Features
+### 🚀 Возможности
 
-- **Reference 3MF import** — load a HueForge-style 3MF, review its settings, and apply them to the current session non-destructively
-- **Filament library** — 8 popular Russian brands plus custom filament support
-- **Layer-by-layer preview** with a translucent-filament transmission model (thin top sheets let lower layers shine through, like a real HueForge print)
-- **Printability improvements** — fragile specks below the minimum area are removed automatically; a warnings badge on the collapsed section summary shows problems at a glance
+- **Импорт эталонного 3MF** — загрузите 3MF в стиле HueForge, посмотрите его настройки и примените их к текущей сессии без разрушения вашей работы
+- **Библиотека филаментов** — 8 популярных российских брендов плюс свои филаменты
+- **Просмотр по слоям** с моделью пропускания через полупрозрачный филамент (тонкие верхние листы пропускают нижние слои, как в настоящей печати HueForge)
+- **Улучшения проверки печатаемости** — хрупкие точки меньше минимальной площади удаляются автоматически; бейдж предупреждений на свёрнутом разделе показывает проблемы сразу
 
-### 🖥 UI
+### 🖥 Интерфейс
 
-- All sections and viewer cards are collapsible; the app starts fully collapsed and opens the previews when an image is processed
-- Printability warnings badge on the collapsed summary
-- Onboarding help texts in English and Russian
+- Все разделы и карточки просмотра сворачиваются; приложение стартует полностью свёрнутым и раскрывает предпросмотры, когда изображение обработано
+- Бейдж предупреждений о печатаемости на свёрнутом разделе
+- Подсказки по работе — на английском и русском
 
-### 📦 Deployment
+### 📦 Разворачивание
 
-- Self-contained deploy package: `hueforge-web-deploy-v0.3.0.zip` — unzip on any PC with Node.js and run `deploy.bat`; no `npm install` needed
-- Source archive (`hueforge-web-v0.3.0.zip`) for the existing `install.bat` flow
+- Самодостаточный deploy-пакет: `hueforge-web-deploy-v0.3.0.zip` — распакуйте на любом ПК с Node.js и запустите `deploy.bat`; `npm install` не нужен
+- Архив исходников (`hueforge-web-v0.3.0.zip`) для существующего сценария `install.bat`
 
-**Full Changelog**: https://github.com/Sovero/hf/compare/v0.2.1...v0.3.0
+**Полный список изменений**: https://github.com/Sovero/hf/compare/v0.2.1...v0.3.0
 
 Страница релиза: https://github.com/Sovero/hf/releases/tag/v0.3.0
 
@@ -766,15 +772,15 @@ _сохранение проектов, ΔE-карта, высоты полос 
 
 ## v0.2.1 — 2026-09-03 · Стабильный
 
-_Заметок к этому релизу нет — разделы собраны из 4 коммита за `v0.2.0` … `v0.2.1`._
+### Что изменилось
 
-### ✨ Новое
-- Add one-time first-run language choice banner ([99ae8b4](https://github.com/Sovero/hf/commit/99ae8b4))
-- Add English/Russian interface with a language switcher ([52ee5af](https://github.com/Sovero/hf/commit/52ee5af))
-- Add token-based self-update for the private repository ([8017bc5](https://github.com/Sovero/hf/commit/8017bc5))
+- **Интерфейс на двух языках** — английский и русский с переключателем языка; при первом запуске показывается разовый баннер выбора языка.
+- **Названия филаментов в легенде палитры** переведены на русский.
+- **Самообновление по токену** — обновление из приватного репозитория через GitHub API с сохранённым токеном.
 
-### 🎨 Интерфейс и полировка
-- Translate nearest-filament names in the palette legend ([08aad76](https://github.com/Sovero/hf/commit/08aad76))
+### Артефакты
+
+- `hueforge-web-v0.2.1.zip` — архив исходников для `install.bat`
 
 **Полный список изменений**: https://github.com/Sovero/hf/compare/v0.2.0...v0.2.1
 
@@ -786,14 +792,20 @@ _Заметок к этому релизу нет — разделы собра�
 
 ## v0.2.0 — 2026-09-03 · Стабильный
 
-_Заметок к этому релизу нет — разделы собраны из 3 коммита за `v0.2.0`._
+Первый выпуск приложения.
 
-### 🔧 Сборка, CI и тесты
-- Add GitHub Actions CI workflow ([d657b88](https://github.com/Sovero/hf/commit/d657b88))
+### Главное
 
-### Прочие изменения
-- Security hardening, semver 0.2.0, and release flow ([48e97a1](https://github.com/Sovero/hf/commit/48e97a1))
-- Initial commit: HueForge Web — image to multi-layer 3D-printable filament paintings ([3a741ca](https://github.com/Sovero/hf/commit/3a741ca))
+- **Изображение → филаментная картина для 3D-печати**: загрузка картинки, сокращение до N цветов, ступенчатая карта высот, экспорт STL и 3MF — цвет кодируется высотой слоя.
+- **Всё считается локально в браузере** — изображения не покидают ПК.
+- **CI**: GitHub Actions на каждый push.
+- **Безопасность и порядок выпуска**: усиление безопасности, семантическое версионирование 0.2.0 и описанный процесс релиза.
+
+### Артефакты
+
+- `hueforge-web-v0.2.0.zip` — архив исходников для `install.bat`
+
+**Полный список изменений**: https://github.com/Sovero/hf/commits/v0.2.0
 
 **Полный список изменений**: https://github.com/Sovero/hf/commits/v0.2.0
 
