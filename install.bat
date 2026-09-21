@@ -1,39 +1,36 @@
 @echo off
+REM Console messages stay ASCII on purpose: cmd.exe mis-parses a .bat that carries
+REM non-ASCII text (its reader misaligns on multi-byte characters), so the Russian
+REM wording is printed by PowerShell - see update.ps1, command "say" (:say below).
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
-title HueForge Web - Installer & Updater
+title HueForge Web - Installer / Updater
 
 echo.
-echo ============================================
-echo   HueForge Web - Installer & Updater
-echo ============================================
+call :say install.banner
 echo.
 
 REM ---- 1. Locate project folder (this script's directory) ----
 pushd "%~dp0"
 set "PROJECT_DIR=%CD%"
-echo [1/6] Project folder: %PROJECT_DIR%
+call :say install.folder "%PROJECT_DIR%"
 
 REM ---- 2. Check Node.js ----
 echo.
-echo [2/6] Checking for Node.js...
+call :say install.node-checking
 where node >nul 2>&1
 if errorlevel 1 (
-    echo.
-    echo   ERROR: Node.js is not installed on this PC.
-    echo   Please install the LTS version from https://nodejs.org
-    echo   then run this installer again.
-    echo.
+    call :say install.node-missing
     pause
     popd
     exit /b 1
 )
 for /f "delims=" %%v in ('node --version') do set "NODE_VER=%%v"
-echo   Node.js found: !NODE_VER!
+call :say install.node-found "!NODE_VER!"
 
 REM ---- 3. Check for updates (latest tagged GitHub release) ----
 echo.
-echo [3/6] Checking for updates on GitHub...
+call :say install.updates-checking
 
 REM Local version comes from package.json (single source of truth).
 set "LOCAL_VERSION="
@@ -46,48 +43,47 @@ set "NEW_VERSION="
 for /f "delims=" %%t in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" check 2^>nul') do set "NEW_VERSION=%%t"
 
 if not "!NEW_VERSION!"=="NEED_TOKEN" goto have_version
-echo   This repository is private - checking for updates needs a one-time
-echo   GitHub token. It is stored only on this PC, in %%APPDATA%%\HueForgeWeb.
-echo   Create one at https://github.com/settings/personal-access-tokens
-echo   (fine-grained: only Sovero/hf, Contents: Read + Metadata: Read).
-choice /c YN /n /m "  Enter a GitHub token now? [Y/N]: "
+call :say install.token-needed
+call :say install.token-ask
+choice /c YN /n /m "  [Y/N] "
 if errorlevel 2 goto token_declined
 
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" save-token
 if errorlevel 1 goto token_failed
-echo   Token saved. Checking again...
+call :say install.token-saved
 set "NEW_VERSION="
 for /f "delims=" %%t in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" check 2^>nul') do set "NEW_VERSION=%%t"
 if "!NEW_VERSION!"=="NEED_TOKEN" set "NEW_VERSION="
 goto have_version
 
 :token_declined
-echo   Token declined - continuing with the current files.
+call :say install.token-declined
 set "NEW_VERSION="
 goto have_version
 
 :token_failed
-echo   Token not saved - continuing with the current files.
+call :say install.token-failed
 set "NEW_VERSION="
 
 :have_version
 if not defined NEW_VERSION (
-    echo   Already on the latest release (v%LOCAL_VERSION%).
+    call :say install.latest "%LOCAL_VERSION%"
     goto after_update
 )
-echo   Local: v%LOCAL_VERSION%   Latest: %NEW_VERSION%
-choice /c YN /n /m "  Update to %NEW_VERSION% now? [Y/N]: "
+call :say install.version-pair "%LOCAL_VERSION%" "%NEW_VERSION%"
+call :say install.update-ask "%NEW_VERSION%"
+choice /c YN /n /m "  [Y/N] "
 if errorlevel 2 goto update_no
 if errorlevel 1 goto update_yes
 
 :update_no
-echo   Skipped update - continuing with the current files.
+call :say install.update-skipped
 goto after_update
 
 :update_yes
 echo.
-echo   Downloading %NEW_VERSION% from GitHub...
+call :say install.downloading "%NEW_VERSION%"
 set "UPDATE_SRC="
 for /f "delims=" %%d in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" download %NEW_VERSION% 2^>nul') do set "UPDATE_SRC=%%d"
 if errorlevel 1 goto update_failed
@@ -100,13 +96,11 @@ robocopy "%UPDATE_SRC%" "%PROJECT_DIR%" /E /XF *.bat update.ps1 /XD node_modules
 if errorlevel 8 goto update_failed
 del "%TEMP%\hf_update.zip" >nul 2>&1
 rmdir /s /q "%TEMP%\hf_update" >nul 2>&1
-echo   Updated to %NEW_VERSION%.
-echo   (install.bat / start.bat / update.ps1 changes, if any, apply on the next fresh install.)
+call :say install.updated "%NEW_VERSION%"
 goto after_update
 
 :update_failed
-echo   ERROR: could not apply the update. Check your internet connection
-echo   and try again - continuing with the current files.
+call :say install.update-failed
 del "%TEMP%\hf_update.zip" >nul 2>&1
 rmdir /s /q "%TEMP%\hf_update" >nul 2>&1
 
@@ -115,23 +109,21 @@ popd
 
 REM ---- 4. Install dependencies ----
 echo.
-echo [4/6] Installing dependencies (this may take a minute)...
+call :say install.deps
 pushd "%~dp0"
 call npm install --no-audit --no-fund
 if errorlevel 1 (
-    echo.
-    echo   ERROR: npm install failed. Check your internet connection and try again.
-    echo.
+    call :say install.deps-failed
     pause
     popd
     exit /b 1
 )
-echo   Dependencies installed.
+call :say install.deps-ok
 popd
 
 REM ---- 5. Desktop shortcut ----
 echo.
-echo [5/6] Create a desktop shortcut to start the app?
+call :say install.shortcut-ask
 choice /c YN /n /m "  [Y/N]: "
 if errorlevel 2 goto skip_shortcut
 if errorlevel 1 goto make_shortcut
@@ -151,22 +143,27 @@ set "VBS=%TEMP%\make_hueforge_shortcut.vbs"
 cscript //nologo "!VBS!" >nul 2>&1
 del "!VBS!" >nul 2>&1
 if exist "!LNK!" (
-    echo   Shortcut created: "!LNK!"
+    call :say install.shortcut-created "!LNK!"
 ) else (
-    echo   Could not create shortcut - you can start the app with start.bat
+    call :say install.shortcut-failed
 )
 goto after_shortcut
 
 :skip_shortcut
-echo   Skipped. You can always start the app with start.bat
+call :say install.shortcut-skipped
 
 :after_shortcut
 
 REM ---- 6. Start server now ----
 echo.
-echo [6/6] Starting the app...
-echo   When the browser opens, the server address is http://127.0.0.1:5173
-echo   (Close this window to stop the server.)
+call :say install.starting
+call :say install.address
+call :say close-hint
 echo.
 call "%~dp0start.bat"
 exit /b 0
+
+:say
+REM Print a Russian console message: update.ps1 say <key> [args...]
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0update.ps1" say %*
+goto :eof

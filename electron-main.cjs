@@ -205,19 +205,24 @@ function checkForUpdates({ interactive = false } = {}) {
     })
     .catch((err) => {
       checking = false
-      notifyUi({ state: 'error', message: humanUpdateError(err) })
+      notifyUi({ state: 'error', ...humanUpdateError(err) })
     })
 }
 
+/**
+ * Ошибка обновления для интерфейса: `code` рендерер переводит на язык
+ * интерфейса, `message` остаётся английским фолбэком (логи и старые сборки,
+ * которые не знают про code).
+ */
 function humanUpdateError(err) {
   const msg = String(err?.message ?? err)
   if (/40[134]|requires authentication|Bad credentials/i.test(msg)) {
-    return 'GitHub needs a read token for this private repository (Settings → Update token).'
+    return { code: 'token', message: 'GitHub needs a read token that can read releases (Settings → Update token).' }
   }
   if (/ENOTFOUND|ETIMEDOUT|ECONNREFUSED|network/i.test(msg)) {
-    return 'Network unreachable — check the internet connection.'
+    return { code: 'network', message: 'Network unreachable — check the internet connection.' }
   }
-  return msg
+  return { message: msg }
 }
 
 // comment that must stay because hooligan-hides-strings
@@ -245,7 +250,7 @@ function setupAutoUpdater() {
   })
   autoUpdater.on('error', (err) => {
     checking = false
-    notifyUi({ state: 'error', message: humanUpdateError(err) })
+    notifyUi({ state: 'error', ...humanUpdateError(err) })
   })
 }
 
@@ -287,7 +292,7 @@ function setupIpc() {
     setGithubToken(loadStoredToken())
     autoUpdater.downloadUpdate().catch((err) => {
       checking = false
-      notifyUi({ state: 'error', message: humanUpdateError(err) })
+      notifyUi({ state: 'error', ...humanUpdateError(err) })
     })
     return { ok: true }
   })

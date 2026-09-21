@@ -34,6 +34,8 @@ interface UpdateStatus {
   version?: string
   percent?: number
   message?: string
+  /** Код известной ошибки: текст берётся из локализации, а не из message. */
+  code?: 'token' | 'network'
 }
 
 const bridge = (window as unknown as { hueforge?: DesktopBridge }).hueforge ?? null
@@ -53,11 +55,17 @@ function updateTexts(l: Lang) {
     downloaded: ru ? 'Обновление скачано — установить?' : 'Update downloaded — install?',
     installed: ru ? 'Установите обновление — приложение перезапустится.' : 'Install the update — the app will restart.',
     error: ru ? 'Ошибка обновления: {m}' : 'Update error: {m}',
+    errorToken: ru
+      ? 'Нужен GitHub-токен с доступом к релизам: нажмите, чтобы ввести его.'
+      : 'A GitHub token that can read releases is required: click to enter it.',
+    errorNetwork: ru
+      ? 'GitHub недоступен — проверьте подключение к интернету.'
+      : 'GitHub is unreachable — check the internet connection.',
     dev: ru ? 'Автообновление работает только в установленном приложении.' : 'Auto-update works only in the installed app.',
     tokenTitle: ru ? 'GitHub-токен для обновлений' : 'GitHub token for updates',
     tokenHint: ru
-      ? 'Репозиторий приватный: создайте fine-grained токен с правами Contents: Read + Metadata: Read на репозиторий hf и вставьте его сюда. Токен хранится только на этом компьютере.'
-      : 'The repository is private: create a fine-grained token with Contents: Read + Metadata: Read on the hf repository and paste it here. The token is stored only on this PC.',
+      ? 'Обновления приложение берёт через GitHub API: создайте fine-grained токен с правами Contents: Read + Metadata: Read на репозиторий hf и вставьте его сюда. Токен хранится только на этом компьютере.'
+      : 'The app reads updates through the GitHub API: create a fine-grained token with Contents: Read + Metadata: Read on the hf repository and paste it here. The token is stored only on this PC.',
     tokenPlaceholder: ru ? 'Вставьте токен…' : 'Paste the token…',
     tokenSave: ru ? 'Сохранить' : 'Save',
     tokenRemove: ru ? 'Удалить сохранённый' : 'Remove saved',
@@ -245,7 +253,13 @@ function renderStatus(s: UpdateStatus) {
       break
     case 'error':
       statusEl.textContent = '!'
-      statusEl.title = texts.error.replace('{m}', s.message ?? '')
+      // Известные ошибки приходят кодом: текст локализуется по языку интерфейса,
+      // а message остаётся английским фолбэком для незнакомых сбоев.
+      statusEl.title = s.code === 'token'
+        ? texts.errorToken
+        : s.code === 'network'
+          ? texts.errorNetwork
+          : texts.error.replace('{m}', s.message ?? '')
       break
     case 'dev':
       statusEl.hidden = true
@@ -265,7 +279,7 @@ async function onUpdateClick(): Promise<void> {
     await bridge.downloadUpdate()
     return
   }
-  if (s?.state === 'error' && /token/i.test(s.message ?? '')) {
+  if (s?.state === 'error' && (s.code === 'token' || /token/i.test(s.message ?? ''))) {
     void promptForToken()
     return
   }
