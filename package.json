@@ -14,6 +14,7 @@
     "serve": "node server.mjs",
     "pack-deploy": "node scripts/pack-deploy.mjs",
     "changelog:sync": "node scripts/sync-changelog.mjs",
+    "release:prepare": "node scripts/release-prepare.mjs",
     "release:publish": "node scripts/release-publish.mjs",
     "electron:dev": "electron .",
     "electron:start": "npm run build && electron .",

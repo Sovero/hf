@@ -11,19 +11,28 @@
  * What it does:
  *   1. checks the tag exists (locally and on the remote), matches package.json
  *      and carries the same version inside the tagged tree;
- *   2. checks the built artifacts in release/ — setup exe, blockmap and
+ *   2. checks that the tagged tree's CHANGELOG.md carries the version — the
+ *      entry is synced *before* the tag (`npm run release:prepare`), so a tag
+ *      without it means the release describes a version the changelog of that
+ *      tree does not mention;
+ *   3. checks the built artifacts in release/ — setup exe, blockmap and
  *      latest.yml — and that latest.yml really describes that exe (sha512);
- *   3. publishes (or promotes an existing draft) with `--prerelease` for a
- *      semver pre-release and `--latest` for a stable tag;
- *   4. uploads the three artifacts;
- *   5. verifies the result: release flags, asset sizes, the published
- *      latest.yml, and the stable channel — failing if `releases/latest`
- *      points at a pre-release.
+ *   4. publishes (or promotes an existing draft) with `--prerelease` for a
+ *      semver pre-release and `--latest` for a stable tag, and with the
+ *      repository's notes (`release-notes/<tag>.md`) as the release body — so
+ *      the release page and the changelog entry say the same thing instead of
+ *      GitHub's auto-generated notes contradicting the tagged CHANGELOG;
+ *   5. uploads the three artifacts when they are a local build; a tag pushed for
+ *      CI to build has them on the draft already, and then the release itself is
+ *      the source that gets verified;
+ *   6. verifies the result: release flags, asset sizes, the published
+ *      latest.yml and body, and the stable channel — failing if
+ *      `releases/latest` points at a pre-release.
  *
  * Usage:
  *   npm run release:publish                       # publishes v<package.json version>
  *   npm run release:publish -- --version 0.8.3    # a specific version
- *   npm run release:publish -- --notes FILE       # notes for a release that does not exist yet
+ *   npm run release:publish -- --notes FILE       # notes from somewhere other than release-notes/
  *   npm run release:publish -- --dry-run          # print the mutations, change nothing
  *
  * HF_GH_BIN overrides the `gh` binary (default: `gh`); pointing it at a
@@ -40,9 +49,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { DRAFT_MARKER } from './sync-changelog.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const artifactDir = join(root, 'release')
+const CHANGELOG = 'CHANGELOG.md'
 
 const argv = process.argv.slice(2)
 const has = name => argv.includes(`--${name}`)
@@ -54,6 +65,35 @@ const valueOf = name => {
 const DRY_RUN = has('dry-run')
 const NOTES_FILE = valueOf('notes')
 const GH_BIN = process.env.HF_GH_BIN
+
+/** Body of the release: an explicit `--notes`, or what the repository wrote for this tag. */
+function notesFor(tag) {
+  const file = NOTES_FILE ?? join('release-notes', `${tag}.md`)
+  if (!existsSync(file)) {
+    if (NOTES_FILE) fail(`файл с нотами не найден: ${NOTES_FILE}`)
+    return null
+  }
+
+  // A draft `release:prepare` assembled from commit subjects is not a release
+  // body — publishing it would put "черновик" on the release page.
+  if (readFileSync(file, 'utf8').includes(DRAFT_MARKER)) {
+    fail(
+      `${file} всё ещё черновик — его разделы собраны из коммитов, а не написаны`,
+      `отредактируйте ${file} и уберите строку, начинающуюся с «Черновик нот», затем повторите публикацию`,
+    )
+  }
+  return file
+}
+
+/**
+ * GitHub normalises a body enough that a byte compare would lie (line endings,
+ * trailing whitespace), so the comparison is on trimmed lines.
+ */
+function sameText(left, right) {
+  const normalize = text =>
+    (text ?? '').replace(/\r\n/g, '\n').split('\n').map(line => line.trimEnd()).join('\n').trim()
+  return normalize(left) === normalize(right)
+}
 
 /** `gh` invocation, honouring the test/wrapper override. */
 const ghInvocation = args =>
@@ -72,6 +112,21 @@ function fail(message, fix) {
 /** Read-only command calls. */
 function read(file, args) {
   return execFileSync(file, args, { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim()
+}
+
+/** Content of a file inside a tagged tree, or null when the tag does not have it. */
+function taggedFile(path, tag) {
+  try {
+    // A missing path is an expected answer here, so git's own complaint is
+    // swallowed — the failure is reported by the caller, in Russian.
+    return execFileSync('git', ['show', `${tag}:${path}`], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return null
+  }
 }
 
 /** Mutating gh calls — printed instead of executed under --dry-run. */
@@ -99,6 +154,18 @@ function prereleaseOf(version) {
   const match = SEMVER.exec(version)
   if (!match) return undefined
   return match[4] ?? null
+}
+
+/** Stable, linkable anchor of the tag in CHANGELOG.md: v0.8.4-rc.1 → v-0-8-4-rc-1 */
+const anchorOf = tag => tag.replace(/^v/, 'v-').replace(/[.\s]/g, '-')
+
+/**
+ * Whether a tagged tree's changelog fails to document this version. The entry
+ * is written before the tag, so a tag cut the old way has none — and no commit
+ * after the tag can put one there.
+ */
+export function missingChangelogEntry(tag, changelog) {
+  return !(changelog ?? '').includes(`<a id="${anchorOf(tag)}">`)
 }
 
 // ---------------------------------------------------------------------------
@@ -159,17 +226,42 @@ function preflight() {
 
   console.log(`  тег: ${tag} → ${tagCommit.slice(0, 7)}`)
 
-  for (const name of artifacts) {
-    if (!existsSync(join(artifactDir, name))) {
-      fail(
-        `нет артефакта release/${name}`,
-        'соберите дистрибутив: npm run dist',
-      )
-    }
+  // The changelog entry is written before the tag, so the version is documented
+  // in the very tree the artifacts are built from. A tag cut the old way has no
+  // entry, and no later commit can repair it — only a new tag on a new commit can.
+  const changelog = taggedFile(CHANGELOG, tag)
+  if (changelog === null) {
+    fail(
+      `в дереве тега ${tag} нет ${CHANGELOG} — релиз останется без записи в списке версий`,
+      `добавьте файл в историю тега или переставьте тег: git tag -f ${tag} <коммит>`,
+    )
   }
+  if (missingChangelogEntry(tag, changelog)) {
+    fail(
+      `в ${CHANGELOG} дерева тега ${tag} нет записи ${tag} — версия публикуется, а в списке версий её нет`,
+      `следующий релиз соберите через npm run release:prepare (запись пишется до тега); ` +
+        `для этого тега: git tag -f ${tag} <коммит с записью> && git push --force origin ${tag}`,
+    )
+  }
+  console.log(`  запись ${tag} есть в ${CHANGELOG} самого тега`)
 
-  // latest.yml is what the updater reads: it must describe the exe we upload.
-  const manifest = readFileSync(join(artifactDir, 'latest.yml'), 'utf8')
+  const build = resolveBuild()
+  console.log(
+    build.source === 'local'
+      ? `  артефакты: ${artifacts.length} файла из release/, exe ${build.exeSize} Б, sha512 сверен`
+      : `  артефакты: ${artifacts.length} файла уже на релизе ${tag} (сборка CI), exe ${build.exeSize} Б`,
+  )
+  return build
+}
+
+const artifactPath = name => join(artifactDir, name)
+
+/**
+ * Verifies release/latest.yml — what the updater reads — against the exe next to
+ * it, and returns that exe's size.
+ */
+function localBuildSize() {
+  const manifest = readFileSync(artifactPath('latest.yml'), 'utf8')
   const ymlVersion = /^version:\s*(.+)$/m.exec(manifest)?.[1].trim()
   if (ymlVersion !== version) {
     fail(
@@ -178,21 +270,49 @@ function preflight() {
     )
   }
 
-  const exe = join(artifactDir, artifacts[0])
-  const exeDir = artifacts[0]
   const expectedHash = /^sha512:\s*(.+)$/m.exec(manifest)?.[1].trim()
-  const actualHash = createHash('sha512').update(readFileSync(exe)).digest('base64')
-  const exeSize = statSync(exe).size
-
+  const actualHash = createHash('sha512').update(readFileSync(artifactPath(artifacts[0]))).digest('base64')
   if (expectedHash !== actualHash) {
     fail(
-      `sha512 в latest.yml не совпадает с ${exeDir} — автообновление отклонит загрузку`,
+      `sha512 в latest.yml не совпадает с ${artifacts[0]} — автообновление отклонит загрузку`,
       'пересоберите дистрибутив: npm run dist',
     )
   }
 
-  console.log(`  артефакты: ${artifacts.length} файла, exe ${exeSize} Б, sha512 сверен`)
-  return exeSize
+  return statSync(artifactPath(artifacts[0])).size
+}
+
+/** Sizes of this version's assets on the release, or null when they are not all there. */
+function assetsOnRelease() {
+  let info
+  try {
+    info = ghJson(['release', 'view', tag, '--json', 'isDraft,assets'])
+  } catch {
+    return null
+  }
+  const assets = new Map(info.assets.map(asset => [asset.name, asset.size]))
+  return artifacts.every(name => assets.has(name)) ? assets : null
+}
+
+/**
+ * What this run publishes. A local build is the stronger source — latest.yml is
+ * compared with the bytes on disk — but the usual path is a tag pushed for CI to
+ * build, and there the draft is the only source: the release carries the exe,
+ * the manifest and the blockmap, and nothing is uploaded again.
+ */
+function resolveBuild() {
+  if (artifacts.every(name => existsSync(artifactPath(name)))) {
+    return { source: 'local', exeSize: localBuildSize() }
+  }
+
+  const assets = assetsOnRelease()
+  if (!assets) {
+    fail(
+      `нет сборки ни в release/, ни на релизе ${tag}`,
+      `соберите дистрибутив (npm run dist) или отправьте тег и дождитесь сборки CI: git push origin ${tag}`,
+    )
+  }
+  return { source: 'ci', exeSize: assets.get(artifacts[0]) }
 }
 
 // ---------------------------------------------------------------------------
@@ -210,23 +330,25 @@ function releaseExists() {
 
 function publish(notesFile) {
   const flags = isPrerelease ? ['--prerelease'] : ['--prerelease=false', '--latest']
+  const notes = notesFile ? ['--notes-file', notesFile] : []
 
   if (releaseExists()) {
-    console.log(`  релиз ${tag} уже есть — обновляю флаги и ассеты`)
-    mutate(['release', 'edit', tag, '--draft=false', ...flags])
+    console.log(`  релиз ${tag} уже есть — обновляю флаги, тело и ассеты`)
+    mutate(['release', 'edit', tag, '--draft=false', ...notes, ...flags])
     return
   }
 
   if (notesFile) {
-    if (!existsSync(notesFile)) fail(`файл с нотами не найден: ${notesFile}`)
+    console.log(`  тело релиза: ${notesFile}`)
     mutate(['release', 'create', tag, '--title', `HueForge ${tag}`, '--notes-file', notesFile, '--verify-tag', ...flags])
   } else {
-    warn('ноты не переданы (--notes FILE) — GitHub сгенерирует их из коммитов')
+    warn(`нет release-notes/${tag}.md — GitHub сгенерирует ноты из коммитов, и они разойдутся с записью в CHANGELOG.md`)
     mutate(['release', 'create', tag, '--title', `HueForge ${tag}`, '--generate-notes', '--verify-tag', ...flags])
   }
 }
 
-function verifyChannel(exeSize) {
+function verifyChannel(build, notesFile) {
+  const { exeSize } = build
   const info = ghJson(['release', 'view', tag, '--json', 'isDraft,isPrerelease,assets'])
 
   if (info.isDraft) fail(`релиз ${tag} остался черновиком`, `gh release edit ${tag} --draft=false`)
@@ -249,15 +371,55 @@ function verifyChannel(exeSize) {
   }
   console.log(`  ассеты на релизе: ${artifacts.length}, размер exe совпадает`)
 
-  // The updater's own path: fetch latest.yml back and compare it with the build.
+  // The release page and the tagged changelog entry come from one file, so a
+  // difference here means the release tells a different story than the tag.
+  if (notesFile) {
+    const published = ghJson(['release', 'view', tag, '--json', 'body']).body ?? ''
+    if (!sameText(published, readFileSync(notesFile, 'utf8'))) {
+      fail(
+        `тело релиза ${tag} отличается от ${notesFile}`,
+        `gh release edit ${tag} --notes-file ${notesFile}`,
+      )
+    }
+    console.log(`  тело релиза совпадает с ${notesFile}`)
+  }
+
+  // The updater's own path: fetch latest.yml back from the release and make
+  // sure it describes the exe that sits there.
   const temp = mkdtempSync(join(tmpdir(), 'release-publish-'))
   try {
     gh('release', 'download', tag, '--pattern', 'latest.yml', '--output', join(temp, 'latest.yml'), '--clobber')
     const published = readFileSync(join(temp, 'latest.yml'), 'utf8')
+    const publishedVersion = /^version:\s*(.+)$/m.exec(published)?.[1].trim()
     const publishedHash = /^sha512:\s*(.+)$/m.exec(published)?.[1].trim()
-    const localHash = /^sha512:\s*(.+)$/m.exec(readFileSync(join(artifactDir, 'latest.yml'), 'utf8'))?.[1].trim()
-    if (publishedHash !== localHash) fail('latest.yml в релизе отличается от собранного')
-    console.log('  latest.yml в релизе совпадает с собранным')
+    const manifestSize = Number(/^\s+size:\s*(\d+)$/m.exec(published)?.[1] ?? NaN)
+
+    if (publishedVersion !== version) {
+      fail(
+        `latest.yml в релизе описывает версию ${publishedVersion} вместо ${version}`,
+        `gh release upload ${tag} release/latest.yml --clobber`,
+      )
+    }
+    if (!publishedHash) {
+      fail(
+        'в latest.yml релиза нет sha512 — автообновление отклонит загрузку',
+        `gh release upload ${tag} release/latest.yml --clobber`,
+      )
+    }
+    if (manifestSize !== exeSize) {
+      fail(
+        `latest.yml релиза обещает ${manifestSize} Б, а установщик там ${exeSize} Б — загрузка не завершилась`,
+        `gh release upload ${tag} release/latest.yml release/${artifacts[0]} --clobber`,
+      )
+    }
+
+    if (build.source === 'local') {
+      const localHash = /^sha512:\s*(.+)$/m.exec(readFileSync(artifactPath('latest.yml'), 'utf8'))?.[1].trim()
+      if (publishedHash !== localHash) fail('latest.yml в релизе отличается от собранного')
+      console.log('  latest.yml в релизе совпадает с собранным')
+    } else {
+      console.log(`  latest.yml в релизе описывает установщик (sha512 ${publishedHash.slice(0, 16)}…, ${exeSize} Б)`)
+    }
   } finally {
     rmSync(temp, { recursive: true, force: true })
   }
@@ -286,18 +448,24 @@ function verifyChannel(exeSize) {
 
 function main() {
   resolveTarget()
-  const exeSize = preflight()
+  const build = preflight()
+  const notesFile = notesFor(tag)
   step('Публикация')
-  publish(NOTES_FILE)
+  publish(notesFile)
   done.push('флаги канала выставлены по тегу')
 
   if (!DRY_RUN) {
     step('Загрузка артефактов')
-    mutate(['release', 'upload', tag, ...artifacts.map(name => join('release', name)), '--clobber'])
-    done.push(`загружено ${artifacts.length} артефакта`)
+    if (build.source === 'local') {
+      mutate(['release', 'upload', tag, ...artifacts.map(artifactPath), '--clobber'])
+      done.push(`загружено ${artifacts.length} артефакта из сборки`)
+    } else {
+      console.log(`  не нужна: ${artifacts.length} ассета уже на релизе (сборка CI)`)
+      done.push('артефакты оставлены те, что собрал CI')
+    }
 
     step('Проверка канала')
-    verifyChannel(exeSize)
+    verifyChannel(build, notesFile)
     done.push('канал и артефакты сверены')
   }
 
@@ -305,15 +473,18 @@ function main() {
   console.log(`\nГотово: https://github.com/${repo}/releases/tag/${tag}`)
   for (const item of done) console.log(`  ✓ ${item}`)
   if (!isPrerelease) console.log('  ✓ RC-установки получат эту версию по semver')
-  console.log('\nДальше: npm run changelog:sync — перенести ноты релиза в CHANGELOG.md.')
+  console.log('\nДальше (не обязательно): npm run changelog:sync — заменит «Ожидает тега» на канал релиза.')
 }
 
-try {
-  main()
-} catch (error) {
-  if (error instanceof PublishError) {
-    console.error(`\n✗ ${error.message}`)
-    process.exit(1)
+// Importable for tests — `main()` only runs when invoked as a script.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main()
+  } catch (error) {
+    if (error instanceof PublishError) {
+      console.error(`\n✗ ${error.message}`)
+      process.exit(1)
+    }
+    throw error
   }
-  throw error
 }

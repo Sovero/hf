@@ -25,6 +25,18 @@ jobs:
           fi
           echo "Releasing v${PKG_VERSION}"
 
+      # The changelog entry is written before the tag (npm run release:prepare),
+      # so the version is documented in the tree this run builds from. A tag cut
+      # the other way cannot be repaired by a later commit — refuse early rather
+      # than spend a runner on artifacts for an undocumented version.
+      - name: Verify the tag carries its own changelog entry
+        run: |
+          ANCHOR=$(echo "${GITHUB_REF_NAME}" | sed -E 's/^v/v-/; s/[.]/-/g')
+          if ! grep -q "<a id=\"${ANCHOR}\">" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md of tag ${GITHUB_REF_NAME} has no entry for it. Cut the release with 'npm run release:prepare -- --version <X.Y.Z>' so the entry is committed before the tag."
+            exit 1
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:

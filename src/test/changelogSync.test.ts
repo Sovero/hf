@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_PER_SECTION, entryOf, isNoise, notesFromCommits } from '../../scripts/sync-changelog.mjs'
+import {
+  DRAFT_MARKER,
+  MAX_PER_SECTION,
+  draftNotes,
+  entryOf,
+  isNoise,
+  notesFromCommits,
+  pendingReleases,
+  pendingRow,
+  pendingSection,
+  pendingShadowedBy,
+  previousTagFor,
+  versionFromNotesFile,
+} from '../../scripts/sync-changelog.mjs'
+import { missingChangelogEntry } from '../../scripts/release-publish.mjs'
 
 const commit = (subject: string, body = '', hash = 'abc1234') => ({ hash, subject, body })
 
@@ -123,5 +137,203 @@ describe('changelog sync: notes built from commits', () => {
       MAX_PER_SECTION + 1,
     )
     expect(notes).toContain('- …и ещё 3')
+  })
+})
+
+const file = (name: string, body: string) => ({ name, body })
+
+/** Git lookups of `pendingReleases`, stubbed: no tag cut unless a test says so. */
+const hooks = (dates: Record<string, string> = {}, cut: string[] = []) => ({
+  dateOf: (tag: string) => dates[tag] ?? '2026-01-01',
+  hasTag: (tag: string) => cut.includes(tag),
+})
+
+describe('changelog sync: versions prepared before their tag', () => {
+  it('reads the tag from the file name and ignores files that are not a tag', () => {
+    expect(versionFromNotesFile('v0.8.5.md')).toBe('0.8.5')
+    expect(versionFromNotesFile('0.8.5.md')).toBe('0.8.5')
+    expect(versionFromNotesFile('v0.8.5-rc.2.md')).toBe('0.8.5-rc.2')
+    expect(versionFromNotesFile('README.md')).toBeNull()
+    expect(versionFromNotesFile('draft.md')).toBeNull()
+    expect(versionFromNotesFile('v0.8.5.txt')).toBeNull()
+    expect(versionFromNotesFile('v0.8.md')).toBeNull()
+  })
+
+  it('turns a notes file into an entry, and an empty file into nothing', () => {
+    const [entry] = pendingReleases(
+      [file('v0.8.5.md', 'Стабильный релиз 0.8.5.'), file('v0.8.6.md', '   \n  ')],
+      hooks({ 'v0.8.5': '2026-09-21' }),
+    )
+
+    expect(entry).toEqual({
+      tag: 'v0.8.5',
+      version: '0.8.5',
+      notes: 'Стабильный релиз 0.8.5.',
+      prerelease: false,
+      date: '2026-09-21',
+      channel: 'Ожидает тега',
+    })
+  })
+
+  it('names the channel by how far the version has come: untagged, or waiting for publication', () => {
+    const files = [file('v0.8.5-rc.1.md', 'Кандидат.'), file('v0.8.6.md', 'Стабильный.')]
+
+    expect(pendingReleases(files, hooks()).map((r) => r.channel)).toEqual([
+      'Ожидает тега',
+      'Ожидает тега',
+    ])
+    expect(pendingReleases(files, hooks({}, ['v0.8.6'])).map((r) => r.channel)).toEqual([
+      'Ожидает публикации',
+      'Ожидает тега',
+    ])
+  })
+
+  it('keeps the freshest version on top, and a release above its own candidate', () => {
+    const files = [
+      file('v0.8.5.md', 'Стабильный.'.padEnd(20, ' ')),
+      file('v0.8.9.md', 'Позже.'.padEnd(20, ' ')),
+      file('v0.8.10.md', 'Совсем позже.'.padEnd(20, ' ')),
+    ]
+    const dates = { 'v0.8.5': '2026-09-01', 'v0.8.9': '2026-09-20', 'v0.8.10': '2026-09-20' }
+
+    expect(pendingReleases(files, hooks(dates)).map((r) => r.tag)).toEqual([
+      'v0.8.10',
+      'v0.8.9',
+      'v0.8.5',
+    ])
+
+    const sameDay = [file('v0.8.5-rc.1.md', 'Кандидат.'), file('v0.8.5.md', 'Стабильный.')]
+    expect(pendingReleases(sameDay, hooks()).map((r) => r.prerelease)).toEqual([false, true])
+  })
+
+  it('renders the entry with an anchor a later publish has to find', () => {
+    const repoUrl = 'https://example.test/repo'
+    const [entry] = pendingReleases([file('v0.8.5-rc.2.md', '## Тон рельефа\n\n- Ползунки.')], hooks({
+      'v0.8.5-rc.2': '2026-09-21',
+    }))
+    const section = pendingSection(entry, repoUrl)
+
+    expect(section).toContain('<a id="v-0-8-5-rc-2"></a>')
+    expect(section).toContain('## v0.8.5-rc.2 — 2026-09-21 · Ожидает тега')
+    expect(section).toContain('- Ползунки.')
+    expect(section).toContain(`${repoUrl}/blob/HEAD/release-notes/v0.8.5-rc.2.md`)
+    expect(pendingRow(entry)).toBe('| v0.8.5-rc.2 · [в файле](#v-0-8-5-rc-2) | 2026-09-21 | Ожидает тега |')
+  })
+
+  it('hands the entry over to GitHub once the release exists, and flags a stale file', () => {
+    const [entry] = pendingReleases([file('v0.8.5.md', 'Стабильный релиз 0.8.5.')], hooks())
+
+    expect(pendingShadowedBy([entry], [{ tag_name: 'v0.8.5', body: 'Стабильный релиз 0.8.5.' }])).toEqual([
+      { tag: 'v0.8.5', differs: false },
+    ])
+    expect(pendingShadowedBy([entry], [{ tag_name: 'v0.8.5', body: 'Совсем другое описание.' }])).toEqual([
+      { tag: 'v0.8.5', differs: true },
+    ])
+    expect(pendingShadowedBy([entry], [{ tag_name: 'v0.8.4', body: '' }])).toEqual([])
+  })
+})
+
+describe('release notes draft: written before the notes exist', () => {
+  it('marks the file, names the range and groups the commits', () => {
+    const draft = draftNotes(
+      [
+        commit('feat: add frameless window', '', 'aaaaaaa'),
+        commit('fix: correct the ICO header', '', 'bbbbbbb'),
+        commit('ci: build the installer', '', 'ccccccc'),
+      ],
+      { fromTag: 'v0.8.3', toTag: 'v0.8.4', repoUrl: 'https://example.test/repo' },
+    )
+
+    expect(draft.startsWith(DRAFT_MARKER)).toBe(true)
+    expect(draft).toContain('из 3 коммитов за `v0.8.3` … `v0.8.4`')
+    // Level 2: the file is a release body, and the changelog demotes it to `###`.
+    expect(draft).toContain('\n## ✨ Новое')
+    expect(draft).toContain('- Add frameless window ([aaaaaaa](https://example.test/repo/commit/aaaaaaa))')
+    expect(draft).toContain('**Полный changelog**: https://example.test/repo/compare/v0.8.3...v0.8.4')
+    // The disclaimer of a release *without* notes would be wrong in a draft.
+    expect(draft).not.toContain('Заметок к этому релизу нет')
+  })
+
+  it('agrees the commit count with its Russian form', () => {
+    const one = draftNotes([commit('feat: one')], {
+      fromTag: 'v0.8.3',
+      toTag: 'v0.8.4',
+      repoUrl: 'https://example.test/repo',
+    })
+    const eleven = draftNotes(
+      Array.from({ length: 11 }, (_, i) => commit(`feat: change ${i}`)),
+      { fromTag: 'v0.8.3', toTag: 'v0.8.4', repoUrl: 'https://example.test/repo' },
+    )
+
+    expect(one).toContain('из 1 коммита за')
+    expect(eleven).toContain('из 11 коммитов за')
+  })
+
+  it('follows the whole history when there is nothing before the release', () => {
+    const draft = draftNotes([commit('Add the first feature')], {
+      fromTag: null,
+      toTag: 'v0.2.0',
+      repoUrl: 'https://example.test/repo',
+    })
+
+    expect(draft).toContain('за `v0.2.0`')
+    expect(draft).not.toContain('compare')
+  })
+
+  it('writes plain hashes when the repository URL is unknown', () => {
+    const draft = draftNotes([commit('feat: add a thing', '', 'ddddddd')], {
+      fromTag: 'v0.8.3',
+      toTag: 'v0.8.4',
+      repoUrl: null,
+    })
+
+    expect(draft).toContain('- Add a thing (`ddddddd`)')
+    expect(draft).not.toContain('null/commit')
+    expect(draft).not.toContain('compare')
+  })
+})
+
+describe('release notes draft: what it is compared against', () => {
+  const tags = ['v0.8.4-rc.1', 'v0.8.3', 'v0.8.3-rc.4', 'v0.8.2', 'nightly', 'v1.2']
+
+  it('compares a stable version against the previous stable release', () => {
+    expect(previousTagFor(tags, '0.8.4')).toBe('v0.8.3')
+    expect(previousTagFor(tags, '0.8.3')).toBe('v0.8.2')
+  })
+
+  it('compares a candidate against the previous tag of any kind', () => {
+    expect(previousTagFor(tags, '0.8.4-rc.2')).toBe('v0.8.4-rc.1')
+    expect(previousTagFor(tags, '0.8.4-rc.1')).toBe('v0.8.3')
+  })
+
+  it('ignores names that are not versions and says so when nothing is left', () => {
+    expect(previousTagFor(['nightly', 'release'], '0.8.4')).toBeNull()
+    expect(previousTagFor([], '0.8.4')).toBeNull()
+  })
+})
+
+describe('release guard: a tag has to document its own version', () => {
+  it('finds the entry the changelog generator writes before the tag', () => {
+    const [entry] = pendingReleases(
+      [file('v0.8.4.md', 'Стабильный релиз 0.8.4.')],
+      hooks({ 'v0.8.4': '2026-09-21' }),
+    )
+
+    expect(missingChangelogEntry('v0.8.4', pendingSection(entry, 'https://example.test/repo'))).toBe(
+      false,
+    )
+  })
+
+  it('rejects a tree whose changelog never mentions the version', () => {
+    expect(missingChangelogEntry('v0.8.3', '# Журнал\n\n## v0.8.2 — 2026-08-01\n')).toBe(true)
+    expect(missingChangelogEntry('v0.8.3', '')).toBe(true)
+    expect(missingChangelogEntry('v0.8.3', null)).toBe(true)
+  })
+
+  it('does not let a candidate stand in for the stable version', () => {
+    const candidate = '<a id="v-0-8-4-rc-1"></a>'
+
+    expect(missingChangelogEntry('v0.8.4-rc.1', candidate)).toBe(false)
+    expect(missingChangelogEntry('v0.8.4', candidate)).toBe(true)
   })
 })

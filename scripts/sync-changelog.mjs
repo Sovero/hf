@@ -11,7 +11,13 @@
  * - for releases that carry no notes of their own (GitHub's auto-generated
  *   "Full Changelog" stubs) builds categorized notes out of the commits between
  *   the tags — grouped by type, each entry linked to its commit — instead of
- *   dumping a flat list of subjects.
+ *   dumping a flat list of subjects;
+ * - renders a version whose notes are written in `release-notes/<tag>.md` but
+ *   whose release does not exist yet. A version's entry has to be written
+ *   *before* its tag, otherwise the entry lands outside the tagged tree and
+ *   `git show <tag>:CHANGELOG.md` shows a version that is not in the file. The
+ *   repository can supply notes for a release that GitHub does not have yet;
+ *   GitHub takes the entry over word for word once the release is published.
  *
  * It only rewrites the region between the `releases:start` / `releases:end`
  * markers, so the hand-written header above stays untouched.
@@ -20,7 +26,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,6 +34,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const changelogPath = path.join(root, 'CHANGELOG.md')
 const START = '<!-- releases:start -->'
 const END = '<!-- releases:end -->'
+
+/**
+ * Notes of versions that are prepared but not released yet — one file per tag,
+ * named after the tag. See `pendingReleases` for why they exist.
+ */
+const NOTES_DIR = path.join(root, 'release-notes')
+const NOTES_FILE = /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\.md$/
 
 /** Commit subjects that only shuffle version numbers are noise in a changelog. */
 const NOISE = [
@@ -85,6 +98,15 @@ const VERB_SECTION = [
 ]
 
 export const MAX_PER_SECTION = 20
+
+/**
+ * First line of a notes file that was generated rather than written. The line is
+ * visible on purpose: both release scripts refuse to cut or publish a version
+ * whose notes still carry it, so an auto-assembled draft cannot slip out as a
+ * release body.
+ */
+export const DRAFT_MARKER = '> **Черновик нот.**'
+
 const CONVENTIONAL = /^(?<type>[a-z]+)(?:\((?<scope>[^)]+)\))?(?<breaking>!)?:\s*(?<rest>\S.*)$/i
 
 const sh = (cmd, args) =>
@@ -160,37 +182,83 @@ export function entryOf(commit) {
   return { section, text: commit.subject, hash: commit.hash }
 }
 
+/** One entry as a bullet — linked when the repository URL is known, plain otherwise. */
+const entryLine = (entry, repoUrl) =>
+  repoUrl
+    ? `- ${entry.text} ([${entry.hash}](${repoUrl}/commit/${entry.hash}))`
+    : `- ${entry.text} (\`${entry.hash}\`)`
+
+/**
+ * Entries grouped into reader-facing sections, each one linked to its commit.
+ * `level` is 3 for a release body assembled on the fly and 2 for a notes file —
+ * a file is one heading level higher, so both end up as `###` in CHANGELOG.md.
+ */
+function renderSections(commits, repoUrl, level = 3) {
+  const entries = commits.map(entryOf)
+  const lines = []
+  const heading = '#'.repeat(level)
+
+  for (const [section, title] of SECTIONS) {
+    const items = entries.filter((entry) => entry.section === section)
+    if (items.length === 0) continue
+
+    lines.push('', `${heading} ${title}`)
+    for (const entry of items.slice(0, MAX_PER_SECTION)) {
+      lines.push(entryLine(entry, repoUrl))
+    }
+    if (items.length > MAX_PER_SECTION) {
+      lines.push(`- …и ещё ${items.length - MAX_PER_SECTION}`)
+    }
+  }
+
+  return lines
+}
+
+/** Human-readable range of notes: `` `v0.8.3` … `v0.8.4` ``. */
+const rangeLabel = (fromTag, toTag) =>
+  fromTag ? `\`${fromTag}\` … \`${toTag}\`` : `\`${toTag}\``
+
 /**
  * Notes for a release that has none of its own. The commits behind it are the
  * only honest source, but a reader wants categories and a way back to the
  * change — so they are grouped and linked instead of dumped verbatim.
  */
 export function notesFromCommits(commits, { fromTag, toTag, widened = false, repoUrl }) {
-  const entries = commits.map(entryOf)
-  const range = widened
-    ? `\`${toTag}\` (от \`${fromTag}\`)`
-    : fromTag
-      ? `\`${fromTag}\` … \`${toTag}\``
-      : `\`${toTag}\``
+  const range = widened ? `\`${toTag}\` (от \`${fromTag}\`)` : rangeLabel(fromTag, toTag)
   const notes = [
     `_Заметок к этому релизу нет — разделы собраны из ${commits.length} ` +
       `${count(commits.length, ['коммит', 'коммита', 'коммитов'])} за ${range}._`,
+    ...renderSections(commits, repoUrl),
   ]
 
-  for (const [section, title] of SECTIONS) {
-    const items = entries.filter((entry) => entry.section === section)
-    if (items.length === 0) continue
+  return notes.join('\n')
+}
 
-    notes.push('', `### ${title}`)
-    for (const entry of items.slice(0, MAX_PER_SECTION)) {
-      notes.push(`- ${entry.text} ([${entry.hash}](${repoUrl}/commit/${entry.hash}))`)
-    }
-    if (items.length > MAX_PER_SECTION) {
-      notes.push(`- …и ещё ${items.length - MAX_PER_SECTION}`)
-    }
+/**
+ * Draft notes for a version that has no notes file yet — the starting point
+ * `release:prepare` writes instead of refusing to cut the release. The sections
+ * are assembled from the commits of the range; the marker line says so, and the
+ * release scripts refuse to cut or publish while it is still there.
+ */
+export function draftNotes(commits, { fromTag, toTag, repoUrl, withCompareLink = true }) {
+  const range = rangeLabel(fromTag, toTag)
+  const lines = [
+    `${DRAFT_MARKER} Разделы ниже собраны из ${commits.length} ` +
+      `${count(commits.length, ['коммита', 'коммитов', 'коммитов'])} за ${range}: перепишите их в прозу, ` +
+      'добавьте в начало абзац-суть и удалите эту строку.',
+    ...renderSections(commits, repoUrl, 2),
+  ]
+
+  if (withCompareLink && fromTag && repoUrl) {
+    lines.push('', `**Полный changelog**: ${repoUrl}/compare/${fromTag}...${toTag}`)
   }
 
-  return notes.join('\n')
+  return lines.join('\n')
+}
+
+/** Commits between two revisions, noise dropped — the material of a draft. */
+export function rangeCommits(fromRev, toRev) {
+  return commitsIn(fromRev, toRev)
 }
 
 /**
@@ -229,6 +297,162 @@ const stampOf = (release) =>
   release.created_at
 
 const dateOf = (release) => stampOf(release).slice(0, 10)
+
+// ---------------------------------------------------------------------------
+// A version prepared in the repository, not on GitHub yet
+// ---------------------------------------------------------------------------
+
+const SEMVER = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/
+
+/** Pre-release identifier of a version, or null for a stable one (undefined if not semver). */
+function prereleaseOf(version) {
+  const match = SEMVER.exec(version)
+  return match ? (match[4] ?? null) : undefined
+}
+
+/** Newest version first; a release outranks its own candidate (0.8.4 above 0.8.4-rc.1). */
+function compareVersions(a, b) {
+  const core = SEMVER.exec(a).slice(1, 4).map(Number)
+  const other = SEMVER.exec(b).slice(1, 4).map(Number)
+  for (let i = 0; i < core.length; i += 1) {
+    if (core[i] !== other[i]) return core[i] - other[i]
+  }
+  const left = prereleaseOf(a)
+  const right = prereleaseOf(b)
+  if (left === null && right !== null) return 1
+  if (left !== null && right === null) return -1
+  return (left ?? '').localeCompare(right ?? '', undefined, { numeric: true })
+}
+
+/** Tag of a notes file, or null when the name is not a tag (`README.md`, `draft.md`). */
+export function versionFromNotesFile(fileName) {
+  const match = NOTES_FILE.exec(fileName)
+  return match ? match[1] : null
+}
+
+/**
+ * Entries for versions whose notes are in the repository but whose release is
+ * not on GitHub yet, newest first. An empty file is not an entry — it is a
+ * placeholder waiting for prose. `dateOf` and `hasTag` are injected so the
+ * ordering and the channel label can be tested without git or the network.
+ */
+export function pendingReleases(files, { dateOf: dateFor, hasTag }) {
+  return files
+    .map((file) => {
+      const version = versionFromNotesFile(file.name)
+      const notes = (file.body ?? '').trim()
+      if (version === null || notes === '') return null
+
+      const prerelease = prereleaseOf(version)
+      if (prerelease === undefined) return null
+
+      const tag = `v${version}`
+      return {
+        tag,
+        version,
+        notes,
+        prerelease: prerelease !== null,
+        date: dateFor(tag),
+        channel: hasTag(tag) ? 'Ожидает публикации' : 'Ожидает тега',
+      }
+    })
+    .filter((release) => release !== null)
+    .sort((a, b) => b.date.localeCompare(a.date) || compareVersions(b.version, a.version))
+}
+
+/**
+ * Notes of versions that are already released: the release body wins, because
+ * that is what the release page shows. A body that differs from the file means
+ * the file went stale — worth saying out loud instead of dropping it silently.
+ */
+export function pendingShadowedBy(pending, releases) {
+  const published = new Map(releases.map((release) => [release.tag_name, release.body ?? '']))
+  return pending
+    .filter((release) => published.has(release.tag))
+    .map((release) => ({
+      tag: release.tag,
+      differs: normalizeBody(published.get(release.tag)) !== normalizeBody(release.notes),
+    }))
+}
+
+/** Index row of a version that has a changelog entry but no release page yet. */
+export function pendingRow(release) {
+  return `| ${release.tag} · [в файле](#${idFor(release.tag)}) | ${release.date} | ${release.channel} |`
+}
+
+/** Changelog section of a version whose notes live in the repository. */
+export function pendingSection(release, repoUrl) {
+  return [
+    `<a id="${idFor(release.tag)}"></a>`,
+    '',
+    `## ${release.tag} — ${release.date} · ${release.channel}`,
+    '',
+    normalizeBody(release.notes),
+    '',
+    `Страница релиза появится после публикации тега \`${release.tag}\`; заметки — в ` +
+      `[release-notes/${release.tag}.md](${repoUrl}/blob/HEAD/release-notes/${release.tag}.md).`,
+    '',
+  ].join('\n')
+}
+
+/** Notes files in the repository, as `{ name, body }`. */
+function readNotesFiles() {
+  if (!existsSync(NOTES_DIR)) return []
+  return readdirSync(NOTES_DIR)
+    .filter((name) => NOTES_FILE.test(name))
+    .map((name) => ({ name, body: readFileSync(path.join(NOTES_DIR, name), 'utf8') }))
+}
+
+/**
+ * The release a version is compared against: a candidate is built on the
+ * previous tag of any kind, a stable version on the previous *stable* tag —
+ * that is the whole delta the stable channel receives, so its notes have to
+ * cover it. Garbage tag names are ignored rather than sorted.
+ */
+export function previousTagFor(tags, version) {
+  const isCandidate = prereleaseOf(version) !== null
+  const candidates = tags
+    .map((tag) => tag.replace(/^v/, ''))
+    .filter((other) => SEMVER.test(other) && other !== version)
+    .filter((other) => isCandidate || prereleaseOf(other) === null)
+
+  if (candidates.length === 0) return null
+  candidates.sort((a, b) => compareVersions(b, a))
+  return `v${candidates[0]}`
+}
+
+/**
+ * Date of a version that has no release page yet: the tag once it is cut,
+ * otherwise the commit that bumped the version. Both are stable across repeated
+ * runs, so a sync does not rewrite the date of an entry it already wrote.
+ */
+function pendingDate(tag) {
+  // Asking for a tag that does not exist yet makes git complain on stderr, so
+  // existence is checked first — the tag-free check is quiet.
+  const sources = tagExists(tag)
+    ? [['log', '-1', '--format=%cs', tag], ['log', '-1', '--format=%cs', '--', 'package.json']]
+    : [['log', '-1', '--format=%cs', '--', 'package.json']]
+
+  for (const args of sources) {
+    try {
+      const date = git(...args)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+    } catch {
+      // No commits at all — try the next source.
+    }
+  }
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** Whether the tag is cut already — that is what tells "Ожидает тега" from "Ожидает публикации". */
+function tagExists(tag) {
+  try {
+    git('rev-parse', '--verify', '--quiet', `refs/tags/${tag}`)
+    return true
+  } catch {
+    return false
+  }
+}
 
 function channelOf(release, latestTag) {
   if (release.draft) return 'Черновик'
@@ -278,6 +502,19 @@ function main() {
   // instead of keeping GitHub's creation order.
   releases.sort((a, b) => stampOf(b).localeCompare(stampOf(a)))
 
+  // Versions written in the repository but not published yet go on top of the
+  // list; the ones GitHub already knows are dropped in favour of the release.
+  const pending = pendingReleases(readNotesFiles(), { dateOf: pendingDate, hasTag: tagExists })
+  const publishedTags = new Set(releases.map((release) => release.tag_name))
+  for (const shadowed of pendingShadowedBy(pending, releases)) {
+    console.log(
+      shadowed.differs
+        ? `! release-notes/${shadowed.tag}.md расходится с телом релиза ${shadowed.tag} — в CHANGELOG идёт релиз с GitHub`
+        : `release-notes/${shadowed.tag}.md выпущен — запись берётся из релиза на GitHub`,
+    )
+  }
+  const queued = pending.filter((release) => !publishedTags.has(release.tag))
+
   const repoUrl = releases[0].html_url.replace(/\/releases\/.*$/, '')
   let latestTag = ''
   try {
@@ -289,6 +526,7 @@ function main() {
   const index = [
     '| Версия | Дата | Канал |',
     '| --- | --- | --- |',
+    ...queued.map(pendingRow),
     ...releases.map(
       (r) =>
         `| [${r.tag_name}](${repoUrl}/releases/tag/${r.tag_name}) · [в файле](#${idFor(r.tag_name)}) ` +
@@ -296,11 +534,12 @@ function main() {
     ),
   ].join('\n')
 
-  const sections = releases
-    .map((release, i) =>
+  const sections = [
+    ...queued.map((release) => pendingSection(release, repoUrl)),
+    ...releases.map((release, i) =>
       section(release, releases.slice(i + 1, i + 4).map((r) => r.tag_name), repoUrl, latestTag),
-    )
-    .join('\n---\n\n')
+    ),
+  ].join('\n---\n\n')
 
   const generated = [START, '', index, '', '---', '', sections.trimEnd(), '', END].join('\n')
 
@@ -314,6 +553,9 @@ function main() {
 
   const filled = releases.filter((r) => isStub(r.body ?? '')).length
   console.log(`CHANGELOG.md: ${releases.length} releases, ${filled} filled from commit history`)
+  if (queued.length > 0) {
+    console.log(`  из release-notes/ (ещё не выпущены): ${queued.map((r) => r.tag).join(', ')}`)
+  }
   console.log(`markers: ${(out.match(/<!-- releases:(?:start|end) -->/g) ?? []).join(' ... ')}`)
 }
 
