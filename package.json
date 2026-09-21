@@ -1,7 +1,7 @@
 {
   "name": "hueforge-web",
   "private": true,
-  "version": "0.8.4-rc.1",
+  "version": "0.8.4",
   "type": "module",
   "description": "Превращает изображение в многослойную филаментную картину для 3D-печати (STL/3MF)",
   "main": "electron-main.cjs",
