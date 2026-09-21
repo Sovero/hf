@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.8.3",
   "type": "module",
-  "description": "Turn any image into a multi-layer 3D-printable filament painting (STL/3MF)",
+  "description": "Превращает изображение в многослойную филаментную картину для 3D-печати (STL/3MF)",
   "main": "electron-main.cjs",
   "scripts": {
     "dev": "vite",

@@ -1,154 +1,196 @@
 # HueForge Web
 
-Browser app that turns an image into a multi-layer **filament painting** for 3D printing:
-upload → reduce to any **2–24 colors** (slider) → stepped heightmap →
-download **STL / 3MF**. Colors are encoded by layer height (HueForge-style).
+Приложение превращает картинку в многослойную **филаментную картину** для 3D-печати:
+загрузить изображение → сократить до **2–8 цветов** (слайдер) → ступенчатая карта высот →
+скачать **STL / 3MF**. Цвет кодируется высотой слоя — как в HueForge.
 
-## Quick start on a new PC
+## Быстрый старт на новом ПК
 
-1. Install [Node.js LTS](https://nodejs.org) (one-time).
-2. Download the latest **`hueforge-web-vX.Y.Z.zip`** from the
-   [Releases page](https://github.com/Sovero/hf/releases) and unzip it.
-3. Double-click **`install.bat`** inside the unzipped folder — it will:
-   - check Node.js and **check for a newer release on GitHub** (offering to
-     pull it automatically when one exists),
-   - install all dependencies into the project folder,
-   - offer to create a **desktop shortcut**,
-   - start the app and open your browser.
+1. Установите [Node.js LTS](https://nodejs.org) (один раз).
+2. Скачайте со [страницы релизов](https://github.com/Sovero/hf/releases) архив
+   **`hueforge-web-vX.Y.Z.zip`** и распакуйте его.
+3. Дважды щёлкните **`install.bat`** в распакованной папке — он:
+   - проверит Node.js и **поищет новую версию на GitHub** (и предложит
+     подтянуть её автоматически, если она есть),
+   - установит зависимости в папку проекта,
+   - предложит создать **ярлык на рабочем столе**,
+   - запустит приложение и откроет браузер.
 
-> **Private repository:** this repo is private, so the update check needs a
-> one-time GitHub token. On first run `install.bat` asks you to paste one
-> (create it at https://github.com/settings/personal-access-tokens — fine-grained,
-> only the `hf` repository, **Contents: Read** + **Metadata: Read**). The
-> token is stored only on that PC in `%APPDATA%\HueForgeWeb\github_token.txt`
-> and is used only for checking and downloading releases.
-4. Next time, just use the shortcut or double-click **`start.bat`** —
-   it opens the browser at `http://127.0.0.1:5173`
-   (and self-heals dependencies if the folder was moved or `node_modules` deleted).
+> **Токен GitHub:** при первом запуске `install.bat` предложит вставить токен
+> (создать: https://github.com/settings/personal-access-tokens — fine-grained,
+> только репозиторий `hf`, права **Contents: Read** + **Metadata: Read**).
+> Репозиторий публичный, поэтому от токена можно отказаться: без него `update.ps1`
+> ходит в API анонимно и обновления всё равно работают, а токен поднимает лимит
+> запросов. Токен сохраняется только на этом ПК в
+> `%APPDATA%\HueForgeWeb\github_token.txt` и используется исключительно для
+> проверки и скачивания релизов.
+4. Дальше достаточно ярлыка или двойного щелчка по **`start.bat`** — браузер
+   откроется на `http://127.0.0.1:5173`
+   (зависимости самовосстанавливаются, если папку перенесли или удалили `node_modules`).
 
-Close the black console window to stop the server. The installed version is
-shown in the app's top bar next to the title.
+Чтобы остановить сервер, закройте чёрное окно консоли. Версия установленной сборки
+видна в верхней панели приложения рядом с заголовком.
 
-## Versioning & releases
+**Есть ещё вариант «сервер + браузер» без установки:** готовый пакет
+`hueforge-web-deploy-v*.zip` с того же релиза (не нужны ни `npm install`, ни
+исходники) — запускается `deploy.bat` на `http://127.0.0.1:8080`, порт можно задать
+аргументом. Подробности — в [DEPLOY.md](DEPLOY.md).
 
-- Versioning is **semantic** (`vMAJOR.MINOR.PATCH`). The single source of truth
-  is `version` in `package.json`; every release tag must match it, and the
-  release workflow refuses tags that don't.
-- Cutting a release: update `package.json` and `package-lock.json` to the same
-  semantic version, commit them, then push the matching tag:
+## Настольное приложение (Electron)
+
+То же приложение поставляется как нативное приложение Windows —
+**HueForge Desktop**: безрамочное окно с собственными кнопками заголовка, значок в
+панели задач и ярлык в меню «Пуск»; ни браузер, ни Node.js не нужны.
+
+- **Установка:** возьмите `hueforge-desktop-setup-<version>.exe` со
+  [страницы релизов](https://github.com/Sovero/hf/releases) и запустите
+  (установщик NSIS, x64; папку установки можно выбрать).
+- **Автообновление** встроено: приложение проверяет релизы GitHub при запуске
+  (через 15 с) и далее каждые 4 часа. В верхней панели появляется индикатор
+  (⟳ проверка, ↑ доступно обновление, % при скачивании, ↓ готово к установке —
+  нажмите, чтобы действовать). Обновление ставится при выходе или сразу после
+  подтверждения.
+- **Доступ к релизам по токену:** в настольном приложении токен обязателен —
+  манифест обновления собран для доступа через GitHub API (fine-grained,
+  `Contents: Read` + `Metadata: Read` на этот репозиторий — тот же, что
+  использует `install.bat`). Нажмите индикатор
+  обновления, вставьте токен в диалоге — он будет сохранён зашифрованным на этом
+  ПК (Electron safeStorage / DPAPI). Переменные окружения вида
+  `HF_GITHUB_TOKEN` настольное приложение не читает.
+- **Экспорт:** «Скачать STL/3MF/…» открывает нативное окно Windows «Сохранить как»;
+  в браузерной сборке файлы скачиваются как раньше.
+
+Собрать из исходников: `npm run dist` (сначала нужен `npm install`). Установщик и
+манифесты автообновления (`latest.yml`, blockmap) появляются в `release/` и
+прикрепляются к релизу GitHub — вручную или шагом workflow.
+
+## Интерфейс кратко
+
+- Левая панель разбита на вкладки: **Проект** (изображение, цвета, режим глубины,
+  размер, палитра), **Проверка** (печатаемость, производительность, эталон),
+  **Экспорт**.
+- Области предпросмотра («Исходное», карта высот, 3D-вид) располагаются схемами
+  «друг над другом» или «два рядом»; пропорция тянется сплиттером, двойной щелчок
+  возвращает 50/50, а полоса с шевроном внизу растит рабочую область по высоте.
+  В узких окнах (меньше 900 px) схемы складываются в колонку.
+- У каждой панели единый формат шапки: иконка → название → бейдж → «?» с подсказкой.
+
+## Как пользоваться
+
+1. **Перетащите картинку** (PNG / JPG / WebP) в панель слева.
+2. Выберите **число цветов** — от 2 до 8: тяните слайдер, щёлкайте по меткам
+   2 / 4 / 6 / 8 или введите число в поле. Слайдер в фокусе слушает стрелки.
+3. Выберите **режим глубины** — тёмные цвета выше (классический HueForge) или
+   светлые выше.
+4. При необходимости поправьте **размер** (ширина и высота в мм), толщину
+   основания и максимальную высоту.
+5. Загляните в панель **проверки печати** — она предупредит о слишком тонких
+   полосах цвета, элементах тоньше сопла, большом числе смен филамента и
+   хрупких изолированных участках, а для каждого предупреждения предложит
+   конкретное исправление.
+6. Проверьте **палитру** — там каждый цвет с порядком печати
+   (#1 = первый филамент) и ближайшим филаментом из библиотеки.
+7. **Скачайте STL** (цвет высотой слоя — смены филамента выставьте в слайсере на
+   высотах Z из панели палитры) или **3MF** (та же геометрия плюс палитра и
+   порядок печати в метаданных). В варианте «сервер + браузер» с
+   `deploy-slicer.bat` есть кнопка **«Открыть в слайсере»** — 3MF уходит сразу в
+   Bambu Studio / OrcaSlicer / PrusaSlicer.
+8. **Сравните с эталоном** — перетащите **`.3mf`** (проект HueForge/Bambu или наш
+   собственный экспорт), чтобы прочитать его размер, цвета и расписание смен и
+   перенести их в свою работу одним нажатием, либо перетащите эталонный **`.stl`**,
+   чтобы измерить его рельеф (габарит, шаг сетки, шаг высоты, число уровней высот
+   и долю плато, склонов и стенок) и построчно сверить с нашим — с таблицей
+   расхождений.
+9. При необходимости **откалибруйте τ** по образцу: распечатайте образец для
+   цвета, сфотографируйте его — приложение подберёт длину пропускания τ, и
+   предпросмотры будут совпадать с реальной катушкой.
+
+## Версии и релизы
+
+- Версионирование **семантическое** (`vMAJOR.MINOR.PATCH`). Единственный источник
+  истины — поле `version` в `package.json`; тег релиза обязан с ним совпадать, и
+  workflow релиза отвергает несовпадающие теги.
+- Выпуск релиза: приведите `package.json` и `package-lock.json` к одной
+  семантической версии, закоммитьте их и запушьте совпадающий тег:
 
   ```bash
-  VERSION=0.8.1   # replace with the version being released
+  VERSION=0.8.3   # замените на выпускаемую версию
   git tag "v$VERSION"
   git push origin main "v$VERSION"
   ```
 
-  Pushing a `v*` tag triggers the **Release** workflow. It verifies the tag
-  against `package.json`, runs typecheck, tests and the production build on
-  Ubuntu, creates the source and deploy archives, and builds the Windows
-  Electron installer on `windows-latest`. The workflow adds the installer,
-  `latest.yml`, blockmap and both ZIP archives to a draft GitHub Release;
-  publish the draft after reviewing the artifacts. The `prerelease` flag is set
-  from the tag automatically (on whenever the tag contains a `-`).
-- **Publishing locally** (`npm run dist` → `npm run release:publish`) is the path
-  to use while the Actions billing is blocked: the second command derives the
-  channel flags from the tag itself — pre-release for `vX.Y.Z-rc.N`, latest for
-  a stable version — uploads the installer, blockmap and `latest.yml`, checks
-  them against the build, and **exits non-zero if `releases/latest` points at a
-  candidate**. `--dry-run` prints the mutations without performing them.
-- **Stable vs. pre-release channel:** the desktop app follows the repository's
-  *latest* release only — it never opts into pre-releases (`allowPrerelease =
-  false`, channel `latest.yml`). `releases/latest` skips pre-releases, so
-  **every RC must be published as a GitHub pre-release**:
+  Пуш тега `v*` запускает workflow **Release**: он сверяет тег с `package.json`,
+  прогоняет typecheck, тесты и продакшн-сборку на Ubuntu, собирает архивы исходников
+  и deploy-пакета, а на `windows-latest` собирает установщик Electron для Windows.
+  Установщик, `latest.yml`, blockmap и оба ZIP попадают в черновик релиза GitHub —
+  опубликуйте его после проверки артефактов. Флаг `prerelease` выводится из тега
+  автоматически (включён, если в теге есть `-`).
+- **Локальная публикация** (`npm run dist` → `npm run release:publish`) — путь,
+  которым пользуемся, пока счёт GitHub Actions заблокирован: вторая команда сама
+  выводит флаги канала из тега — pre-release для `vX.Y.Z-rc.N`, latest для
+  стабильной версии, — заливает установщик, blockmap и `latest.yml`, сверяет их со
+  сборкой и **падает с ненулевым кодом, если `releases/latest` указывает на
+  кандидата**. `--dry-run` печатает изменения, ничего не выполняя.
+- **Стабильный канал и pre-release:** настольное приложение следит только за
+  *latest*-релизом репозитория и никогда не подписывается на pre-release
+  (`allowPrerelease = false`, канал `latest.yml`). `releases/latest` пропускает
+  pre-release, поэтому **каждый RC обязан публиковаться как pre-release GitHub**:
 
   ```bash
-  # RC — the tag carries a pre-release identifier (v0.8.3-rc.5):
+  # RC — в теге есть предрелизный суффикс (v0.8.3-rc.5):
   gh release edit "v$VERSION" --draft=false --prerelease
-  # Stable — a plain version (v0.8.3):
+  # Стабильная версия — обычный номер (v0.8.3):
   gh release edit "v$VERSION" --draft=false
   ```
 
-  Publishing an RC as a normal release makes it the *latest* release and offers
-  it to every stable installation (this happened once with `v0.8.3-rc.4`; it is
-  now a pre-release again). RC installs receive the next **stable** release when
-  it is published, while stable installs never see an RC.
-- `install.bat` compares your local version (from `package.json`) with the
-  **latest GitHub release** on every run and offers to download and apply the
-  update in place (`update.ps1` does the actual API calls). No need to
-  re-download the zip for updates — unless a new `install.bat`/`start.bat`/
-  `update.ps1` ships, in which case a fresh unzip applies those.
-- **Release notes live in the repo:** [CHANGELOG.md](CHANGELOG.md) mirrors every
-  release — version, date, channel and the full notes — so the history is
-  readable from the code, not only from the release pages. `npm run
-  changelog:sync` regenerates it from the GitHub releases (needs an
-  authenticated `gh`); commit it along with the version bump.
+  Если опубликовать RC как обычный релиз, он станет *latest* и будет предложен
+  всем стабильным установкам (так однажды и вышло с `v0.8.3-rc.4`; сейчас он снова
+  pre-release). Установки RC получают следующий **стабильный** релиз, когда он
+  выходит, а стабильные установки RC не видят никогда.
+- `install.bat` при каждом запуске сравнивает локальную версию (из `package.json`)
+  с **последним релизом GitHub** и предлагает скачать и применить обновление на
+  месте (собственно вызовы API делает `update.ps1`). Перекачивать архив для
+  обновления не нужно — кроме случаев, когда меняются сами
+  `install.bat` / `start.bat` / `update.ps1`: тогда требуется свежая распаковка.
+- **Ноты релизов живут в репозитории:** [CHANGELOG.md](CHANGELOG.md) повторяет все
+  релизы — версия, дата, канал и полный текст нот — чтобы историю можно было читать
+  из кода, а не только со страницы релиза. `npm run changelog:sync` перегенерирует
+  файл из релизов GitHub (нужен авторизованный `gh`); коммитьте его вместе с бампом
+  версии.
 
-## How to use
+## Темы
 
-1. **Drop an image** (PNG / JPG / WebP) into the panel on the left.
-2. Pick the **number of colors** — any value from 2 to 24: drag the slider,
-   click a tick preset, or type a count directly in the number box.
-   Focus the slider to also use arrow keys (or type `1` `6` → 16 there).
-3. Pick the **depth mode** — dark colors tallest (classic HueForge) or light tallest.
-4. Adjust **size** (width/height in mm), base thickness and max height if needed.
-5. Check the **printability panel** — it warns about too-thin color bands,
-   features smaller than the nozzle, many filament changes, and fragile
-   isolated regions, with concrete fixes for each.
-6. Check the **palette panel** — it lists each color with its print order
-   (#1 = first filament) and nearest filament name.
-7. **Download STL** (color by layer height — set filament changes in your slicer
-   at the Z heights shown in the palette panel) or **3MF** (same geometry,
-   plus palette and print order embedded as metadata).
-8. **Compare with a reference** — drop a **`.3mf`** (a HueForge/Bambu project or
-   one of our own exports) to read its size, colors and swap schedule and copy
-   them into your work with one click, or drop a reference **`.stl`** to measure
-   its relief (footprint, cell pitch, height step, height levels, and the
-   plateau/slant/wall mix) and line it up against ours row by row, with every
-   mismatch flagged.
+Тёмная / Светлая / Nord / Solar — переключатель в верхней панели, выбор сохраняется.
 
-## Desktop app (Electron)
-
-The same app ships as a native **HueForge Desktop** Windows app — a frameless window with custom title-bar controls, a taskbar
-icon and a Start-menu shortcut, no browser or Node.js needed:
-
-- **Install:** grab `hueforge-desktop-setup-<version>.exe` from the
-  [Releases page](https://github.com/Sovero/hf/releases) and run it
-  (NSIS installer, x64; you can pick the install folder).
-- **Auto-update:** built in. The app checks GitHub Releases at startup
-  (15 s after launch) and then every 4 hours; a small indicator appears in
-  the top bar (⟳ checking, ↑ update available, % while downloading, ↓ ready
-  to install — click it to act). Updates install on quit or immediately
-  after a confirmation.
-- **Private repository:** the update check needs a one-time GitHub token
-  (fine-grained, `Contents: Read` + `Metadata: Read` on this repo — same
-  token as `install.bat` uses). Click the update indicator, paste the token
-  in the dialog, and it is stored encrypted on this PC (Electron
-  safeStorage / DPAPI). `HF_GITHUB_TOKEN`-style env vars are not used by the
-  desktop app.
-- **Exports:** «Download STL/3MF/…» opens the native Windows "Save as…"
-  dialog in the desktop app; in the browser build it downloads as before.
-
-Build it from sources with `npm run dist` (needs `npm install` first); the
-installer and its auto-update manifests (`latest.yml`, blockmap) land in
-`release/` and are attached to GitHub Releases automatically by the release
-workflow.
-
-## Themes
-
-Dark / Light / Nord / Solar — picker in the top bar, saved automatically.
-
-## Development
+## Разработка
 
 ```bash
-npm install     # once
-npm run dev     # dev server at http://127.0.0.1:5173
-npm test        # 256 tests (31 test files)
-npm run build   # production build to dist/
+npm install     # один раз
+npm run dev     # dev-сервер на http://127.0.0.1:5173
+npm test        # 292 теста (33 файла с тестами)
+npm run build   # продакшн-сборка в dist/
 ```
 
-## Notes
+## Заметки
 
-- Everything runs **locally in the browser** — no server-side processing, images never leave the PC.
-- Images are downscaled to 512 px on the long side before processing — this matches
-  FDM resolution (≈0.3 mm cells at 150 mm width) and keeps files manageable.
-- The mesh is watertight (verified by tests), so it slices cleanly.
+- Всё считается **локально в браузере** — обработки на сервере нет, изображения
+  не покидают ПК.
+- Перед обработкой изображение приводится к рабочему разрешению: до **1024 px** по
+  большой стороне (это привязка к соплу — примерно ячейка на сопло 0,4 мм), а
+  превью «Исходное» декодируется отдельно до 2048 px, чтобы мелкие детали были
+  видны на карточке.
+- Рельеф — высотная сетка с общими вершинами соседних ячеек: перепад высот между
+  соседями становится диагональной гранью, вертикальные стенки идут только по
+  внешнему контуру, дно — плоская плита. Сетка водонепроницаемая (проверяется
+  тестами), поэтому режется без ошибок.
+
+## Документация
+
+Все документы репозитория ведутся **на русском языке** (команды, имена файлов и
+фрагменты кода — как есть). Текущий состав:
+
+- [README.md](README.md) — этот файл: установка, использование, релизы.
+- [DEPLOY.md](DEPLOY.md) — вариант «сервер + браузер» и публикация релизов.
+- [CHANGELOG.md](CHANGELOG.md) — история версий из релизов GitHub.
+- [docs/hueforge-classic-prompt.md](docs/hueforge-classic-prompt.md) — описание
+  классического алгоритма HueForge для сверки.

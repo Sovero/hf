@@ -1,114 +1,126 @@
-# Classic HueForge — Reference Implementation Prompt
+# Классический HueForge — промпт эталонной реализации
 
-> Corrected 2026-09-04. This describes the **classic HueForge** method (stacked
-> color sheets, user-chosen palette order, per-color thicknesses). The app in
-> this repo implements the **brightness-relief** model instead (smooth
-> brightness → height, one color per layer) — the two are different
-> HueForge-family approaches; see the notes at the bottom.
+> Исправлено 2026-09-04. Здесь описан **классический HueForge** (складывание
+> цветных листов, порядок палитры выбирает пользователь, толщина задаётся на
+> каждый цвет). Приложение в этом репозитории реализует другую модель —
+> **рельеф по яркости** (плавная яркость → высота, один цвет на слой); это
+> разные подходы внутри семейства HueForge, сравнение — в конце документа.
 >
-> Reusable prompt: paste everything between the markers below into any AI.
+> Многоразовый промпт: вставьте в любую ИИ-модель всё, что находится между
+> маркерами ниже.
 
 ---
 
 ```
-You are an expert in HueForge 3D printing and computer graphics. Describe a
-step-by-step algorithm (with Python pseudocode) that turns an arbitrary
-raster image into a printable STL plus a filament-change schedule for a
-single-extruder FDM printer.
+Ты — эксперт по 3D-печати в HueForge и по компьютерной графике. Опиши
+пошаговый алгоритм (с псевдокодом на Python), который превращает
+произвольное растровое изображение в пригодный для печати STL и в расписание
+смены филамента для одноэкструдерного FDM-принтера.
 
-Parameters:
-- N filament colors (user-defined, each with a hex color)
-- layer_height (e.g. 0.08 mm)
-- width_mm x height_mm (e.g. 150x150)
-- nozzle_diameter (e.g. 0.4 mm)
+Параметры:
+- N цветов филамента (задаёт пользователь, у каждого свой hex-цвет)
+- layer_height (например 0.08 мм)
+- width_mm x height_mm (например 150x150)
+- nozzle_diameter (например 0.4 мм)
 
-1. Preprocessing (optional, in RGB — never convert to grayscale):
-   - Resize so ~1 pixel ≈ nozzle_diameter/2 (0.2 mm at 0.4 nozzle).
-   - Stretch contrast (1–99% percentile or CLAHE).
-   - Light Gaussian blur (sigma ≈ 0.5–1 px) for denoising.
-   - Cap at ~1000×1000 pixels for speed.
+1. Предобработка (по желанию, в RGB — ни в коем случае не переводить
+   в оттенки серого):
+   - Привести размер так, чтобы ~1 пиксель ≈ nozzle_diameter/2
+     (0.2 мм при сопле 0.4).
+   - Растянуть контраст (перцентили 1–99% или CLAHE).
+   - Лёгкое размытие по Гауссу (sigma ≈ 0.5–1 px) для шумоподавления.
+   - Ограничить примерно 1000x1000 пикселями ради скорости.
 
-2. Color quantization:
-   - Assign each pixel the nearest filament color by perceptual distance
-     (CIEDE2000 preferred; weighted RGB / redmean is a fast approximation).
-   - If the palette is not fixed, derive N colors from the image with
-     k-means (k=N) in RGB space.
-   - The stack order (which color is printed first = bottom) is a user
-     choice; dark→light is the common default because it reads correctly
-     from the top.
+2. Квантование цвета:
+   - Каждому пикселю назначить ближайший цвет филамента по перцептивному
+     расстоянию (предпочтительно CIEDE2000; взвешенный RGB / redmean —
+     быстрая аппроксимация).
+   - Если палитра не задана, вывести N цветов из изображения методом k-means
+     (k=N) в пространстве RGB.
+   - Порядок стопки (какой цвет печатается первым, то есть снизу) выбирает
+     пользователь; тёмный→светлый — обычное значение по умолчанию, потому что
+     так картина правильно читается сверху.
 
-3. Per-color sheet heights:
-   - Each color prints as a full-footprint sheet; every color must be
-     ≥ 0.4–0.5 mm for opacity.
-   - Bottom colors thicker (0.8–1.5 mm) to block bleed-through; top colors
-     thinner (0.4–0.6 mm).
-   - Example N=4 dark→light: h = [1.2, 0.9, 0.6, 0.4] mm; total model
-     height = sum of h.
+3. Толщина листов по цветам:
+   - Каждый цвет печатается листом на всю площадь; каждому цвету нужно
+     ≥ 0.4–0.5 мм для непрозрачности.
+   - Нижние цвета толще (0.8–1.5 мм), чтобы просвет нижних слоёв не пробивался;
+     верхние тоньше (0.4–0.6 мм).
+   - Пример N=4, тёмный→светлый: h = [1.2, 0.9, 0.6, 0.4] мм; общая высота
+     модели = сумма h.
 
-4. Heightmap:
-   - A pixel of color i has height z = h_0 + … + h_i (its sheet top).
-   - Pixels of color 0 (bottom sheet): z = h_0.
+4. Карта высот:
+   - Пиксель цвета i имеет высоту z = h_0 + … + h_i (верх его листа).
+   - Пиксели цвета 0 (нижний лист): z = h_0.
 
-5. Mesh:
-   - Regular vertex grid at pixel pitch; z from the heightmap.
-   - Two triangles per cell; vertical walls and a closed bottom → watertight.
-   - Export via trimesh / numpy-stl.
-   - Optional cautious smoothing; keep color boundaries sharp.
+5. Меш:
+   - Регулярная сетка вершин с шагом в пиксель; z берётся из карты высот.
+   - Два треугольника на ячейку; вертикальные стенки и закрытое дно →
+     водонепроницаемость.
+   - Экспорт через trimesh / numpy-stl.
+   - Сглаживание — осторожно и по желанию; границы цветов оставлять резкими.
 
-6. Detail cleanup (optional):
-   - Reassign connected color regions smaller than a minimum area
-     (e.g. < 1–2% of the image, or a few mm²) to a neighboring color.
-   - Prefer area-based cleanup over morphological opening, which can erase
-     thin intentional lines.
+6. Чистка деталей (по желанию):
+   - Переназначить связные области цвета меньше минимальной площади
+     (например < 1–2% изображения или несколько мм²) на соседний цвет.
+   - Предпочитать чистку по площади, а не морфологическое открытие: оно
+     стирает тонкие намеренные линии.
 
-7. Filament swap schedule:
-   - Snap every internal boundary to the layer grid first:
-     z_i = round(z_i_ideal / layer_height) * layer_height, forced strictly
-     increasing (each >= one layer above the previous). Only whole-layer
-     multiples can print exactly — with 0.08 mm layers, boundary 2.1 mm
-     (26.25 layers) can never align. The model top stays at the exact total.
-   - Color i occupies layers z_start/layer_height … z_end/layer_height,
-     where z_start = sum_{j<i} h_j and z_end = z_start + h_i (both snapped).
-   - Swap to color i at the start of layer z_start/layer_height.
-   - Example (N=4, 0.08 mm layers, h = [1.2, 0.88, 0.64, 0.38] snapped from
-     [1.2, 0.9, 0.6, 0.4]): swaps at layers 15 (z=1.2), 26 (z=2.08),
+7. Расписание смены филамента:
+   - Сначала привязать каждую внутреннюю границу к сетке слоёв:
+     z_i = round(z_i_ideal / layer_height) * layer_height, строго по
+     возрастанию (каждая граница минимум на слой выше предыдущей). Точно
+     печатаются только кратные целому слою: при слое 0.08 мм граница 2.1 мм
+     (26.25 слоя) не совпадёт никогда. Верх модели остаётся ровно на общей
+     высоте.
+   - Цвет i занимает слои z_start/layer_height … z_end/layer_height, где
+     z_start = sum_{j<i} h_j, а z_end = z_start + h_i (обе величины
+     привязаны к сетке).
+   - Смена на цвет i — в начале слоя z_start/layer_height.
+   - Пример (N=4, слои 0.08 мм, h = [1.2, 0.88, 0.64, 0.38] после привязки
+     из [1.2, 0.9, 0.6, 0.4]): смены на слоях 15 (z=1.2), 26 (z=2.08),
      34 (z=2.72).
-   - Emit M600 (Marlin / PrusaSlicer color change) or Cura pause-at-height.
+   - Выдать M600 (смена цвета в Marlin / PrusaSlicer) или паузу по высоте
+     в Cura.
 
-8. Outputs:
-   - STL (print top face up; no supports needed — all walls ≤ 90°;
-     100% infill).
-   - JSON/txt file with color order, swap heights and layer numbers.
-   - Slicer recommendations (temperature, speed, infill).
+8. Результаты:
+   - STL (печатать верхней гранью вверх; поддержки не нужны — все стенки
+     ≤ 90°; заполнение 100%).
+   - Файл JSON/txt с порядком цветов, высотами и номерами слоёв смен.
+   - Рекомендации для слайсера (температура, скорость, заполнение).
 ```
 
 ---
 
-## Why the original draft was corrected
+## Почему исходный черновик был исправлен
 
-1. **No grayscale conversion.** HueForge is a color process: pixels map to the
-   nearest filament color. Converting to grayscale and k-means-clustering
-   *brightness* destroys hue information. Grayscale is only valid if the
-   source image is inherently monochrome.
-2. **Palette order is a user choice**, not "sorted by mean brightness".
-3. **Stacking semantics made explicit**: pixel height = cumulative sheet tops,
-   not a brightness→height mapping (that is the *other*, brightness-relief
-   model).
-4. **Area-based cleanup instead of morphological opening** for small-color
-   removal.
-5. **Concrete example numbers**: after grid snapping, swap layers 15 / 26 / 34 at 0.08 mm (ideal boundaries 1.2 / 2.1 / 2.7 → snapped 1.2 / 2.08 / 2.72).
-6. Layer rounding is **up** (ceil), printer firmware notes (M600 vs Cura).
+1. **Никакого перевода в оттенки серого.** HueForge — цветовой процесс:
+   пиксели сопоставляются ближайшему цвету филамента. Перевод в оттенки серого
+   и кластеризация k-means по *яркости* уничтожают информацию о тоне. Оттенки
+   серого уместны, только если исходное изображение изначально монохромное.
+2. **Порядок палитры выбирает пользователь**, а не «сортировка по средней яркости».
+3. **Семантика стопки описана явно**: высота пикселя — суммарные верхние точки
+   листов, а не отображение яркости в высоту (это *другая* модель — рельеф по
+   яркости).
+4. **Чистка по площади вместо морфологического открытия** для удаления мелких
+   цветовых пятен.
+5. **Конкретные числа в примере**: после привязки к сетке слои смен 15 / 26 / 34
+   при слое 0.08 мм (идеальные границы 1.2 / 2.1 / 2.7 → привязанные
+   1.2 / 2.08 / 2.72).
+6. Округление слоёв идёт **вверх** (ceil); прошивка принтера — примечания
+   про M600 против Cura.
 
-## Relationship to this repo's app
+## Связь с приложением в этом репозитории
 
-| Concern | Classic HueForge (this prompt) | App (brightness-relief) |
+| Что | Классический HueForge (этот промпт) | Приложение (рельеф по яркости) |
 | --- | --- | --- |
-| Geometry | Flat stacked sheets, plateau relief | Per-pixel brightness relief on a shared vertex grid: diagonal transitions between heights, vertical walls only on the outer contour |
-| Palette order | User-chosen | Auto dark→light (depth mode inverts) |
-| Thicknesses | Per-color, user-tunable | Equal-population bands (min area per color) |
-| Swap schedule | Cumulative sheet tops | Grid-snapped band tops |
-| Outputs | STL + JSON/txt | STL + 3MF (Bambu project) + Describe.txt |
-| Watertight mesh | Yes | Yes |
+| Геометрия | Плоские сложенные листы, рельеф-плато | Рельеф по яркости на общей сетке вершин: диагональные переходы между высотами, вертикальные стенки только по внешнему контуру |
+| Порядок палитры | Выбирает пользователь | Автоматически тёмный→светлый (режим глубины переворачивает) |
+| Толщины | На каждый цвет, настраиваются | Полосы равной населённости (минимум площади на цвет) |
+| Расписание смен | Суммарные верхние точки листов | Верхние точки полос, привязанные к сетке слоёв |
+| Результаты | STL + JSON/txt | STL + 3MF (проект Bambu) + Describe.txt |
+| Водонепроницаемый меш | Да | Да |
 
-Both are valid HueForge-family approaches; they print differently on the
-plate. If a classic mode is ever added to the app, this prompt is its spec.
+Оба подхода равноправны внутри семейства HueForge; на столе они печатаются
+по-разному. Если в приложении когда-нибудь появится классический режим, этот
+промпт — его спецификация.
