@@ -259,21 +259,26 @@ Standard: **сплошное основание + рельеф**, высота �
 
   ```bash
   VERSION=0.8.4   # замените на выпускаемую версию
+  git pull --rebase origin main   # забрать коммит CI о канале прошлого релиза
   npm run release:prepare -- --version "$VERSION"
   git push origin main "v$VERSION"
   ```
+
+  `git pull` нужен потому, что канал вышедшего релиза дописывает в `main` сам CI
+  (последний шаг workflow), — без него `release:prepare` остановится.
 
   Запись обязана попасть в дерево тега: `git show "v$VERSION:CHANGELOG.md"` должен
   её содержать — этого требует `release:publish`. Подробнее — в
   [DEPLOY.md](DEPLOY.md).
 
-  Пуш тега `v*` запускает workflow **Release**: он сверяет тег с `package.json`,
-  убеждается, что в дереве тега есть запись этой версии в `CHANGELOG.md`,
-  прогоняет typecheck, тесты и продакшн-сборку на Ubuntu, собирает архивы исходников
-  и deploy-пакета, а на `windows-latest` собирает установщик Electron для Windows.
-  Установщик, `latest.yml`, blockmap и оба ZIP попадают в черновик релиза GitHub —
-  опубликуйте его после проверки артефактов. Флаг `prerelease` выводится из тега
-  автоматически (включён, если в теге есть `-`).
+  Пуш тега `v*` запускает workflow **Release**, и он доводит релиз до конца без
+  ручных шагов: сверяет тег с `package.json` и с записью версии в `CHANGELOG.md`,
+  прогоняет typecheck, тесты и продакшн-сборку на Ubuntu, собирает архивы
+  исходников и deploy-пакета, на `windows-latest` собирает установщик Electron —
+  и затем **сам публикует** черновик: флаги канала выводятся из тега (включён
+  pre-release, если в теге есть `-`), тело берётся из `release-notes/<тег>.md`, а
+  если `releases/latest` оказался бы кандидатом, workflow падает. Последним шагом
+  в `CHANGELOG.md` на ветке по умолчанию обновляется канал релиза.
 - **Локальная публикация** (`npm run dist` → `npm run release:publish`) — путь,
   которым пользуемся, пока счёт GitHub Actions заблокирован: вторая команда сама
   выводит флаги канала из тега — pre-release для `vX.Y.Z-rc.N`, latest для
@@ -286,13 +291,15 @@ Standard: **сплошное основание + рельеф**, высота �
 - **Стабильный канал и pre-release:** настольное приложение следит только за
   *latest*-релизом репозитория и никогда не подписывается на pre-release
   (`allowPrerelease = false`, канал `latest.yml`). `releases/latest` пропускает
-  pre-release, поэтому **каждый RC обязан публиковаться как pre-release GitHub**:
+  pre-release, поэтому **каждый RC обязан публиковаться как pre-release GitHub**.
+  Флаги конвейер выводит из самого тега (или их ставит `release:publish` в ручном
+  пути); вручную это выглядело бы так:
 
   ```bash
   # RC — в теге есть предрелизный суффикс (v0.8.3-rc.5):
   gh release edit "v$VERSION" --draft=false --prerelease
   # Стабильная версия — обычный номер (v0.8.3):
-  gh release edit "v$VERSION" --draft=false
+  gh release edit "v$VERSION" --draft=false --latest
   ```
 
   Если опубликовать RC как обычный релиз, он станет *latest* и будет предложен
@@ -322,7 +329,7 @@ Standard: **сплошное основание + рельеф**, высота �
 ```bash
 npm install     # один раз
 npm run dev     # dev-сервер на http://127.0.0.1:5173
-npm test        # 292 теста (33 файла с тестами)
+npm test        # 381 тест (38 файлов с тестами)
 npm run build   # продакшн-сборка в dist/
 ```
 

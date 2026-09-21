@@ -29,7 +29,10 @@
  *   npm run release:prepare -- --version 0.8.4
  *   npm run release:prepare -- --version 0.8.4 --dry-run   # show, change nothing
  *
- * Pushing stays manual on purpose: the script prints the command and ends.
+ * Pushing stays manual on purpose: the script prints the command and ends. That
+ * one push is the whole release — the tag starts the Release workflow, whose
+ * last stages publish the release and refresh the changelog on the default
+ * branch, so no `release:publish` after it is needed.
  */
 import { execFileSync } from 'node:child_process'
 import { draftNotes, DRAFT_MARKER, previousTagFor, rangeCommits } from './sync-changelog.mjs'
@@ -138,9 +141,17 @@ function preflight({ tag, notesPath }) {
     const remote = git('rev-parse', `origin/${RELEASE_BRANCH}`)
     if (head !== remote) {
       const [behind, ahead] = git('rev-list', '--left-right', '--count', `${remote}...${head}`).split(/\s+/)
+      // Being behind is the usual state after a release: the Release workflow
+      // commits the channel word to the default branch by itself, so the next
+      // cut starts from a commit the developer never made — say so instead of
+      // letting them work out where the extra commit came from.
+      const fix =
+        Number(behind) > 0
+          ? `git pull --rebase origin ${RELEASE_BRANCH}   # позади — обычно коммит CI с каналом вышедшего релиза`
+          : `git push origin ${RELEASE_BRANCH}`
       fail(
         `локальная ${RELEASE_BRANCH} не совпадает с origin/${RELEASE_BRANCH} (впереди ${ahead}, позади ${behind})`,
-        `git pull --rebase origin ${RELEASE_BRANCH}`,
+        fix,
       )
     }
   }
@@ -363,13 +374,14 @@ function main() {
   for (const item of done) console.log(`  ✓ ${item}`)
 
   console.log('\nДальше:')
-  console.log(`  1. git push origin ${RELEASE_BRANCH} ${plan.tag}   # CI соберёт черновик релиза с артефактами`)
-  console.log('  2. gh release view ' + plan.tag + '                # посмотреть, что собралось')
-  console.log('  3. npm run release:publish                 # опубликовать с флагами канала и проверками')
+  console.log(`  1. git push origin ${RELEASE_BRANCH} ${plan.tag}   # этим пушем релиз и выпускается`)
+  console.log('     CI: проверки → сборка артефактов → публикация с флагами канала → CHANGELOG на main.')
+  console.log(
+    `     Ручной путь, только если CI недоступен: npm run dist и npm run release:publish для ${plan.tag}.`,
+  )
   console.log(
     '\n`release:publish` не выпустит тег, в дереве которого нет записи версии — это и есть гарантия порядка.',
   )
-  console.log('После публикации `npm run changelog:sync` заменит «Ожидает тега» на канал релиза.')
 }
 
 try {

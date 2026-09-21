@@ -68,12 +68,17 @@ jobs:
 
       # Draft release with the web-deploy assets. The windows job below
       # attaches the Electron installer, latest.yml and blockmap to the same
-      # draft. It stays a draft for manual review before publishing.
+      # draft, and the `publish` job then publishes it — the draft is a staging
+      # area between the jobs, not a pause waiting for a human.
       - name: Create draft GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           draft: true
           files: hueforge-web-*.zip
+          # Placeholder body: the `publish` job replaces it with the repository's
+          # release-notes/<tag>.md so the release page and the tagged changelog
+          # entry cannot tell two different stories. It only survives as the
+          # body when that notes file is missing.
           generate_release_notes: true
           # A prerelease tag (v0.8.3-rc.4) must become a GitHub *pre-release*.
           # The desktop app polls `latest.yml` from the repository's latest
@@ -103,9 +108,81 @@ jobs:
 
       # Native Windows runner: NSIS runs natively, no wine needed. Publishes
       # hueforge-desktop-setup-*.exe + latest.yml + blockmap to the draft release
-      # created above — latest.yml is the feed electron-updater polls.
+      # created above — latest.yml is the feed electron-updater polls. The
+      # publish job that follows verifies this manifest against the exe before
+      # the release goes out.
       - name: Build Windows installer (Electron)
         run: npx electron-builder --win --x64 --publish always
         env:
           # electron-builder needs the repo to publish to; GH_TOKEN grants it.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The step that used to be manual (`npm run release:publish`), and the one that
+  # decides what every installed app receives: channel flags from the tag, the
+  # body from the repository's notes, and a hard failure if `releases/latest`
+  # would end up pointing at a candidate. It runs only once the installer job has
+  # attached its files, and it publishes the draft those two jobs filled.
+  #
+  # The script is the same one a developer runs by hand, so the two paths cannot
+  # drift apart: in CI the ``release/`` directory is empty, and it verifies the
+  # artifacts sitting on the draft instead of a local build.
+  publish:
+    name: Publish the release (channel flags, notes, checks)
+    needs: windows-installer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # The changelog entry and the notes are read out of the tag itself.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # No `npm ci`: the script uses only Node's own modules and the runner's `gh`.
+      - name: Publish
+        run: node scripts/release-publish.mjs --version "${GITHUB_REF_NAME#v}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The entry itself is already inside the tag — this only refreshes the channel
+  # word («Ожидает тега» → «Latest») and the link to the release page, so that
+  # CHANGELOG.md on the default branch matches what the release page says.
+  #
+  # A refused push (protected branch) is a warning rather than a failed release:
+  # the release itself is already published and nothing depends on this commit.
+  # Pushes made with GITHUB_TOKEN do not start another workflow run.
+  changelog:
+    name: Refresh CHANGELOG on the default branch
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Sync the changelog
+        run: |
+          npm run changelog:sync
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md уже описывает ${GITHUB_REF_NAME} — коммитить нечего"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "docs(changelog): канал ${GITHUB_REF_NAME} после публикации" -- CHANGELOG.md
+          if ! git push origin "HEAD:${{ github.event.repository.default_branch }}"; then
+            echo "::warning::CHANGELOG.md обновлён, но пуш отклонён — выполните npm run changelog:sync вручную"
+          fi
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

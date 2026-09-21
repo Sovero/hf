@@ -115,11 +115,11 @@ function read(file, args) {
 }
 
 /** Content of a file inside a tagged tree, or null when the tag does not have it. */
-function taggedFile(path, tag) {
+function taggedFile(path, ref) {
   try {
     // A missing path is an expected answer here, so git's own complaint is
     // swallowed — the failure is reported by the caller, in Russian.
-    return execFileSync('git', ['show', `${tag}:${path}`], {
+    return execFileSync('git', ['show', `${ref}:${path}`], {
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -209,9 +209,13 @@ function preflight() {
   if (!remote) fail(`тег ${tag} не найден на origin`, `git push origin ${tag}`)
   const tagCommit = remote.split(/\s+/)[0]
 
-  // The tagged tree, not the working tree, is what the artifacts were built
-  // from; a mismatch means the exe does not belong to this tag.
-  const taggedVersion = JSON.parse(read('git', ['show', `${tag}:package.json`])).version
+  // The tagged tree is read at the commit origin refuses to point the tag at,
+  // not at the local tag name: this is what CI checks out for a tag push, where
+  // the local ref is not guaranteed (a detached HEAD at the tag commit is), and
+  // the remote tag is the one whose release is being published either way.
+  // The tree, not the working tree, is what the artifacts were built from; a
+  // mismatch means the exe does not belong to this tag.
+  const taggedVersion = JSON.parse(read('git', ['show', `${tagCommit}:package.json`])).version
   if (taggedVersion !== version) {
     fail(
       `в коммите тега ${tag} версия ${taggedVersion}, а публикуется ${version}`,
@@ -229,7 +233,7 @@ function preflight() {
   // The changelog entry is written before the tag, so the version is documented
   // in the very tree the artifacts are built from. A tag cut the old way has no
   // entry, and no later commit can repair it — only a new tag on a new commit can.
-  const changelog = taggedFile(CHANGELOG, tag)
+  const changelog = taggedFile(CHANGELOG, tagCommit)
   if (changelog === null) {
     fail(
       `в дереве тега ${tag} нет ${CHANGELOG} — релиз останется без записи в списке версий`,

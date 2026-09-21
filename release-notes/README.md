@@ -20,9 +20,9 @@ release-notes/v0.8.4.md
         │
         ├─ changelog:sync до тега  → запись «## v0.8.4 — дата · Ожидает тега»
         │                            (в дереве коммита, на который встанет тег)
-        ├─ gh release create --notes-file release-notes/v0.8.4.md
+        ├─ workflow Release: release-publish с телом из этого же файла
         │                            → тело релиза на GitHub
-        └─ changelog:sync после публикации
+        └─ workflow Release: changelog:sync после публикации
                                      → GitHub выигрывает: канал меняется на
                                        «Latest» / «Pre-release», текст тот же
 ```
