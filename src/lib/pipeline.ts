@@ -50,6 +50,17 @@ export interface PipelineOptions {
   /** Floyd–Steinberg dithering strength 0..1 (0 = off, the default). */
   dither?: number
   /**
+   * Relief contrast 0..3 (1 = the picture's own tones), part of the tone
+   * stage — see ToneCurve in quantize.ts. Shifts relief heights only: the
+   * pixel → filament assignment does not change.
+   */
+  contrast?: number
+  /**
+   * Relief power (detail deepening) 0.2..3 (1 = unchanged): above 1 mid-tones
+   * sink toward the base, below 1 they rise. Also heights only.
+   */
+  power?: number
+  /**
    * Per-band sheet thickness in mm (palette order, dark → light), HueForge
    * style. When present and valid, the total model height becomes
    * base + Σ thicknesses (the max-height input is then derived, not free).
@@ -77,6 +88,7 @@ export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang 
     image.height,
     opts.darkIsTall,
     opts.dither,
+    { contrast: opts.contrast, power: opts.power },
   )
 
   return finishPipeline(image, quantized, opts)
@@ -118,6 +130,13 @@ export function finishPipeline(
     darkIsTall: opts.darkIsTall,
     layerMm: opts.layerMm ?? 0.2,
   }
+  // Neutral tone is omitted on purpose: an absent field means "the picture's
+  // own tones", which keeps older projects, undo snapshots and exports
+  // byte-identical to the pre-tone geometry.
+  const contrastPct = Math.round((opts.contrast ?? 1) * 100)
+  const powerPct = Math.round((opts.power ?? 1) * 100)
+  if (contrastPct !== 100) settings.contrastPct = contrastPct
+  if (powerPct !== 100) settings.powerPct = powerPct
 
   const field = buildHeightField(quantized, settings)
   const mesh = buildMesh(field, quantized.indexMap, quantized.palette, settings)
@@ -170,6 +189,8 @@ export function export3mfFile(result: PipelineResult, name: string): Uint8Array 
     BaseMm: String(result.settings.baseMm),
     MaxHeightMm: String(result.settings.maxHeightMm),
     LayerMm: String(result.settings.layerMm),
+    ...(result.settings.contrastPct !== undefined ? { ContrastPct: String(result.settings.contrastPct) } : {}),
+    ...(result.settings.powerPct !== undefined ? { PowerPct: String(result.settings.powerPct) } : {}),
     BandTops: result.palette
       .slice()
       .sort((a, b) => a.topZMm - b.topZMm)

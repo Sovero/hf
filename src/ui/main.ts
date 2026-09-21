@@ -1,7 +1,8 @@
 import './styles.css'
 import { exportStl, export3mfFile, exportFilename, type PipelineResult } from '../lib/pipeline'
 import { loadImageForPrint } from '../lib/loadImage'
-import { quantizeInWorker, rebuildInWorker, setResultListener } from './workerClient'
+import { fitToneInWorker, quantizeInWorker, rebuildInWorker, setResultListener } from './workerClient'
+import { matchTonePreset, presetPercents, tonePreset, type TonePresetId } from '../lib/tonePresets'
 import type { WorkerResult } from '../lib/workerProtocol'
 import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, restoreCustomFilament, customFilaments, isCustomId, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId, type CustomFilament } from '../lib/filamentLibrary'
 import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION, type ProjectFile, type ProjectSettings, type ProjectPaletteSlot } from '../lib/project'
@@ -20,7 +21,7 @@ import { rgbToHex, hexToRgb, nearestFilament, luminance } from '../lib/palette'
 import { MAX_REFERENCE_FILE_BYTES, Reference3mfParseError } from '../lib/reference3mf'
 import { analyzeStlInWorker, parseReference3mfInWorker } from './referenceWorkerClient'
 import { planReferenceApply, type ReferenceApplyPlan } from '../lib/referenceApply'
-import { compareRelief, measureRelief, StlParseError, type ReliefMetrics } from '../lib/reliefCompare'
+import { compareRelief, measureRelief, profileDistance, StlParseError, type ReliefMetrics } from '../lib/reliefCompare'
 import type { Reference3mfAnalysis } from '../lib/reference3mf'
 import type { StlAnalysis } from '../lib/referenceWorkerProtocol'
 import type { RGB } from '../lib/types'
@@ -111,6 +112,15 @@ const colorsValue = $<HTMLInputElement>('#colors-value')
 const sliderTicks = $<HTMLDivElement>('#slider-ticks')
 const ditherSlider = $<HTMLInputElement>('#dither-slider')
 const ditherValue = $<HTMLSpanElement>('#dither-value')
+const contrastSlider = $<HTMLInputElement>('#contrast-slider')
+const contrastValue = $<HTMLSpanElement>('#contrast-value')
+const powerSlider = $<HTMLInputElement>('#power-slider')
+const powerValue = $<HTMLSpanElement>('#power-value')
+const presetRow = $<HTMLDivElement>('#tone-presets')
+const presetHint = $<HTMLParagraphElement>('#preset-hint')
+const presetCustom = $<HTMLSpanElement>('#tone-custom')
+const toneResult = $<HTMLParagraphElement>('#tone-result')
+const reliefSplit = $<HTMLParagraphElement>('#relief-split')
 const mergeCheck = $<HTMLInputElement>('#merge-deltae-check')
 const mergeInput = $<HTMLInputElement>('#merge-deltae')
 const mergeThreshWrap = $<HTMLElement>('#merge-thresh-wrap')
@@ -165,6 +175,8 @@ const refCompareSection = $<HTMLDivElement>('#ref-compare-section')
 const refCompareSummary = $<HTMLParagraphElement>('#ref-compare-summary')
 const refCompareBody = $<HTMLTableSectionElement>('#ref-compare-body')
 const refCompareNote = $<HTMLParagraphElement>('#ref-compare-note')
+const refFitBtn = $<HTMLButtonElement>('#ref-fit')
+const refFitNote = $<HTMLParagraphElement>('#ref-fit-note')
 
 function setProcessing(on: boolean) {
   processingOverlay.hidden = !on
@@ -197,6 +209,10 @@ type Settings = {
   maxMm: number
   layerMm: number
   dither: number
+  /** Relief contrast in percent (100 = unchanged). */
+  contrast: number
+  /** Relief detail deepening in percent (100 = unchanged). */
+  power: number
   backlight: boolean
   mergeDeltaE: number
   dropThreshold: number
@@ -224,6 +240,8 @@ function saveSettings() {
       maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
+      contrast: clampNum(Number(contrastSlider.value), 0, 300, 100),
+      power: clampNum(Number(powerSlider.value), 20, 300, 100),
       backlight: lightBackBtn.classList.contains('is-active'),
       mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
       dropThreshold: clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1),
@@ -251,6 +269,10 @@ function restoreSettings() {
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
     ditherSlider.value = String(clampNum(Number(s.dither), 0, 100, 0))
     ditherValue.textContent = `${ditherSlider.value}%`
+    contrastSlider.value = String(clampNum(Number(s.contrast), 0, 300, 100))
+    powerSlider.value = String(clampNum(Number(s.power), 20, 300, 100))
+    syncToneReadouts()
+    syncReliefSplit()
     if (s.mergeDeltaE !== undefined) {
       const on = s.mergeDeltaE > 0
       mergeCheck.checked = on
@@ -298,6 +320,8 @@ function readOptions() {
   const numColors = clampNum(Math.round(Number(colorsSlider.value)), SLIDER_MIN, SLIDER_MAX, 4)
   const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
   const dither = clampNum(Number(ditherSlider.value), 0, 100, 0) / 100
+  const contrast = clampNum(Number(contrastSlider.value), 0, 300, 100) / 100
+  const power = clampNum(Number(powerSlider.value), 20, 300, 100) / 100
   const mergeDeltaE = mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0
   const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
   const maxHeightMm = clampNum(Number(maxInput.value), baseMm + 2, 40, 8)
@@ -305,6 +329,8 @@ function readOptions() {
     numColors: numColors as ColorCount,
     darkIsTall,
     dither,
+    contrast,
+    power,
     bandHeightsMm: bandHeights ?? undefined,
     widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
     heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
@@ -464,6 +490,8 @@ function applyStaticText() {
   }
   colorsSlider.ariaLabel = tr('sliderAria')
   colorsValue.ariaLabel = tr('sliderValueAria')
+  contrastSlider.ariaLabel = tr('toneContrast')
+  powerSlider.ariaLabel = tr('tonePower')
   document.querySelector('.sidebar-tabs')?.setAttribute('aria-label', tr('sidebarTabsAria'))
   const cubeOverlay = document.getElementById('cube-overlay')
   if (cubeOverlay) {
@@ -499,6 +527,9 @@ function setLang(next: Lang, persist = true) {
   if (persist) saveLang(lang)
   langCode.textContent = lang.toUpperCase()
   applyStaticText()
+  syncReliefSplit()
+  syncToneReadouts()
+  renderToneResult()
   setDesktopLang(lang)
   if (current) {
     updateUI()
@@ -752,6 +783,7 @@ function updateUI() {
   drawSource()
   drawQuantized()
   renderPalette()
+  renderToneResult()
   renderPrintability()
   update3d()
   calibBlock.hidden = false
@@ -1157,6 +1189,93 @@ function syncMaxInput() {
     maxInput.value = String(Number((base + bandHeights!.reduce((a, c) => a + c, 0)).toFixed(2)))
   }
   paletteHeightsReset.hidden = !custom
+  syncReliefSplit()
+}
+
+/** The two tone sliders as percent numbers (100 = the picture's own tones). */
+function tonePercents(): { contrast: number; power: number } {
+  return { contrast: Number(contrastSlider.value), power: Number(powerSlider.value) }
+}
+
+/**
+ * Percentage badges of the two relief-tone sliders, plus which named style
+ * they currently hold. A tone matching no style is not an error — the auto-fit
+ * and hand-made settings land there — so it is shown as «Custom» with its own
+ * numbers rather than leaving the row looking unset.
+ */
+function syncToneReadouts() {
+  const { contrast, power } = tonePercents()
+  contrastValue.textContent = `${contrast}%`
+  powerValue.textContent = `${power}%`
+  const active = matchTonePreset(contrast / 100, power / 100)
+  for (const btn of presetRow.querySelectorAll<HTMLButtonElement>('.preset-btn')) {
+    const on = btn.dataset.preset === active
+    btn.classList.toggle('is-active', on)
+    btn.ariaPressed = on ? 'true' : 'false'
+  }
+  presetCustom.hidden = active !== null
+  const key = active ? `presetHint${active.charAt(0).toUpperCase()}${active.slice(1)}` : 'presetHintCustom'
+  presetHint.textContent = tr(key, { contrast, power })
+}
+
+/** Bare millimetre number in the panel's own style: «3.60». */
+const mm2 = (v: number) => v.toFixed(2)
+
+/**
+ * One line saying what the current setting produces: the base + relief split
+ * and the heights where the filament changes. Read from the finished result, so
+ * it describes the model actually on screen — the same numbers the palette rows
+ * carry, gathered next to the styles that produced them.
+ */
+function renderToneResult() {
+  if (!current) {
+    toneResult.textContent = ''
+    return
+  }
+  const base = current.settings.baseMm
+  const total = current.settings.maxHeightMm
+  const colors = word(lang, current.palette.length, 'colors')
+  // The topmost band ends at the model top: that is where the print finishes,
+  // not a moment where the filament changes.
+  const swaps = current.palette
+    .map((entry) => entry.topZMm)
+    .filter((top) => top < total - 1e-9)
+    .sort((a, b) => a - b)
+  toneResult.textContent =
+    swaps.length > 0
+      ? tr('toneResult', {
+          base: mm2(base),
+          relief: mm2(total - base),
+          total: mm2(total),
+          colors,
+          swaps: swaps.map(mm2).join(' / '),
+        })
+      : tr('toneResultSingle', { base: mm2(base), relief: mm2(total - base), total: mm2(total), colors })
+}
+
+/**
+ * Spell out the relief model where the size fields are: a solid base slab plus
+ * the relief thickness the picture modulates, which is the split the free
+ * Filapaint tool exposes as «Base Thickness» and «Relief Thickness» (their sum
+ * is the total height). Custom band heights move the total, so this follows
+ * `syncMaxInput` as well.
+ */
+function syncReliefSplit() {
+  const base = Number(baseInput.value)
+  const total = Number(maxInput.value)
+  if (!Number.isFinite(base) || !Number.isFinite(total) || !(total > base)) {
+    reliefSplit.textContent = ''
+    return
+  }
+  // Two decimals and no narrowing, exactly like the palette rows and the tone
+  // result line: the same height must not print as 0.8 in one place and 0.80 in
+  // another.
+  const fmt = mm2
+  reliefSplit.textContent = tr('reliefSplit', {
+    base: fmt(base),
+    relief: fmt(total - base),
+    total: fmt(total),
+  })
 }
 
 paletteHeightsReset.addEventListener('click', () => {
@@ -1282,6 +1401,8 @@ function captureSnapshot(): EditorSnapshot | null {
     maxMm: opts.maxHeightMm,
     layerMm: opts.layerMm,
     dither: Math.round(opts.dither * 100),
+    contrast: Math.round(opts.contrast * 100),
+    power: Math.round(opts.power * 100),
     darkIsTall: opts.darkIsTall,
     backlight: lightBackBtn.classList.contains('is-active'),
     ...(opts.mergeDeltaE ? { mergeDeltaE: opts.mergeDeltaE } : {}),
@@ -2830,6 +2951,7 @@ function bindInputs() {
   )) {
     el.addEventListener('change', () => {
       saveSettings()
+      syncReliefSplit()
       if (currentFile) void readFile(currentFile)
     })
   }
@@ -2918,6 +3040,35 @@ function bindInputs() {
     flushReprocess()
     saveSettings()
   })
+
+  // Relief tone (contrast, detail deepening): like dithering these live in the
+  // quantize step — the color bands are read off the toned values — so a drag
+  // reprocesses live and the release flushes the run.
+  for (const slider of [contrastSlider, powerSlider]) {
+    slider.addEventListener('input', () => {
+      syncToneReadouts()
+      scheduleReprocess()
+    })
+    slider.addEventListener('change', () => {
+      flushReprocess()
+      saveSettings()
+    })
+  }
+
+  // Named relief styles: a style is just both sliders at once, so it takes the
+  // same path as a drag and the panel keeps a single source of truth.
+  for (const btn of presetRow.querySelectorAll<HTMLButtonElement>('.preset-btn')) {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.preset as TonePresetId | undefined
+      if (!id) return
+      const { contrast, power } = presetPercents(tonePreset(id))
+      contrastSlider.value = String(contrast)
+      powerSlider.value = String(power)
+      syncToneReadouts()
+      saveSettings()
+      flushReprocess()
+    })
+  }
 
   // ΔE merge: checkbox toggles the threshold input; both reprocess.
   mergeCheck.addEventListener('change', () => {
@@ -3017,6 +3168,9 @@ function resetReferenceUI() {
   refApplyBtn.disabled = true
   refApplyNote.textContent = ''
   refCompareSection.hidden = true
+  // A new reference invalidates the previous fit's verdict.
+  refFitBtn.disabled = true
+  setFitNote('')
 }
 
 /**
@@ -3049,6 +3203,7 @@ function renderReliefComparison() {
   refCompareBody.innerHTML = ''
   refCompareSummary.textContent = ''
   refCompareNote.textContent = ''
+  updateFitButton()
   if (!current) {
     refCompareNote.textContent = tr('refCompareNeedsImage')
     return
@@ -3074,6 +3229,142 @@ function renderReliefComparison() {
     ? tr('refCompareAllMatch')
     : tr('refCompareDiverge', { n: comparison.diverging, total: comparison.rows.length })
   refCompareNote.textContent = tr('refCompareNote')
+}
+
+/** True while the tone fit is searching; the button stays disabled then. */
+let toneFitRunning = false
+
+/**
+ * Note under the fit button. `keep` holds a verdict on screen, tagged with the
+ * tone it belongs to: the moment the sliders move away from that tone the note
+ * is no longer about what is on screen, so it falls back to the hint.
+ */
+function setFitNote(text: string, keep = false) {
+  refFitNote.textContent = text
+  if (keep) {
+    refFitNote.dataset.keep = '1'
+    refFitNote.dataset.tone = `${contrastSlider.value}/${powerSlider.value}`
+  } else {
+    delete refFitNote.dataset.keep
+    delete refFitNote.dataset.tone
+  }
+}
+
+/** True when the note on screen still describes the tone in the sliders. */
+function fitNoteHolds(): boolean {
+  return refFitNote.dataset.keep === '1' && refFitNote.dataset.tone === `${contrastSlider.value}/${powerSlider.value}`
+}
+
+/**
+ * The tone fit needs both halves of the comparison — a reference to measure
+ * and our own relief to change — and it cannot act when the heights come from
+ * the palette instead of the picture's tones (spool mode), because there the
+ * tone knobs move nothing.
+ */
+function updateFitButton() {
+  if (toneFitRunning) {
+    refFitBtn.disabled = true
+    return
+  }
+  if (!referenceStl) {
+    refFitBtn.disabled = true
+    return
+  }
+  // A verdict stays on screen until the tone, the reference or the mode
+  // changes: it is the answer to the fit the user just ran.
+  const holds = fitNoteHolds()
+  if (!current) {
+    refFitBtn.disabled = true
+    if (!holds) setFitNote(tr('refFitNeedsImage'))
+    return
+  }
+  if (catalogActive) {
+    refFitBtn.disabled = true
+    setFitNote(tr('refFitManualMode'))
+    return
+  }
+  refFitBtn.disabled = false
+  if (!holds) setFitNote(tr('refFitHint'))
+}
+
+/** Percent string of a 0…1 profile mismatch, the number shown to the user. */
+const fitPercent = (v: number) => (v * 100).toFixed(1)
+
+/**
+ * Fit contrast and Detail to the loaded reference: the search runs in the
+ * worker (a few dozen pipeline passes, each measured with the same instrument
+ * that measured the reference) and the winner is written into the two sliders
+ * and applied by a normal reprocess. Nothing else about the print changes —
+ * the palette, the filaments and the band heights are untouched.
+ */
+async function runToneFit(): Promise<void> {
+  if (!referenceStl || !current || !currentFile || toneFitRunning) return
+  const image = current.image
+  const target = referenceStl.metrics
+  // The tone in use: the number the fit has to beat, and the setting it keeps
+  // when nothing beats it.
+  const currentTone = {
+    contrast: Number(contrastSlider.value) / 100,
+    power: Number(powerSlider.value) / 100,
+  }
+  const before = profileDistance(target.heightProfile, ownReliefMetrics(current).heightProfile)
+  toneFitRunning = true
+  refFitBtn.disabled = true
+  setFitNote(tr('refFitWorking'))
+  try {
+    const fit = await fitToneInWorker(
+      image.rgba,
+      image.width,
+      image.height,
+      readOptions(),
+      target,
+      (done, total) => {
+        setFitNote(tr('refFitRunning', { done, total }))
+      },
+      currentTone,
+    )
+    if (!fit.improved) {
+      setFitNote(tr('refFitNeutral', { from: fitPercent(before) }), true)
+      return
+    }
+    const contrast = Math.round(fit.best.contrast * 100)
+    const power = Math.round(fit.best.power * 100)
+    contrastSlider.value = String(contrast)
+    powerSlider.value = String(power)
+    syncToneReadouts()
+    saveSettings()
+    // The range inputs snap to their own step, so the applied values are read
+    // back from them — the message must name what the pipeline actually used.
+    const appliedContrast = Number(contrastSlider.value)
+    const appliedPower = Number(powerSlider.value)
+    // Reprocess with the fitted tone so the mesh, the comparison and any
+    // export all show the setting the fit chose.
+    const readOk = await readFile(currentFile)
+    if (!readOk || !current) {
+      // The sliders hold the fitted tone but the relief on screen is not that
+      // tone's: say so instead of quoting a number that belongs to another
+      // mesh (the app shows the reason in the status line).
+      setFitNote(tr('refFitRebuildFailed', { contrast: appliedContrast, power: appliedPower }), true)
+      return
+    }
+    // The mismatch is reported from the reprocessed mesh — the same number the
+    // comparison table shows — instead of the search's own prediction.
+    const after = profileDistance(target.heightProfile, ownReliefMetrics(current).heightProfile)
+    setFitNote(
+      tr('refFitDone', {
+        contrast: appliedContrast,
+        power: appliedPower,
+        from: fitPercent(before),
+        to: fitPercent(after),
+      }),
+      true,
+    )
+  } catch (err) {
+    setFitNote(err instanceof Error ? err.message : tr('refError'))
+  } finally {
+    toneFitRunning = false
+    updateFitButton()
+  }
 }
 
 /** Report for a dropped reference STL: footprint, relief shape, comparison. */
@@ -3361,6 +3652,7 @@ function setupReference() {
     if (f) void analyzeReference(f)
   })
   refApplyBtn.addEventListener('click', applyReference)
+  refFitBtn.addEventListener('click', () => void runToneFit())
 }
 
 function setupExports() {
@@ -3430,6 +3722,8 @@ function saveProject() {
         maxMm: opts.maxHeightMm,
         layerMm: opts.layerMm,
         dither: opts.dither * 100,
+        contrast: Math.round(opts.contrast * 100),
+        power: Math.round(opts.power * 100),
         darkIsTall,
         backlight: lightBackBtn.classList.contains('is-active'),
         ...(bandHeights ? { bandHeightsMm: [...bandHeights] } : {}),
@@ -3452,6 +3746,9 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   colorsValue.value = colorsSlider.value
   ditherSlider.value = String(clamp(s.dither, 0, 100, 0))
   ditherValue.textContent = `${ditherSlider.value}%`
+  contrastSlider.value = String(clamp(s.contrast ?? 100, 0, 300, 100))
+  powerSlider.value = String(clamp(s.power ?? 100, 20, 300, 100))
+  syncToneReadouts()
   if (s.mergeDeltaE !== undefined) {
     const on = s.mergeDeltaE > 0
     mergeCheck.checked = on

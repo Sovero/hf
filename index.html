@@ -144,6 +144,7 @@
             </div>
             <p class="muted small slider-hint" data-i18n="sliderHint">Drag the slider, or type a count (2–8) in the box</p>
             <div class="slider-row dither-row">
+              <span class="slider-label" data-i18n="ditherLabel">Dithering</span>
               <div class="slider-main">
                 <input id="dither-slider" type="range" min="0" max="100" step="5" value="0" aria-label="Dithering strength" data-help="helpDither" />
               </div>
@@ -170,6 +171,33 @@
               <label><input type="radio" name="mode" value="light" checked data-help="helpDepthLight" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
               <label><input type="radio" name="mode" value="dark" data-help="helpDepthDark" /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
             </div>
+            <div class="preset-head">
+              <span class="slider-label" id="relief-style-label" data-i18n="reliefStyle">Relief style</span>
+              <button type="button" class="hint-btn" data-help="helpReliefStyle" aria-label="Help">?</button>
+            </div>
+            <div class="preset-row" id="tone-presets" role="group" aria-labelledby="relief-style-label">
+              <button type="button" class="preset-btn" data-preset="soft" data-i18n="presetSoft" aria-pressed="false">Soft</button>
+              <button type="button" class="preset-btn" data-preset="photo" data-i18n="presetPhoto" aria-pressed="false">As on the photo</button>
+              <button type="button" class="preset-btn" data-preset="deep" data-i18n="presetDeep" aria-pressed="false">Deep relief</button>
+              <button type="button" class="preset-btn" data-preset="graphic" data-i18n="presetGraphic" aria-pressed="false">Graphic</button>
+              <span id="tone-custom" class="preset-custom" hidden data-i18n="presetCustom">Custom</span>
+            </div>
+            <p id="preset-hint" class="muted small slider-hint"></p>
+            <div class="slider-row dither-row">
+              <span class="slider-label" data-i18n="toneContrast">Contrast</span>
+              <div class="slider-main">
+                <input id="contrast-slider" type="range" min="0" max="300" step="10" value="100" aria-label="Relief contrast" data-help="helpToneContrast" />
+              </div>
+              <span id="contrast-value" class="dither-value muted small">100%</span>
+            </div>
+            <div class="slider-row dither-row">
+              <span class="slider-label" data-i18n="tonePower">Detail</span>
+              <div class="slider-main">
+                <input id="power-slider" type="range" min="20" max="300" step="10" value="100" aria-label="Detail deepening" data-help="helpTonePower" />
+              </div>
+              <span id="power-value" class="dither-value muted small">100%</span>
+            </div>
+            <p id="tone-result" class="muted small tone-result"></p>
           </div>
         </section>
 
@@ -187,6 +215,7 @@
             <label><span data-i18n="paramMax">Max height</span> <input id="max-mm" type="number" value="8" min="2" max="40" step="0.1" data-help="helpMax" /> <span data-i18n="unitMm">mm</span></label>
             <label><span data-i18n="paramLayer">Layer height</span> <input id="layer-mm" type="number" value="0.2" min="0.04" max="0.6" step="0.02" data-help="helpLayerMm" /> <span data-i18n="unitMm">mm</span></label>
           </div>
+          <p id="relief-split" class="muted small"></p>
           <p class="muted small" data-i18n="sizeHint">Colors are stacked as equal bands from base to max height.</p>
           </div>
         </section>
@@ -321,6 +350,10 @@
                 </thead>
                 <tbody id="ref-compare-body"></tbody>
               </table>
+            </div>
+            <div class="ref-apply-row">
+              <button id="ref-fit" type="button" data-i18n="refFit" data-help="helpRefFit" disabled>Match tone to reference</button>
+              <p id="ref-fit-note" class="muted small"></p>
             </div>
             <p id="ref-compare-note" class="muted small"></p>
           </div>

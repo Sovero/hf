@@ -252,6 +252,7 @@ export const dict: Dict = {
     en: 'Drag the slider, or type a count (2–8) in the box',
     ru: 'Потяните ползунок или введите число (2–8) в поле',
   },
+  ditherLabel: { en: 'Dithering', ru: 'Дизеринг' },
   ditherHint: {
     en: 'Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.',
     ru: 'Дизеринг размывает границы полос в плавные градиенты (Флойда–Стейнберга). 0 = выкл.',
@@ -308,6 +309,18 @@ export const dict: Dict = {
     en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it.',
     ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт.',
   },
+  helpToneContrast: {
+    en: 'Relief contrast (Filapaint calls this «Contrast»): how far the picture’s tones reach across the relief height. 100% = the tones as they are; below 100% every height moves toward the middle of the range, so the surface flattens; above 100% the tonal steps are pushed outward — deeper shadows against higher highlights. The curve never saturates, and the lowest and highest tones stay on the base and on the top of the model, so the full relief height is always used. Which filament prints each pixel, and the palette itself, stay exactly as they were: the color bands are read off the same values, so no color region shifts.',
+    ru: 'Контраст рельефа (в Filapaint — «Contrast»): как далеко тона картинки расходятся по высоте рельефа. 100% — тона как есть; меньше 100% — все высоты подтягиваются к середине диапазона, и поверхность становится плоской; больше 100% — ступени тонов расходятся от середины к краям: тени глубже, светлые участки выше. Кривая не насыщается, а самые тёмный и самый светлый тона остаются на основании и на верхушке модели, поэтому весь диапазон высот всегда используется. Какой филамент печатает каждый пиксель и сама палитра остаются прежними: полосы цветов читаются из тех же значений, поэтому ни один участок цвета не сдвигается.',
+  },
+  helpReliefStyle: {
+    en: 'Named relief styles — each one sets contrast and detail together, so the print is picked by look instead of by two multipliers. «Soft» keeps the tones close to the middle: gentle slopes, almost no steps. «As on the photo» exaggerates nothing: height repeats brightness one to one. «Deep relief» sinks the mid-tones towards the base while the highlights stay high — the classic HueForge depth. «Graphic» spreads the tones to the extremes, so the steps between colours are crisp. Pick a style, then fine-tune it with the two sliders below; moving a slider turns the choice into «Custom». The line underneath shows what the current setting produces: base + relief = total height, and the filament change heights.',
+    ru: 'Именованные стили рельефа — каждый сразу выставляет контраст и детализацию, чтобы выбирать печать по виду, а не по двум множителям. «Мягко» держит тона ближе к середине: склоны плавные, ступеней почти нет. «Как на фото» ничего не преувеличивает: высота повторяет яркость один к одному. «Глубокий рельеф» топит полутона к основанию, оставляя светлые участки высокими — классическая глубина HueForge. «Графика» разводит тона к краям, и ступени между цветами становятся резкими. Выберите стиль и уточните его двумя ползунками ниже: сдвиг ползунка превращает выбор в «Свой». Строка под ними показывает, что даёт текущая настройка: основание + рельеф = общая высота и высоты смен филамента.',
+  },
+  helpTonePower: {
+    en: 'Detail deepening (Filapaint’s «Power Deepening»): bends the tonal ramp, so mid-tones sit lower or higher in the relief. Above 100% the mid-tones sink toward the base while the peaks stay high — a deeper, more sculpted relief; below 100% they rise and the surface flattens. Applied after contrast; as with contrast, only the heights move and the colors stay put.',
+    ru: 'Проявление деталей (в Filapaint — «Power Deepening»): изгибает тональную кривую, поэтому полутона ложатся ниже или выше по рельефу. Больше 100% — полутона уходят к основанию, а вершины остаются высокими: рельеф глубже и рельефнее; меньше 100% — полутона поднимаются, и поверхность выравнивается. Применяется после контраста; как и у контраста, меняются только высоты, цвета остаются на месте.',
+  },
   sliderAria: { en: 'Number of colors', ru: 'Количество цветов' },
   sliderValueAria: {
     en: 'Number of colors (type to set)',
@@ -324,6 +337,50 @@ export const dict: Dict = {
     en: 'Bright areas stand tallest (on top)',
     ru: 'Светлые — самые высокие (сверху)',
   },
+  reliefStyle: { en: 'Relief style', ru: 'Стиль рельефа' },
+  presetSoft: { en: 'Soft', ru: 'Мягко' },
+  presetPhoto: { en: 'As on the photo', ru: 'Как на фото' },
+  presetDeep: { en: 'Deep relief', ru: 'Глубокий рельеф' },
+  presetGraphic: { en: 'Graphic', ru: 'Графика' },
+  presetCustom: { en: 'Custom', ru: 'Свой' },
+  presetHintSoft: {
+    en: 'Soft: the tones stay close to the middle of the height range, the slopes are gentle and the steps almost vanish — contrast {contrast}%, detail {power}%.',
+    ru: 'Мягко: тона держатся ближе к середине диапазона высот, склоны плавные, ступени почти исчезают — контраст {contrast} %, детали {power} %.',
+  },
+  presetHintPhoto: {
+    en: 'As on the photo: height repeats the picture’s brightness one to one, nothing is exaggerated — contrast {contrast}%, detail {power}%.',
+    ru: 'Как на фото: высота повторяет яркость картинки один к одному, ничего не преувеличено — контраст {contrast} %, детали {power} %.',
+  },
+  presetHintDeep: {
+    en: 'Deep relief: the mid-tones sink towards the base while the highlights stay high, so the picture reads as sculpted — contrast {contrast}%, detail {power}%.',
+    ru: 'Глубокий рельеф: полутона уходят к основанию, а светлые участки остаются высокими — картинка читается как барельеф — контраст {contrast} %, детали {power} %.',
+  },
+  presetHintGraphic: {
+    en: 'Graphic: the tones spread out to the extremes, so the steps between colours are crisp and the relief reads as engraved — contrast {contrast}%, detail {power}%.',
+    ru: 'Графика: тона расходятся к краям диапазона, переходы между цветами резкие, рельеф читается как гравировка — контраст {contrast} %, детали {power} %.',
+  },
+  presetHintCustom: {
+    en: 'Custom setting: contrast {contrast}%, detail {power}%. Pick a style above to return to a named look.',
+    ru: 'Свой набор: контраст {contrast} %, детали {power} %. Выберите стиль выше, чтобы вернуться к именованному виду.',
+  },
+  toneResult: {
+    en: 'Base {base} + relief {relief} = {total} mm tall · {colors} · filament changes at {swaps} mm',
+    ru: 'Основание {base} + рельеф {relief} = {total} мм высоты · {colors} · смены филамента на {swaps} мм',
+  },
+  toneResultSingle: {
+    en: 'Base {base} + relief {relief} = {total} mm tall · {colors} · no filament changes',
+    ru: 'Основание {base} + рельеф {relief} = {total} мм высоты · {colors} · смен филамента нет',
+  },
+  toneContrast: { en: 'Contrast', ru: 'Контраст' },
+  contrastHint: {
+    en: 'Relief contrast: 100% keeps the picture’s own tones, below 100% flattens the surface, above 100% spreads the tones outward (deeper shadows, higher lights).',
+    ru: 'Контраст рельефа: 100% — тона картинки как есть, меньше 100% — поверхность выравнивается, больше 100% — тона расходятся к краям (тени глубже, светлые участки выше).',
+  },
+  tonePower: { en: 'Detail', ru: 'Детали' },
+  powerHint: {
+    en: 'Detail deepening: above 100% mid-tones sink toward the base (a deeper relief), below 100% they rise and the surface flattens.',
+    ru: 'Проявление деталей: больше 100% — полутона уходят к основанию (рельеф глубже), меньше 100% — поднимаются, поверхность выравнивается.',
+  },
 
   // ---- size & layers ----
   paramWidth: { en: 'Width', ru: 'Ширина' },
@@ -331,6 +388,10 @@ export const dict: Dict = {
   paramBase: { en: 'Base', ru: 'Основание' },
   paramMax: { en: 'Max height', ru: 'Макс. высота' },
   paramLayer: { en: 'Layer height', ru: 'Высота слоя' },
+  reliefSplit: {
+    en: 'Base {base} mm + relief {relief} mm = {total} mm tall',
+    ru: 'Основание {base} мм + рельеф {relief} мм = {total} мм высоты',
+  },
   unitMm: { en: 'mm', ru: 'мм' },
   sizeHint: {
     en: 'Brightness sets how tall each spot prints, measured in whole print layers (0.2 mm by default): dark areas stay low, bright areas rise — or the other way round in the opposite depth mode. Neighbouring pixels share their corner heights, so a tonal change prints as a slanted face and a flat area stays exactly flat; vertical walls appear only along the outer edge of the model. Every color still owns a slice of the total height (that slice is where its filament is loaded); the surface within a slice uses every layer, so the picture is smooth instead of one plateau per color. By default the slices are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom slices thicker than the top ones — a dark base blocks light, thin light slices blend softly.',
@@ -847,6 +908,43 @@ export const dict: Dict = {
     en: 'Plateaus / slants / walls are shares of the visible surface (the base plate is excluded); Δ is the difference from the reference.',
     ru: 'Площадки / наклонные / стенки — доли видимой поверхности (основание исключено); Δ — расхождение с эталоном.',
   },
+  refFit: { en: 'Match tone to reference', ru: 'Подобрать тон по эталону' },
+  refFitHint: {
+    en: 'Searches contrast and Detail, measuring every try with the same instrument as the reference, and keeps the closest — a few dozen runs, up to a minute on a large picture.',
+    ru: 'Перебирает «Контраст» и «Детали», измеряя каждую пробу тем же инструментом, что и эталон, и оставляет самую близкую — несколько десятков прогонов, на большой картинке до минуты.',
+  },
+  refFitWorking: {
+    en: 'Looking for the closest tone…',
+    ru: 'Ищу самый близкий тон…',
+  },
+  refFitRunning: {
+    en: 'Measuring {done} of {total} tones…',
+    ru: 'Замер {done} из {total}…',
+  },
+  refFitDone: {
+    en: 'Tone matched: contrast {contrast}%, detail {power}%. Height distribution differs by {to}% (was {from}%).',
+    ru: 'Тон подобран: контраст {contrast}%, детали {power}%. Расхождение распределения высот {to}% (было {from}%).',
+  },
+  refFitNeutral: {
+    en: 'The current tone already comes closest ({from}% mismatch) — nothing changed.',
+    ru: 'Текущий тон уже самый близкий (расхождение {from}%) — ничего не менялось.',
+  },
+  refFitNeedsImage: {
+    en: 'Load an image first — the fit has to measure our relief.',
+    ru: 'Сначала загрузите изображение — подбору нужно измерить наш рельеф.',
+  },
+  refFitRebuildFailed: {
+    en: 'Tone set to contrast {contrast}%, detail {power}%, but the relief was not rebuilt — see the status line; the numbers in the table still belong to the previous mesh.',
+    ru: 'Тон выставлен: контраст {contrast}%, детали {power}%, но рельеф не пересчитался — причина в строке состояния; числа в таблице пока относятся к прежнему мешу.',
+  },
+  refFitManualMode: {
+    en: 'Tone acts in brightness mode only: in «quantize by spools» the heights follow the palette.',
+    ru: 'Тон действует только в режиме яркости: при «квантовании по катушкам» высоты идут от палитры.',
+  },
+  helpRefFit: {
+    en: 'Measures the reference’s height distribution — how much of its surface sits low, in the middle and up high — then runs our pipeline over a coarse grid of contrast and Detail settings and keeps stepping towards the closest one, measuring every result with the same instrument. The best setting is applied to the sliders and the image is reprocessed. It only ever changes heights: pixels keep the filament they already print in. If nothing beats the tone in use, nothing is applied.',
+    ru: 'Измеряет распределение высот эталона — какая часть его поверхности лежит низко, в середине и высоко — затем прогоняет наш конвейер по грубой сетке значений «Контраст» и «Детали» и продолжает шагать в сторону самого близкого, измеряя каждый результат тем же инструментом. Лучшее значение ставится в ползунки, изображение пересчитывается. Меняются только высоты: пиксели сохраняют тот филамент, которым печатались. Если ничто не лучше текущего тона, ничего не применяется.',
+  },
   rcMetric: { en: 'Metric', ru: 'Метрика' },
   rcReference: { en: 'Reference', ru: 'Эталон' },
   rcOurs: { en: 'Ours', ru: 'У нас' },
@@ -860,6 +958,10 @@ export const dict: Dict = {
   rcRowPlateaus: { en: 'Flat plateaus', ru: 'Плоские площадки' },
   rcRowSlants: { en: 'Slanted transitions', ru: 'Наклонные переходы' },
   rcRowWalls: { en: 'Vertical walls', ru: 'Вертикальные стенки' },
+  rcRowProfile: {
+    en: 'Height distribution',
+    ru: 'Распределение высот',
+  },
 
   // ---- loadImage errors ----
   errNotAnImage: {

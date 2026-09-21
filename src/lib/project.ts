@@ -8,6 +8,8 @@
  * Pure data module — no DOM, testable in Node.
  */
 
+import { TONE_CONTRAST_MAX, TONE_CONTRAST_MIN, TONE_POWER_MAX, TONE_POWER_MIN } from './quantize'
+
 export interface EmbeddedFilament {
   /** Composite id, always starting with `my:` for user filaments. */
   id: string
@@ -37,6 +39,10 @@ export interface ProjectSettings {
   layerMm: number
   /** Dithering strength 0..100 (percent), 0 = off. */
   dither: number
+  /** Relief contrast (percent, 100 = the picture's own tones); absent = 100. */
+  contrast?: number
+  /** Relief power / detail deepening (percent, 100 = unchanged); absent = 100. */
+  power?: number
   /** ΔE merge threshold for adjacent near-duplicate bands; 0 = off. */
   mergeDeltaE?: number
   darkIsTall: boolean
@@ -183,6 +189,18 @@ export function parseProjectFile(text: string): ProjectFile {
       throw new ProjectFileError('settings.bandHeightsMm must have one positive finite number per color')
     }
     settings.bandHeightsMm = [...(s.bandHeightsMm as number[])]
+  }
+  // Optional relief tone (percent, 100 = unchanged): keeps the geometry of
+  // older projects identical when the keys are absent.
+  for (const key of ['contrast', 'power'] as const) {
+    const value = s[key]
+    if (value === undefined) continue
+    const lo = key === 'contrast' ? TONE_CONTRAST_MIN : TONE_POWER_MIN
+    const hi = key === 'contrast' ? TONE_CONTRAST_MAX : TONE_POWER_MAX
+    if (!isFiniteNumber(value) || (value as number) < lo * 100 || (value as number) > hi * 100) {
+      throw new ProjectFileError(`settings.${key} must be a number in ${lo * 100}..${hi * 100}`)
+    }
+    settings[key] = value as number
   }
   return {
     app: PROJECT_APP,

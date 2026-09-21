@@ -105,4 +105,14 @@ export interface PrintSettings {
   darkIsTall: boolean
   /** Chosen print layer height in mm (used for swap-layer math). */
   layerMm: number
+  /**
+   * Relief tone recorded with the model: contrast in percent (100 = neutral,
+   * omitted = neutral). The height map already carries the curve — it is baked
+   * into the relief values in the quantize step (ToneCurve in quantize.ts) —
+   * so this is a record for exports and project files, not an input to
+   * `buildHeightField`.
+   */
+  contrastPct?: number
+  /** Relief detail deepening in percent (100 = neutral, omitted = neutral). */
+  powerPct?: number
 }

@@ -1,6 +1,8 @@
 import { mapToLuminanceBands, quantizeToPalette } from './quantize'
 import { applyMerge, mergeMap } from './bandMerge'
 import { finishPipeline, type PaletteEntry, type PipelineOptions } from './pipeline'
+import { measureRelief, type ReliefMetrics } from './reliefCompare'
+import { runToneFit, type ToneCandidate, type ToneFitResult } from './toneFit'
 import type { HeightField, Mesh, QuantizedImage, RGB } from './types'
 
 /**
@@ -54,7 +56,25 @@ export interface FinishTask {
   bandTopsOverride?: number[] | null
 }
 
-export type WorkerTask = QuantizeTask | FinishTask
+export interface FitToneTask {
+  type: 'fit-tone'
+  /** Echoed back so the caller can match responses to requests. */
+  id: number
+  rgba: Uint8ClampedArray
+  width: number
+  height: number
+  /** Everything the pipeline needs; `contrast`/`power` are what gets fitted. */
+  opts: PipelineOptions
+  /** The reference worth fitting to (only its relief shape is read). */
+  target: ReliefMetrics
+  /**
+   * The tone in use now (the sliders' values as multipliers). Optional: the
+   * neutral 1/1 is assumed, which is what an untouched project holds.
+   */
+  current?: ToneCandidate
+}
+
+export type WorkerTask = QuantizeTask | FinishTask | FitToneTask
 
 /** Everything main thread needs to reconstruct a PipelineResult (minus image). */
 export interface WorkerResult {
@@ -161,38 +181,108 @@ function runFinish(q: QuantizedImage, opts: PipelineOptions): WorkerResult {
   }
 }
 
+/**
+ * One quantization pass, with the same palette / band-top overrides, custom
+ * thickness seeding and ΔE merge the `quantize` task applies. `opts` is
+ * mutated by the merge pass exactly as before, so callers that reuse an options
+ * object across passes hand in a fresh copy.
+ */
+function quantizeOnce(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  opts: PipelineOptions,
+  overrides: { palette?: RGB[] | null; bandTops?: number[] | null; nearest?: boolean } | null,
+  mergeDeltaE: number | undefined,
+): QuantizedImage {
+  let q: QuantizedImage
+  if (overrides?.nearest && overrides.palette && overrides.palette.length > 1) {
+    q = quantizeToPalette(rgba, overrides.palette, width, height, opts.dither ?? 0)
+  } else {
+    q = mapToLuminanceBands(
+      rgba,
+      opts.numColors,
+      width,
+      height,
+      opts.darkIsTall,
+      opts.dither ?? 0,
+      { contrast: opts.contrast, power: opts.power },
+    )
+    if (overrides?.palette && overrides.palette.length === q.palette.length) {
+      q.palette = overrides.palette.map((c) => ({ ...c }))
+    }
+    if (overrides?.bandTops) q.bandTops = [...overrides.bandTops]
+  }
+  // Seed custom per-band thicknesses so the merge pass can carry them
+  // through (finishPipeline re-applies them to the merged lengths).
+  const customHeights = opts.bandHeightsMm
+  if (
+    customHeights &&
+    customHeights.length === q.palette.length &&
+    customHeights.every((h) => Number.isFinite(h) && h > 0)
+  ) {
+    q.bandHeightsMm = [...customHeights]
+  }
+  if (mergeDeltaE && mergeDeltaE > 0) applyBandMerge(q, mergeDeltaE, opts)
+  return q
+}
+
+/**
+ * Auto-fit the relief tone to a reference: run the pipeline once per candidate
+ * setting and keep the one whose measured relief comes closest. Runs entirely
+ * inside the worker — a full search is a few dozen pipeline passes, far too
+ * much for the main thread — and reports progress so the UI can say how far
+ * along it is. The worker's stored quantized image is left untouched: the
+ * caller re-quantizes with the winner afterwards.
+ */
+export function runFitToneTask(
+  task: FitToneTask,
+  onProgress?: (done: number, total: number) => void,
+): ToneFitResult {
+  const known = {
+    gridStepX: task.width > 0 ? task.opts.widthMm / task.width : 0,
+    gridStepY: task.height > 0 ? task.opts.heightMm / task.height : 0,
+  }
+  // Every candidate runs the ΔE merge, which updates the module-level
+  // kept-slot report. That report belongs to the quantize task: leaving a
+  // candidate's report behind would make the next finish request remap the
+  // caller's filament assignments to a palette that was never applied.
+  const keptBefore = lastMergeKept
+  try {
+    return runToneFit(
+      task.target,
+      (candidate) => {
+        // A fresh options object per candidate: the ΔE merge rewrites
+        // `bandHeightsMm` on it, and one candidate must not poison the next.
+        const opts: PipelineOptions = { ...task.opts, contrast: candidate.contrast, power: candidate.power }
+        const q = quantizeOnce(task.rgba, task.width, task.height, opts, null, opts.mergeDeltaE)
+        const dummyImage = { width: task.width, height: task.height, rgba: new Uint8ClampedArray(0) }
+        const result = finishPipeline(dummyImage, q, opts)
+        return measureRelief(result.mesh.positions, result.mesh.triangleCount, known)
+      },
+      onProgress,
+      task.current,
+    )
+  } finally {
+    lastMergeKept = keptBefore
+  }
+}
+
 /** Run one task; throws Error with a user-presentable message on misuse. */
 export function runWorkerTask(task: WorkerTask): WorkerResult {
+  if (task.type === 'fit-tone') {
+    throw new Error('fit-tone runs through runFitToneTask')
+  }
   if (task.type === 'quantize') {
     lastMergeKept = null
-    let q: QuantizedImage
-    if (task.nearestPalette && task.paletteOverride && task.paletteOverride.length > 1) {
-      q = quantizeToPalette(task.rgba, task.paletteOverride, task.width, task.height, task.opts.dither ?? 0)
-    } else {
-      q = mapToLuminanceBands(
-        task.rgba,
-        task.opts.numColors,
-        task.width,
-        task.height,
-        task.opts.darkIsTall,
-        task.opts.dither ?? 0,
-      )
-      if (task.paletteOverride && task.paletteOverride.length === q.palette.length) {
-        q.palette = task.paletteOverride.map((c) => ({ ...c }))
-      }
-      if (task.bandTopsOverride) q.bandTops = [...task.bandTopsOverride]
-    }
-    // Seed custom per-band thicknesses so the merge pass can carry them
-    // through (finishPipeline re-applies them to the merged lengths).
-    const customHeights = task.opts.bandHeightsMm
-    if (
-      customHeights &&
-      customHeights.length === q.palette.length &&
-      customHeights.every((h) => Number.isFinite(h) && h > 0)
-    ) {
-      q.bandHeightsMm = [...customHeights]
-    }
-    if (task.mergeDeltaE && task.mergeDeltaE > 0) applyBandMerge(q, task.mergeDeltaE, task.opts)
+    const q = quantizeOnce(
+      task.rgba,
+      task.width,
+      task.height,
+      task.opts,
+      { palette: task.paletteOverride, bandTops: task.bandTopsOverride, nearest: task.nearestPalette },
+      task.mergeDeltaE,
+    )
     quantized = q
     return runFinish(q, task.opts)
   }

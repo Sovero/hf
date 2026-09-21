@@ -630,6 +630,73 @@ body {
   margin-top: 0.45rem;
 }
 
+/* Name of a bare slider row (dithering, relief contrast, detail deepening):
+   the percentage badge alone does not say what the slider changes. */
+.slider-label {
+  flex: 0 0 auto;
+  min-width: 5.2rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ---- Relief styles (named tone presets) ---- */
+
+.preset-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+}
+
+/* Style chips sit in a two-column block: equal widths, no ragged single child
+   hanging on a second line, and the same shape at any sidebar width. */
+.preset-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+.preset-btn {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+
+.preset-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.preset-btn.is-active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel-2));
+  font-weight: 600;
+}
+
+.preset-custom {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 0.3rem 0.55rem;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* Result of the current setting: base + relief + filament changes. */
+.tone-result {
+  margin: 0.5rem 0 0;
+  line-height: 1.45;
+}
+
 /* ΔE merge: checkbox label + threshold field, same chip style as the other
    inline number inputs (drop-sparse-threshold, palette-tau). Text sizing and
    hover treatment follow .mode-options so all toggles in the panel match. */

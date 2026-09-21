@@ -411,6 +411,71 @@ export function removeIsolatedRegions(
   return out
 }
 
+/**
+ * Relief tone curve — how image brightness becomes relief height.
+ *
+ * This is the tone stage of the Filapaint / HueForge Standard relief model:
+ * the print is a solid base plate plus a relief whose *thickness* follows the
+ * picture, and these two knobs shape that tonal ramp (the free tool at
+ * cxwl.org exposes them as «Contrast» and «Power Deepening»). Both act on the
+ * oriented relief position 0..1 (0 = base, 1 = tallest), *before* the band
+ * ranking, so the pixel → filament assignment is untouched: contrast and
+ * power move heights only, never which color a pixel prints in. Band tops
+ * (color-change Z heights) are read off the same values, so a pixel's surface
+ * always stays inside the band that owns it.
+ */
+export interface ToneCurve {
+  /**
+   * Contrast around mid-relief, 0..3 (1 = the picture's own tones). Below 1
+   * the relief flattens toward the middle of the range, above 1 the tones
+   * spread outward — deeper shadows against higher lights. The curve is
+   * strictly monotone and pins 0 and 1: a linear contrast would saturate a
+   * whole slice of tones onto base or top, and those pixels would fall outside
+   * their own filament's slice (see applyTone).
+   */
+  contrast?: number
+  /**
+   * Power (detail deepening), 0.2..3 (1 = unchanged). Above 1 mid-tones sink
+   * toward the base while the peaks stay high — a deeper, more sculpted
+   * relief; below 1 mid-tones rise again and the relief flattens out.
+   */
+  power?: number
+}
+
+/** Bounds of the tone knobs, shared by the UI, the project file and the worker. */
+export const TONE_CONTRAST_MIN = 0
+export const TONE_CONTRAST_MAX = 3
+export const TONE_POWER_MIN = 0.2
+export const TONE_POWER_MAX = 3
+
+/**
+ * Apply the relief tone curve to one oriented relief position (0..1).
+ *
+ * Contrast first, then power — the order the free Filapaint tool applies its
+ * «Contrast» and «Power Deepening» inputs. Missing, non-finite or out-of-range
+ * values fall back to the identity, so an old project or a stray input can
+ * never distort the relief.
+ */
+export function applyTone(v: number, tone?: ToneCurve): number {
+  let t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0
+  const rawContrast = tone?.contrast
+  const k = Number.isFinite(rawContrast)
+    ? Math.min(TONE_CONTRAST_MAX, Math.max(TONE_CONTRAST_MIN, rawContrast!))
+    : 1
+  if (k !== 1) {
+    // Smooth two-piece contrast: each half of the range is raised to k, so
+    // k > 1 pushes tones away from the middle (k = 2 sends 0.25 → 0.125 and
+    // 0.75 → 0.875) and k < 1 pulls them back in. Both ends stay pinned to 0
+    // and 1 — no saturation — which is what keeps a pixel inside the color
+    // band its own tone was assigned to.
+    t = t < 0.5 ? 0.5 * Math.pow(2 * t, k) : 1 - 0.5 * Math.pow(2 * (1 - t), k)
+  }
+  const rawPower = tone?.power
+  const p = Number.isFinite(rawPower) ? Math.min(TONE_POWER_MAX, Math.max(TONE_POWER_MIN, rawPower!)) : 1
+  if (p !== 1) t = Math.pow(t, p)
+  return t
+}
+
 export function mapToLuminanceBands(
   rgba: Uint8ClampedArray,
   numColors: number,
@@ -419,6 +484,8 @@ export function mapToLuminanceBands(
   darkIsTall: boolean,
   /** Floyd–Steinberg strength 0..1 (0 = off, the default). */
   dither = 0,
+  /** Relief tone curve (contrast + power); omitted = the picture's own tones. */
+  tone?: ToneCurve,
 ): QuantizedImage {
   const pixelCount = width * height
   const n = Math.max(1, numColors)
@@ -427,7 +494,11 @@ export function mapToLuminanceBands(
   const [lo, hi] = contrastRange(raw)
   const span = Math.max(1e-6, hi - lo)
 
-  // Per-pixel relief position x (0 = base, 1 = tallest).
+  // Per-pixel relief position x (0 = base, 1 = tallest). Deliberately *before*
+  // the tone curve: band assignment, speck cleanup, band tops and dithering
+  // all read the untouched relief, so contrast and power cannot move a color
+  // boundary by even one pixel. The curve is applied to the heights and the
+  // band tops together at the end (see `applyToneToRelief`).
   const x = new Float32Array(pixelCount)
   for (let i = 0; i < pixelCount; i++) {
     let v = Math.min(1, Math.max(0, (raw[i] - lo) / span))
@@ -506,9 +577,38 @@ export function mapToLuminanceBands(
     ? ditherLabels(relief, indexMap, width, height, n, darkIsTall, clampedDither)
     : indexMap
 
-  const result: QuantizedImage = { palette, indexMap: finalIndexMap, luminance: relief, bandTops, width, height }
+  // Tone last, on both sides of the same monotone map: the heights and the
+  // band tops the swap heights are read from. Because the map preserves order,
+  // every surface stays exactly where it was relative to its own band — the
+  // relief deepens or flattens, while the color regions keep their pixels.
+  const { luminance, tops } = applyToneToRelief(relief, bandTops, tone)
+
+  const result: QuantizedImage = { palette, indexMap: finalIndexMap, luminance, bandTops: tops, width, height }
   if (finalIndexMap !== indexMap) result.cleanIndexMap = indexMap
   return result
+}
+
+/**
+ * Apply the relief tone curve to the heights and to the band tops at once.
+ *
+ * Both sides are transformed with the same monotone map, so a pixel that sat
+ * inside band `b` still sits inside it: the physical color-change heights move
+ * with the relief instead of being left behind. A neutral (or absent) curve
+ * returns the inputs untouched — no copy, no rounding, byte-identical output.
+ */
+function applyToneToRelief(
+  relief: Float32Array,
+  bandTops: number[],
+  tone?: ToneCurve,
+): { luminance: Float32Array; tops: number[] } {
+  const neutral =
+    tone === undefined ||
+    ((tone.contrast === undefined || !Number.isFinite(tone.contrast) || tone.contrast === 1) &&
+      (tone.power === undefined || !Number.isFinite(tone.power) || tone.power === 1))
+  if (neutral) return { luminance: relief, tops: bandTops }
+  const luminance = new Float32Array(relief.length)
+  for (let i = 0; i < relief.length; i++) luminance[i] = applyTone(relief[i]!, tone)
+  return { luminance, tops: bandTops.map((t) => applyTone(t, tone)) }
 }
 // ---- Catalog palette quantization (HueForge-style: nearest filament color) ----
 

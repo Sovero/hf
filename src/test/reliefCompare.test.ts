@@ -267,6 +267,9 @@ describe('compareRelief', () => {
     topShare: 0.278,
     slantShare: 0.282,
     wallShare: 0.008,
+    // Bottom-heavy tonal distribution: the reference started life as a dark
+    // picture, so most of its surface area sits in the lower half.
+    heightProfile: [0.12, 0.14, 0.13, 0.11, 0.09, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.01, 0.0],
     ...overrides,
   })
 

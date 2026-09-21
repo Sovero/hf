@@ -1,5 +1,7 @@
 import type { PipelineOptions } from '../lib/pipeline'
 import type { WorkerResult } from '../lib/workerProtocol'
+import type { ReliefMetrics } from '../lib/reliefCompare'
+import type { ToneCandidate, ToneFitResult } from '../lib/toneFit'
 import type { RGB } from '../lib/types'
 
 /**
@@ -28,8 +30,18 @@ export interface RebuildState {
   version: number
 }
 
+/** What the worker can send back for one request id. */
+interface WorkerMessage {
+  id: number
+  ok?: boolean
+  result?: WorkerResult
+  fit?: ToneFitResult
+  error?: string
+  progress?: { done: number; total: number }
+}
+
 interface Waiters {
-  resolve: (r: WorkerResult) => void
+  resolve: (m: WorkerMessage) => void
   reject: (e: Error) => void
 }
 
@@ -37,10 +49,13 @@ let worker: Worker | null = null
 let nextId = 1
 const pending = new Map<number, Waiters>()
 
+/** Progress sinks of long-running requests, keyed by request id. */
+const progressSinks = new Map<number, (done: number, total: number) => void>()
+
 /** Coalescing state for finish requests. */
 let inflight = false
 let queued: RebuildState | null = null
-let waiters: Waiters[] = []
+let waiters: { resolve: (r: WorkerResult) => void; reject: (e: Error) => void }[] = []
 
 let listener: ((r: WorkerResult, token: number, version: number) => void) | null = null
 
@@ -54,11 +69,18 @@ function ensureWorker(): Worker {
   if (worker) return worker
   worker = new Worker(new URL('../worker/pipeline.worker.ts', import.meta.url), { type: 'module' })
   worker.onmessage = (e: MessageEvent) => {
-    const msg = e.data as { id: number; ok: boolean; result?: WorkerResult; error?: string }
+    const msg = e.data as WorkerMessage
+    // Progress reports share the id but carry no outcome: the request is still
+    // running (the tone fit posts one per evaluated setting).
+    if (msg.progress && msg.ok === undefined) {
+      progressSinks.get(msg.id)?.(msg.progress.done, msg.progress.total)
+      return
+    }
     const p = pending.get(msg.id)
     if (!p) return
     pending.delete(msg.id)
-    if (msg.ok && msg.result) p.resolve(msg.result)
+    progressSinks.delete(msg.id)
+    if (msg.ok) p.resolve(msg)
     else p.reject(new Error(msg.error ?? 'Pipeline worker failed'))
   }
   worker.onerror = (e) => {
@@ -80,7 +102,10 @@ export function quantizeInWorker(
   const id = nextId++
   const w = ensureWorker()
   return new Promise<WorkerResult>((resolve, reject) => {
-    pending.set(id, { resolve, reject })
+    pending.set(id, {
+      resolve: (m) => resolve(m.result as WorkerResult),
+      reject,
+    })
     w.postMessage(
       {
         type: 'quantize',
@@ -96,6 +121,40 @@ export function quantizeInWorker(
       },
       [rgba.buffer],
     )
+  })
+}
+
+/**
+ * Fit the relief tone (contrast + detail deepening) to a reference relief.
+ *
+ * The search runs in the worker — it is a few dozen pipeline passes — and
+ * reports progress through `onProgress` so the panel can show how far along it
+ * is. The buffer is copied rather than transferred: the caller keeps its own
+ * decoded image, and detaching it here would break the next reprocess.
+ */
+export function fitToneInWorker(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  opts: PipelineOptions,
+  target: ReliefMetrics,
+  onProgress?: (done: number, total: number) => void,
+  /** The tone in use now (slider values ÷ 100); the setting to beat. */
+  current?: ToneCandidate,
+): Promise<ToneFitResult> {
+  const id = nextId++
+  const w = ensureWorker()
+  if (onProgress) progressSinks.set(id, onProgress)
+  return new Promise<ToneFitResult>((resolve, reject) => {
+    pending.set(id, {
+      resolve: (m) => resolve(m.fit as ToneFitResult),
+      reject: (e) => {
+        progressSinks.delete(id)
+        reject(e)
+      },
+    })
+    // No transfer list: the caller's decoded image must survive the fit.
+    w.postMessage({ type: 'fit-tone', id, rgba, width, height, opts, target, current })
   })
 }
 
@@ -142,7 +201,10 @@ async function pump(): Promise<void> {
 function sendFinish(state: RebuildState): Promise<WorkerResult> {
   const id = nextId++
   return new Promise<WorkerResult>((resolve, reject) => {
-    pending.set(id, { resolve, reject })
+    pending.set(id, {
+      resolve: (m) => resolve(m.result as WorkerResult),
+      reject,
+    })
     ensureWorker().postMessage({
       type: 'finish',
       id,

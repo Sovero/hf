@@ -151,6 +151,55 @@ export interface ReliefMetrics {
   topShare: number
   slantShare: number
   wallShare: number
+  /**
+   * How the upward-facing surface is distributed across the relief height:
+   * `PROFILE_BINS` bins of area share from the lowest to the highest surface
+   * point, summing to 1. This is the tonal distribution itself — a relief
+   * whose picture is dark shows its mass near the bottom, a high-key picture
+   * near the top — and it is measured identically for a reference STL and for
+   * our own mesh, which is what makes a tone fit (contrast, detail deepening)
+   * measurable against a reference. Empty (all zeros) for a mesh with no
+   * upward faces.
+   */
+  heightProfile: number[]
+}
+
+/** Bins of `ReliefMetrics.heightProfile`. */
+export const PROFILE_BINS = 16
+
+/**
+ * Distance between two height profiles: half the L1 difference, so 0 = the
+ * same distribution and 1 = nothing in common. Profiles of different lengths
+ * compare over the longer one, missing bins counting as empty.
+ */
+export function profileDistance(a: readonly number[], b: readonly number[]): number {
+  const n = Math.max(a.length, b.length)
+  if (n === 0) return 0
+  let sum = 0
+  for (let i = 0; i < n; i++) sum += Math.abs((a[i] ?? 0) - (b[i] ?? 0))
+  return Math.min(1, sum / 2)
+}
+
+/** Eight-step block ramp used to draw a profile inside a table cell. */
+const BARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+
+/**
+ * Draw a profile as text: 16 bins become 8 block characters, scaled to the
+ * profile's own peak so the row stays readable in a narrow column.
+ */
+export function profileGlyphs(profile: readonly number[]): string {
+  if (profile.length === 0) return ''
+  let peak = 0
+  for (const v of profile) if (v > peak) peak = v
+  if (peak <= 0) return '—'
+  let out = ''
+  const step = profile.length / 8
+  for (let g = 0; g < 8; g++) {
+    let sum = 0
+    for (let i = Math.floor(g * step); i < Math.floor((g + 1) * step); i++) sum += profile[i] ?? 0
+    out += BARS[Math.min(BARS.length - 1, Math.round(((sum / step) / peak) * (BARS.length - 1)))]
+  }
+  return out
 }
 
 /** Most common positive gap in a sorted list of coordinates. */
@@ -207,6 +256,10 @@ export function measureRelief(
   let top = 0
   let slant = 0
   let wall = 0
+  // Upward-facing area by height: collected as (z, area) pairs and binned
+  // after the range is known (see heightProfile).
+  const upZ: number[] = []
+  const upArea: number[] = []
 
   for (let t = 0; t < triangleCount; t++) {
     const i = t * 9
@@ -265,6 +318,8 @@ export function measureRelief(
       zs.add(round(az, GRID_DECIMALS))
       zs.add(round(bz, GRID_DECIMALS))
       zs.add(round(cz, GRID_DECIMALS))
+      upZ.push((az + bz + cz) / 3)
+      upArea.push(area)
       if (nz >= len * flat) top += area
       else slant += area
     } else if (nz <= -len * flat) {
@@ -281,6 +336,27 @@ export function measureRelief(
   const share = (area: number) => (visible > 0 ? area / visible : 0)
   const unknown = !Number.isFinite(minX) || !Number.isFinite(maxX)
 
+  // Height profile of the upward surface. Binning by relative position inside
+  // the relief's own z-range keeps a 1.2 mm reference and a 7.2 mm print
+  // comparable: both answer "where does the picture put its mass".
+  const zLo = sortedZ.length > 0 ? sortedZ[0] : 0
+  const zHi = sortedZ.length > 0 ? sortedZ[sortedZ.length - 1] : 0
+  const zSpan = zHi - zLo
+  const heightProfile = new Array<number>(PROFILE_BINS).fill(0)
+  let upTotal = 0
+  for (let i = 0; i < upZ.length; i++) {
+    const area = upArea[i]
+    const bin =
+      zSpan > LEVEL_EPS
+        ? Math.min(PROFILE_BINS - 1, Math.max(0, Math.floor(((upZ[i] - zLo) / zSpan) * PROFILE_BINS)))
+        : 0
+    heightProfile[bin] += area
+    upTotal += area
+  }
+  if (upTotal > 0) {
+    for (let b = 0; b < PROFILE_BINS; b++) heightProfile[b] /= upTotal
+  }
+
   return {
     triangleCount,
     sizeX: unknown ? 0 : maxX - minX,
@@ -295,6 +371,7 @@ export function measureRelief(
     topShare: share(top),
     slantShare: share(slant),
     wallShare: share(wall),
+    heightProfile,
   }
 }
 
@@ -409,6 +486,17 @@ export function compareRelief(reference: ReliefMetrics, own: ReliefMetrics): Rel
   shareRow('rcRowPlateaus', reference.topShare, own.topShare)
   shareRow('rcRowSlants', reference.slantShare, own.slantShare)
   shareRow('rcRowWalls', reference.wallShare, own.wallShare)
+
+  // Where the picture puts its mass, drawn low → high. The distance is the
+  // number the tone fit minimizes, so it is worth showing on its own.
+  const profileDiff = profileDistance(reference.heightProfile, own.heightProfile)
+  push(
+    'rcRowProfile',
+    profileGlyphs(reference.heightProfile),
+    profileGlyphs(own.heightProfile),
+    `${(profileDiff * 100).toFixed(1)}%`,
+    profileDiff <= 0.1 ? 'ok' : profileDiff <= 0.25 ? 'close' : 'off',
+  )
 
   return { rows, diverging: rows.filter((r) => r.status === 'off').length }
 }
