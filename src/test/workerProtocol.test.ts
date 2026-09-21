@@ -238,3 +238,39 @@ describe('worker pipeline protocol', () => {
     expect(again.quantized.palette).toHaveLength(2)
   })
 })
+
+describe('relief smoothing (opts.smooth)', () => {
+  /** Noisy mid-gray image: per-pixel spikes the smoothing must calm. */
+  function noisyImage(w: number, h: number): Uint8ClampedArray {
+    const a = new Uint8ClampedArray(w * h * 4)
+    let seed = 7
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff - 0.5) * 80
+    for (let i = 0; i < w * h; i++) {
+      const v = Math.round(128 + rnd())
+      a.set([v, v, v, 255], i * 4)
+    }
+    return a
+  }
+
+  it('smooth=0 output is byte-identical to omitting the field', () => {
+    resetWorkerState()
+    const rgba = noisyImage(32, 32)
+    const off = runWorkerTask(quantizeTask({ id: 11, rgba: rgba.slice(), width: 32, height: 32, opts: opts({ smooth: 0 }) }))
+    resetWorkerState()
+    const missing = runWorkerTask(quantizeTask({ id: 12, rgba: rgba.slice(), width: 32, height: 32, opts: opts({}) }))
+    expect(Array.from(off.quantized.indexMap)).toEqual(Array.from(missing.quantized.indexMap))
+    expect(Array.from(off.quantized.luminance)).toEqual(Array.from(missing.quantized.luminance))
+    expect(off.quantized.palette).toEqual(missing.quantized.palette)
+  })
+
+  it('smooth>0 calms the RGBA source and reshapes a noisy palette', () => {
+    resetWorkerState()
+    const rgba = noisyImage(32, 32)
+    const raw = runWorkerTask(quantizeTask({ id: 13, rgba: rgba.slice(), width: 32, height: 32, opts: opts({}) }))
+    resetWorkerState()
+    const smoothed = runWorkerTask(quantizeTask({ id: 14, rgba: rgba.slice(), width: 32, height: 32, opts: opts({ smooth: 0.6 }) }))
+    // The RGBA pass flattened the noise before quantization, so the palette
+    // the noisy picture gets differs from the raw run's palette.
+    expect(smoothed.quantized.palette).not.toEqual(raw.quantized.palette)
+  })
+})

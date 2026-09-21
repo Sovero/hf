@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { unzipSync, strFromU8 } from 'fflate'
 import { buildHeightField, snappedBandTops } from '../lib/heightmap'
+import { smoothScalarField } from '../lib/smooth'
 import { buildMesh } from '../lib/mesh'
 import { quantize, mapToLuminanceBands, removeIsolatedRegions, MIN_REGION_CELLS } from '../lib/quantize'
 import { findIsolatedRegions } from '../lib/printability'
@@ -988,5 +989,30 @@ describe('custom band heights (HueForge-style per-color thickness)', () => {
       9,
     )
     expect(r.settings.maxHeightMm).toBeGreaterThan(baseMm)
+  })
+})
+
+describe('relief smoothing (smoothScalarField → buildHeightField)', () => {
+  it('a smoothed relief field carries visibly less gradient energy', () => {
+    const w = 24
+    const h = 24
+    const q = quantizedFixture()
+    // Noisy ramp: the per-pixel relief noise that becomes "himalayas".
+    const noisy = new Float32Array(w * h)
+    let seed = 3
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff - 0.5) * 0.3
+    for (let i = 0; i < w * h; i++) noisy[i] = Math.min(1, Math.max(0, 0.5 + rnd()))
+    const energy = (values: Float32Array) => {
+      let s = 0
+      for (let y = 1; y < h - 1; y++)
+        for (let x = 1; x < w - 1; x++) {
+          const i = y * w + x
+          s += Math.abs(4 * values[i] - values[i - 1] - values[i + 1] - values[i - w] - values[i + w])
+        }
+      return s
+    }
+    const build = (lum: Float32Array) =>
+      buildHeightField({ ...q, width: w, height: h, luminance: lum }, settings()).values
+    expect(energy(build(smoothScalarField(noisy, w, h, 0.7)))).toBeLessThan(energy(build(noisy)))
   })
 })

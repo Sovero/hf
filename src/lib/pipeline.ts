@@ -66,6 +66,12 @@ export interface PipelineOptions {
    * base + Σ thicknesses (the max-height input is then derived, not free).
    */
   bandHeightsMm?: number[]
+  /**
+   * Edge-preserving smoothing strength 0..1 (0 = off, the default). Applied
+   * twice inside the worker's quantize step: RGBA before quantization (clean
+   * fills) and the luminance/relief field after (no per-pixel spikes).
+   */
+  smooth?: number
 }
 
 /**
