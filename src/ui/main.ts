@@ -113,6 +113,8 @@ const colorsValue = $<HTMLInputElement>('#colors-value')
 const sliderTicks = $<HTMLDivElement>('#slider-ticks')
 const ditherSlider = $<HTMLInputElement>('#dither-slider')
 const ditherValue = $<HTMLSpanElement>('#dither-value')
+const smoothSlider = $<HTMLInputElement>('#smooth-slider')
+const smoothValue = $<HTMLSpanElement>('#smooth-value')
 const contrastSlider = $<HTMLInputElement>('#contrast-slider')
 const contrastValue = $<HTMLSpanElement>('#contrast-value')
 const powerSlider = $<HTMLInputElement>('#power-slider')
@@ -214,6 +216,8 @@ type Settings = {
   maxMm: number
   layerMm: number
   dither: number
+  /** Edge-preserving smoothing in percent (0 = off, default 30). */
+  smooth: number
   /** Relief contrast in percent (100 = unchanged). */
   contrast: number
   /** Relief detail deepening in percent (100 = unchanged). */
@@ -245,6 +249,7 @@ function saveSettings() {
       maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
+      smooth: clampNum(Number(smoothSlider.value), 0, 100, 30),
       contrast: clampNum(Number(contrastSlider.value), 0, 300, 100),
       power: clampNum(Number(powerSlider.value), 20, 300, 100),
       backlight: lightBackBtn.classList.contains('is-active'),
@@ -273,6 +278,10 @@ function restoreSettings() {
     maxInput.value = String(clampNum(Number(s.maxMm), baseMm + 2, 40, 8))
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
     ditherSlider.value = String(clampNum(Number(s.dither), 0, 100, 0))
+    if (s.smooth !== undefined) {
+      smoothSlider.value = String(clampNum(Number(s.smooth), 0, 100, 30))
+      smoothValue.textContent = `${smoothSlider.value}%`
+    }
     ditherValue.textContent = `${ditherSlider.value}%`
     contrastSlider.value = String(clampNum(Number(s.contrast), 0, 300, 100))
     powerSlider.value = String(clampNum(Number(s.power), 20, 300, 100))
@@ -334,6 +343,7 @@ function readOptions() {
     numColors: numColors as ColorCount,
     darkIsTall,
     dither,
+    smooth: clampNum(Number(smoothSlider.value), 0, 100, 30) / 100,
     contrast,
     power,
     bandHeightsMm: bandHeights ?? undefined,
@@ -3431,6 +3441,17 @@ function bindInputs() {
     scheduleReprocess()
   })
   ditherSlider.addEventListener('change', () => {
+    flushReprocess()
+    saveSettings()
+  })
+
+  // Smoothing: debounced live reprocess on drag, flushed on release —
+  // same lifecycle as dithering (it lives in the quantize step too).
+  smoothSlider.addEventListener('input', () => {
+    smoothValue.textContent = `${smoothSlider.value}%`
+    scheduleReprocess()
+  })
+  smoothSlider.addEventListener('change', () => {
     flushReprocess()
     saveSettings()
   })

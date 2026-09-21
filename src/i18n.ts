@@ -257,6 +257,11 @@ export const dict: Dict = {
     en: 'Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.',
     ru: 'Дизеринг размывает границы полос в плавные градиенты (Флойда–Стейнберга). 0 = выкл.',
   },
+  smoothLabel: { en: 'Smoothing', ru: 'Сглаживание' },
+  smoothHint: {
+    en: 'Smoothing flattens photo noise before colors and heights are built — no more rough «himalaya» surfaces, gradients become clean fills. Edges stay sharp. 0 = off.',
+    ru: 'Сглаживание убирает фотографический шум до построения цветов и высот — поверхность без «гималаев», градиенты превращаются в чистые заливки. Границы остаются резкими. 0 = выкл.',
+  },
   mergeCheck: {
     en: 'Merge near-duplicate colors',
     ru: 'Сливать близкие цвета',
@@ -308,6 +313,10 @@ export const dict: Dict = {
   helpDither: {
     en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it.',
     ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт.',
+  },
+  helpSmooth: {
+    en: 'Bilateral smoothing: flattens noise and fine texture while keeping sharp edges. Applied twice — to the colors before quantization (clean fills instead of muddy mixes) and to the relief map (smooth surface instead of per-pixel spikes). Higher = flatter; photo prints usually want 30–60%.',
+    ru: 'Двустороннее сглаживание: убирает шум и мелкую фактуру, сохраняя резкие границы. Применяется дважды — к цветам перед квантованием (чистые заливки вместо грязных смесей) и к карте рельефа (гладкая поверхность вместо попиксельных пиков). Больше — ровнее; фотографиям обычно хорошо 30–60%.',
   },
   helpToneContrast: {
     en: 'Relief contrast (Filapaint calls this «Contrast»): how far the picture’s tones reach across the relief height. 100% = the tones as they are; below 100% every height moves toward the middle of the range, so the surface flattens; above 100% the tonal steps are pushed outward — deeper shadows against higher highlights. The curve never saturates, and the lowest and highest tones stay on the base and on the top of the model, so the full relief height is always used. Which filament prints each pixel, and the palette itself, stay exactly as they were: the color bands are read off the same values, so no color region shifts.',
