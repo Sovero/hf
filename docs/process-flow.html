@@ -225,7 +225,7 @@
         <h1>HueForge Web · процесс подготовки печати</h1>
         <div class="toolbar">
           <div class="toolbar-actions">
-            <button type="button" onclick="copyAsImage(this)">📋 Copy</button>
+            <button type="button" onclick="copyAsImage(this)">📋 Копировать</button>
             <button type="button" onclick="downloadPNG(this)">🖼️ PNG</button>
             <button type="button" onclick="downloadPDF(this)">📄 PDF</button>
           </div>
@@ -265,43 +265,43 @@
         <!-- Connectors are painted before nodes so all lines remain behind boxes. -->
         <line x1="500" y1="179" x2="500" y2="230" stroke="#22d3ee" stroke-width="1.8" marker-end="url(#arrow-cyan)"/>
         <line x1="500" y1="326" x2="500" y2="385" stroke="#34d399" stroke-width="1.6" marker-end="url(#arrowhead)"/>
-        <text x="526" y="359" fill="#94a3b8" font-size="8">image data</text>
+        <text x="526" y="359" fill="#94a3b8" font-size="8">данные</text>
 
         <line x1="500" y1="481" x2="500" y2="571" stroke="#a78bfa" stroke-width="1.7" marker-end="url(#arrow-violet)"/>
-        <text x="526" y="532" fill="#a78bfa" font-size="8">analysis ready</text>
+        <text x="526" y="532" fill="#a78bfa" font-size="8">готово</text>
 
         <!-- Decision: no reference → continue directly; yes → optional branch. -->
         <line x1="500" y1="699" x2="500" y2="850" stroke="#fb7185" stroke-width="1.6" marker-end="url(#arrow-rose)"/>
-        <text x="518" y="782" fill="#fb7185" font-size="8" font-weight="600">No · image only</text>
+        <text x="518" y="782" fill="#fb7185" font-size="8" font-weight="600">Нет · только картинка</text>
 
         <path d="M 564 635 L 612 635 L 650 635" fill="none" stroke="#fbbf24" stroke-width="1.7" marker-end="url(#arrow-amber)"/>
-        <text x="603" y="624" fill="#fbbf24" font-size="8" font-weight="600" text-anchor="middle">Yes</text>
+        <text x="603" y="624" fill="#fbbf24" font-size="8" font-weight="600" text-anchor="middle">Да</text>
 
         <path d="M 785 695 L 785 760 L 720 760 L 720 898 L 670 898" fill="none" stroke="#fbbf24" stroke-width="1.6" marker-end="url(#arrow-amber)"/>
-        <text x="798" y="744" fill="#fbbf24" font-size="8">Apply</text>
+        <text x="798" y="744" fill="#fbbf24" font-size="8">Применить</text>
 
         <line x1="500" y1="946" x2="500" y2="1000" stroke="#34d399" stroke-width="1.6" marker-end="url(#arrowhead)"/>
-        <text x="526" y="978" fill="#94a3b8" font-size="8">findings</text>
+        <text x="526" y="978" fill="#94a3b8" font-size="8">замечания</text>
         <line x1="500" y1="1096" x2="500" y2="1150" stroke="#34d399" stroke-width="1.6" marker-end="url(#arrowhead)"/>
-        <text x="526" y="1128" fill="#94a3b8" font-size="8">settings</text>
+        <text x="526" y="1128" fill="#94a3b8" font-size="8">настройки</text>
         <line x1="500" y1="1246" x2="500" y2="1300" stroke="#a78bfa" stroke-width="1.7" marker-end="url(#arrow-violet)"/>
-        <text x="526" y="1278" fill="#a78bfa" font-size="8">render</text>
+        <text x="526" y="1278" fill="#a78bfa" font-size="8">отрисовка</text>
         <line x1="500" y1="1396" x2="500" y2="1450" stroke="#fbbf24" stroke-width="1.7" marker-end="url(#arrow-amber)"/>
-        <text x="526" y="1428" fill="#fbbf24" font-size="8">artifacts</text>
+        <text x="526" y="1428" fill="#fbbf24" font-size="8">артефакты</text>
 
         <!-- Prerequisites -->
         <rect x="80" y="24" width="840" height="76" rx="9" fill="rgba(30, 41, 59, .28)" stroke="#64748b" stroke-width="1" stroke-dasharray="6,4"/>
-        <text x="104" y="49" fill="#94a3b8" font-size="10" font-weight="600">PREREQUISITES</text>
+        <text x="104" y="49" fill="#94a3b8" font-size="10" font-weight="600">ПРЕДУСЛОВИЯ</text>
         <text x="104" y="73" fill="#64748b" font-size="8">• PNG / JPG / WebP или текущий проект</text>
         <text x="390" y="73" fill="#64748b" font-size="8">• браузер или установленное Electron-окно</text>
         <text x="700" y="73" fill="#64748b" font-size="8">• .3mf — опционально</text>
 
         <!-- Start -->
         <rect x="440" y="135" width="120" height="44" rx="22" fill="rgba(8, 51, 68, .55)" stroke="#22d3ee" stroke-width="2"/>
-        <text x="500" y="162" fill="white" font-size="11" font-weight="600" text-anchor="middle">START</text>
+        <text x="500" y="162" fill="white" font-size="11" font-weight="600" text-anchor="middle">СТАРТ</text>
 
         <!-- Step 1: manual -->
-        <text x="500" y="218" fill="#34d399" font-size="8" text-anchor="middle">👤 USER · MANUAL</text>
+        <text x="500" y="218" fill="#34d399" font-size="8" text-anchor="middle">👤 ПОЛЬЗОВАТЕЛЬ · ВРУЧНУЮ</text>
         <circle cx="350" cy="250" r="13" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
         <text x="350" y="254" fill="white" font-size="10" font-weight="600" text-anchor="middle">1</text>
         <rect x="330" y="230" width="340" height="96" rx="8" fill="#0f172a"/>
@@ -311,57 +311,57 @@
         <text x="510" y="303" fill="#64748b" font-size="8" text-anchor="middle">изображение остаётся на компьютере</text>
 
         <!-- Step 2: automated worker -->
-        <text x="500" y="373" fill="#a78bfa" font-size="8" text-anchor="middle">⚡ PIPELINE WORKER · AUTOMATED</text>
+        <text x="500" y="373" fill="#a78bfa" font-size="8" text-anchor="middle">⚡ WORKER КОНВЕЙЕРА · АВТОМАТИЧЕСКИ</text>
         <circle cx="350" cy="405" r="13" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5"/>
         <text x="350" y="409" fill="white" font-size="10" font-weight="600" text-anchor="middle">2</text>
         <rect x="330" y="385" width="340" height="96" rx="8" fill="#0f172a"/>
         <rect x="330" y="385" width="340" height="96" rx="8" fill="rgba(76, 29, 149, .43)" stroke="#a78bfa" stroke-width="1.5"/>
         <text x="510" y="421" fill="white" font-size="12" font-weight="600" text-anchor="middle">Квантовать и построить mesh</text>
         <text x="510" y="441" fill="#94a3b8" font-size="9" text-anchor="middle">palette · dither · band merge</text>
-        <text x="510" y="458" fill="#64748b" font-size="8" text-anchor="middle">worker не блокирует интерфейс · запросы coalesced</text>
+        <text x="510" y="458" fill="#64748b" font-size="8" text-anchor="middle">worker не блокирует интерфейс · запросы объединяются</text>
 
         <!-- Decision -->
-        <text x="500" y="548" fill="#fb7185" font-size="8" font-weight="600" text-anchor="middle">OPTIONAL INPUT</text>
+        <text x="500" y="548" fill="#fb7185" font-size="8" font-weight="600" text-anchor="middle">ПО ЖЕЛАНИЮ</text>
         <g transform="translate(500 635)">
           <rect x="-45" y="-45" width="90" height="90" rx="6" transform="rotate(45)" fill="#0f172a"/>
           <rect x="-45" y="-45" width="90" height="90" rx="6" transform="rotate(45)" fill="rgba(136, 19, 55, .48)" stroke="#fb7185" stroke-width="1.7"/>
           <text x="0" y="-3" fill="white" font-size="10" font-weight="600" text-anchor="middle">Есть</text>
-          <text x="0" y="12" fill="white" font-size="10" font-weight="600" text-anchor="middle">reference?</text>
+          <text x="0" y="12" fill="white" font-size="10" font-weight="600" text-anchor="middle">эталон?</text>
         </g>
 
         <!-- Optional reference branch -->
-        <text x="785" y="573" fill="#fbbf24" font-size="8" font-weight="600" text-anchor="middle">⚡ REFERENCE WORKER · OPTIONAL</text>
+        <text x="785" y="573" fill="#fbbf24" font-size="8" font-weight="600" text-anchor="middle">⚡ WORKER ЭТАЛОНА · ПО ЖЕЛАНИЮ</text>
         <circle cx="671" cy="606" r="13" fill="#1e293b" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="671" y="610" fill="white" font-size="10" font-weight="600" text-anchor="middle">3</text>
         <rect x="650" y="585" width="270" height="110" rx="8" fill="#0f172a"/>
         <rect x="650" y="585" width="270" height="110" rx="8" fill="rgba(120, 53, 15, .34)" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="790" y="620" fill="white" font-size="11" font-weight="600" text-anchor="middle">Разобрать .3mf</text>
-        <text x="790" y="640" fill="#94a3b8" font-size="8" text-anchor="middle">bounds · palette · swaps</text>
+        <text x="790" y="640" fill="#94a3b8" font-size="8" text-anchor="middle">габариты · палитра · смены</text>
         <text x="790" y="656" fill="#94a3b8" font-size="8" text-anchor="middle">проверить лимиты до inflate</text>
         <text x="790" y="678" fill="#64748b" font-size="8" text-anchor="middle">Apply копирует только настройки</text>
 
         <!-- Step 4 -->
-        <text x="500" y="838" fill="#34d399" font-size="8" text-anchor="middle">⚡ AUTOMATED CHECK · MANUAL OVERRIDE</text>
+        <text x="500" y="838" fill="#34d399" font-size="8" text-anchor="middle">⚡ АВТОПРОВЕРКА · РЕШЕНИЕ ЗА ВАМИ</text>
         <circle cx="350" cy="870" r="13" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
         <text x="350" y="874" fill="white" font-size="10" font-weight="600" text-anchor="middle">4</text>
         <rect x="330" y="850" width="340" height="96" rx="8" fill="#0f172a"/>
         <rect x="330" y="850" width="340" height="96" rx="8" fill="rgba(6, 78, 59, .43)" stroke="#34d399" stroke-width="1.5"/>
         <text x="510" y="886" fill="white" font-size="12" font-weight="600" text-anchor="middle">Проверить печатаемость</text>
         <text x="510" y="906" fill="#94a3b8" font-size="9" text-anchor="middle">bands · nozzle detail · filament swaps</text>
-        <text x="510" y="923" fill="#64748b" font-size="8" text-anchor="middle">auto-fix для настроек · fragile specks = warn-only</text>
+        <text x="510" y="923" fill="#64748b" font-size="8" text-anchor="middle">автоправка настроек · хрупкие точки — только предупреждение</text>
 
         <!-- Step 5 -->
-        <text x="500" y="988" fill="#34d399" font-size="8" text-anchor="middle">👤 USER + AUTO-FIX</text>
+        <text x="500" y="988" fill="#34d399" font-size="8" text-anchor="middle">👤 ПОЛЬЗОВАТЕЛЬ + АВТОПРАВКА</text>
         <circle cx="350" cy="1020" r="13" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
         <text x="350" y="1024" fill="white" font-size="10" font-weight="600" text-anchor="middle">5</text>
         <rect x="330" y="1000" width="340" height="96" rx="8" fill="#0f172a"/>
         <rect x="330" y="1000" width="340" height="96" rx="8" fill="rgba(6, 78, 59, .43)" stroke="#34d399" stroke-width="1.5"/>
         <text x="510" y="1036" fill="white" font-size="12" font-weight="600" text-anchor="middle">Настроить палитру и высоты</text>
         <text x="510" y="1056" fill="#94a3b8" font-size="9" text-anchor="middle">spools · τ · layer height · print size</text>
-        <text x="510" y="1073" fill="#64748b" font-size="8" text-anchor="middle">изменения идут в coalesced worker rebuild</text>
+        <text x="510" y="1073" fill="#64748b" font-size="8" text-anchor="middle">изменения уходят в объединённый пересчёт worker</text>
 
         <!-- Step 6 -->
-        <text x="500" y="1138" fill="#a78bfa" font-size="8" text-anchor="middle">⚡ BROWSER UI · THREE.JS</text>
+        <text x="500" y="1138" fill="#a78bfa" font-size="8" text-anchor="middle">⚡ ИНТЕРФЕЙС · THREE.JS</text>
         <circle cx="350" cy="1170" r="13" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5"/>
         <text x="350" y="1174" fill="white" font-size="10" font-weight="600" text-anchor="middle">6</text>
         <rect x="330" y="1150" width="340" height="96" rx="8" fill="#0f172a"/>
@@ -371,31 +371,31 @@
         <text x="510" y="1223" fill="#64748b" font-size="8" text-anchor="middle">сравнить свет спереди / на просвет</text>
 
         <!-- Step 7 -->
-        <text x="500" y="1288" fill="#fbbf24" font-size="8" text-anchor="middle">🔗 EXPORT + INTEGRATION</text>
+        <text x="500" y="1288" fill="#fbbf24" font-size="8" text-anchor="middle">🔗 ЭКСПОРТ + ИНТЕГРАЦИЯ</text>
         <circle cx="350" cy="1320" r="13" fill="#1e293b" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="350" y="1324" fill="white" font-size="10" font-weight="600" text-anchor="middle">7</text>
         <rect x="330" y="1300" width="340" height="96" rx="8" fill="#0f172a"/>
         <rect x="330" y="1300" width="340" height="96" rx="8" fill="rgba(120, 53, 15, .34)" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="510" y="1336" fill="white" font-size="12" font-weight="600" text-anchor="middle">Экспортировать и передать</text>
         <text x="510" y="1356" fill="#94a3b8" font-size="9" text-anchor="middle">STL · 3MF · Describe · slicer ZIP</text>
-        <text x="510" y="1373" fill="#64748b" font-size="8" text-anchor="middle">Browser download · Electron Save As · local slicer API</text>
+        <text x="510" y="1373" fill="#64748b" font-size="8" text-anchor="middle">скачивание в браузере · Electron «Сохранить как» · локальный API слайсера</text>
 
         <!-- End -->
         <rect x="420" y="1450" width="160" height="44" rx="22" fill="rgba(8, 51, 68, .55)" stroke="#22d3ee" stroke-width="2"/>
-        <text x="500" y="1477" fill="white" font-size="11" font-weight="600" text-anchor="middle">READY TO PRINT</text>
+        <text x="500" y="1477" fill="white" font-size="11" font-weight="600" text-anchor="middle">ГОТОВО К ПЕЧАТИ</text>
 
         <!-- Legend is below every process boundary and node. -->
-        <text x="80" y="1530" fill="white" font-size="10" font-weight="600">LEGEND</text>
+        <text x="80" y="1530" fill="white" font-size="10" font-weight="600">ЛЕГЕНДА</text>
         <rect x="166" y="1522" width="18" height="11" rx="2" fill="rgba(8, 51, 68, .55)" stroke="#22d3ee" stroke-width="1"/>
-        <text x="192" y="1531" fill="#94a3b8" font-size="8">Start / End</text>
+        <text x="192" y="1531" fill="#94a3b8" font-size="8">Начало / конец</text>
         <rect x="286" y="1522" width="18" height="11" rx="2" fill="rgba(6, 78, 59, .43)" stroke="#34d399" stroke-width="1"/>
-        <text x="312" y="1531" fill="#94a3b8" font-size="8">Manual / check</text>
+        <text x="312" y="1531" fill="#94a3b8" font-size="8">Ручной шаг / проверка</text>
         <rect x="430" y="1522" width="18" height="11" rx="2" fill="rgba(76, 29, 149, .43)" stroke="#a78bfa" stroke-width="1"/>
-        <text x="456" y="1531" fill="#94a3b8" font-size="8">Worker / UI</text>
+        <text x="456" y="1531" fill="#94a3b8" font-size="8">Worker / интерфейс</text>
         <rect x="554" y="1522" width="18" height="11" rx="2" fill="rgba(120, 53, 15, .34)" stroke="#fbbf24" stroke-width="1"/>
-        <text x="580" y="1531" fill="#94a3b8" font-size="8">Integration</text>
+        <text x="580" y="1531" fill="#94a3b8" font-size="8">Интеграция</text>
         <rect x="676" y="1522" width="18" height="11" rx="2" transform="rotate(45 685 1527.5)" fill="rgba(136, 19, 55, .48)" stroke="#fb7185" stroke-width="1"/>
-        <text x="704" y="1531" fill="#94a3b8" font-size="8">Decision</text>
+        <text x="704" y="1531" fill="#94a3b8" font-size="8">Решение</text>
       </svg>
     </section>
 
@@ -417,16 +417,16 @@
         </ul>
       </article>
       <article class="card">
-        <div class="card-header"><span class="card-dot amber"></span><h2>Desktop delivery</h2></div>
+        <div class="card-header"><span class="card-dot amber"></span><h2>Поставка приложения</h2></div>
         <ul>
-          <li>• Electron даёт окно и native Save As.</li>
-          <li>• electron-updater проверяет GitHub Releases.</li>
-          <li>• Browser и desktop используют один pipeline.</li>
+          <li>• Electron даёт нативное окно и «Сохранить как».</li>
+          <li>• electron-updater проверяет релизы GitHub.</li>
+          <li>• Браузер и настольное приложение используют один конвейер.</li>
         </ul>
       </article>
     </section>
 
-    <p class="footer">HueForge Web v0.8.2 · TypeScript + Vite + Web Workers + three.js · self-contained process flow</p>
+    <p class="footer">HueForge Web v0.8.3 · TypeScript + Vite + Web Workers + three.js · самодостаточная схема процесса</p>
   </div>
 
   <script>
@@ -459,7 +459,7 @@
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
         btn.textContent = '✓ Copied';
       } catch (error) {
-        btn.textContent = '✗ Failed';
+        btn.textContent = '✗ Ошибка';
       }
       setTimeout(() => { btn.textContent = original; }, 2000);
     }
@@ -473,9 +473,9 @@
         link.download = 'hueforge-process-flow.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
-        btn.textContent = '✓ Done';
+        btn.textContent = '✓ Готово';
       } catch (error) {
-        btn.textContent = '✗ Failed';
+        btn.textContent = '✗ Ошибка';
       }
       setTimeout(() => { btn.textContent = original; }, 2000);
     }
@@ -491,9 +491,9 @@
         const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
         pdf.addImage(image, 'PNG', 0, 0, canvas.width, canvas.height);
         pdf.save('hueforge-process-flow.pdf');
-        btn.textContent = '✓ Done';
+        btn.textContent = '✓ Готово';
       } catch (error) {
-        btn.textContent = '✗ Failed';
+        btn.textContent = '✗ Ошибка';
       }
       setTimeout(() => { btn.textContent = original; }, 2000);
     }

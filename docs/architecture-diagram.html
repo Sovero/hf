@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HueForge Web — Architecture Diagram</title>
+  <title>HueForge Web — схема архитектуры</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
@@ -186,17 +186,17 @@
     <div class="header">
       <div class="header-row">
         <div class="pulse-dot"></div>
-        <h1>HueForge Web — Architecture</h1>
+        <h1>HueForge Web — архитектура</h1>
         <div class="toolbar">
           <div class="toolbar-actions">
-            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="copyAsImage(this)">📋 Копировать</button>
             <button onclick="downloadPNG(this)">🖼️ PNG</button>
             <button onclick="downloadPDF(this)">📄 PDF</button>
           </div>
-          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Варианты экспорта" aria-label="Варианты экспорта">⋯</button>
         </div>
       </div>
-      <p class="subtitle">Browser image → layered filament-painting model (STL / 3MF) with a local Node server for slicer hand-off</p>
+      <p class="subtitle">Изображение в браузере → многослойная филаментная модель (STL / 3MF) и локальный Node-сервер для передачи в слайсер</p>
     </div>
 
     <!-- Main Diagram -->
@@ -226,22 +226,22 @@
         <!-- Browser UI → Web Worker (postMessage) -->
         <line x1="290" y1="220" x2="290" y2="298" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <text x="303" y="252" fill="#fb923c" font-size="8">postMessage</text>
-        <text x="303" y="264" fill="#94a3b8" font-size="7">quantize · rebuild</text>
+        <text x="303" y="264" fill="#94a3b8" font-size="7">квантование · перестройка</text>
 
         <!-- Worker → UI (results, dashed) -->
         <line x1="266" y1="298" x2="266" y2="224" stroke="#fb923c" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrowhead)"/>
 
         <!-- Browser UI → Pipeline lib (calls on import/export paths) -->
         <line x1="545" y1="220" x2="545" y2="298" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="558" y="256" fill="#94a3b8" font-size="8">exports · catalogs</text>
+        <text x="558" y="256" fill="#94a3b8" font-size="8">экспорт · каталоги</text>
 
         <!-- Worker imports lib -->
         <line x1="438" y1="370" x2="394" y2="370" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="416" y="362" fill="#94a3b8" font-size="7" text-anchor="middle">imports</text>
+        <text x="416" y="362" fill="#94a3b8" font-size="7" text-anchor="middle">импорт</text>
 
         <!-- UI → localStorage (dashed, routed along the left edge) -->
         <path d="M 192 205 L 182 205 Q 172 205 172 215 L 172 496 Q 172 506 182 506 L 188 506" fill="none" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrowhead)"/>
-        <text x="164" y="365" fill="#94a3b8" font-size="8" text-anchor="middle" transform="rotate(-90 164 365)">settings · spools</text>
+        <text x="164" y="365" fill="#94a3b8" font-size="8" text-anchor="middle" transform="rotate(-90 164 365)">настройки · катушки</text>
 
         <!-- Pipeline lib → Export artifacts -->
         <line x1="545" y1="440" x2="545" y2="508" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
@@ -256,126 +256,126 @@
 
         <!-- Node server → Slicers -->
         <line x1="845" y1="330" x2="845" y2="284" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <text x="858" y="310" fill="#94a3b8" font-size="8">spawn model</text>
+        <text x="858" y="310" fill="#94a3b8" font-size="8">запуск слайсера</text>
 
         <!-- =================================================================
              USERS (external)
              ================================================================= -->
         <rect x="30" y="115" width="110" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="85" y="140" fill="white" font-size="11" font-weight="600" text-anchor="middle">Maker</text>
-        <text x="85" y="156" fill="#94a3b8" font-size="9" text-anchor="middle">local browser</text>
+        <text x="85" y="140" fill="white" font-size="11" font-weight="600" text-anchor="middle">Пользователь</text>
+        <text x="85" y="156" fill="#94a3b8" font-size="9" text-anchor="middle">локальный браузер</text>
 
         <!-- =================================================================
              BROWSER BOUNDARY
              ================================================================= -->
         <rect x="160" y="40" width="520" height="620" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="172" y="58" fill="#fbbf24" font-size="10" font-weight="600">Browser — fully client-side compute</text>
+        <text x="172" y="58" fill="#fbbf24" font-size="10" font-weight="600">Браузер — все вычисления на клиенте</text>
 
         <!-- Browser UI (frontend) -->
         <rect x="190" y="90" width="460" height="130" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="420" y="112" fill="white" font-size="12" font-weight="600" text-anchor="middle">Browser UI — main.ts (TypeScript)</text>
-        <text x="420" y="130" fill="#94a3b8" font-size="9" text-anchor="middle">i18n en/ru · themes · tour · collapse panels</text>
-        <text x="420" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">palette rows · ΔE map · layer slider · dither</text>
-        <text x="420" y="160" fill="#94a3b8" font-size="9" text-anchor="middle">Viewer3D: three.js orbit + ortho top-down</text>
-        <text x="420" y="175" fill="#94a3b8" font-size="9" text-anchor="middle">ViewCube · printer bed · contact shadow</text>
-        <text x="420" y="202" fill="#22d3ee" font-size="8" text-anchor="middle">debounced live reprocess</text>
+        <text x="420" y="112" fill="white" font-size="12" font-weight="600" text-anchor="middle">Интерфейс — main.ts (TypeScript)</text>
+        <text x="420" y="130" fill="#94a3b8" font-size="9" text-anchor="middle">i18n ru/en · темы · тур · сворачивание панелей</text>
+        <text x="420" y="145" fill="#94a3b8" font-size="9" text-anchor="middle">строки палитры · карта ΔE · слайдер слоя · дизеринг</text>
+        <text x="420" y="160" fill="#94a3b8" font-size="9" text-anchor="middle">Viewer3D: three.js — орбита и вид сверху</text>
+        <text x="420" y="175" fill="#94a3b8" font-size="9" text-anchor="middle">ViewCube · стол принтера · контактная тень</text>
+        <text x="420" y="202" fill="#22d3ee" font-size="8" text-anchor="middle">живой пересчёт с задержкой</text>
 
         <!-- Web Worker (compute) -->
         <rect x="190" y="300" width="200" height="140" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="290" y="322" fill="white" font-size="12" font-weight="600" text-anchor="middle">Pipeline Worker</text>
-        <text x="290" y="340" fill="#94a3b8" font-size="9" text-anchor="middle">k-means / luminance</text>
+        <text x="290" y="322" fill="white" font-size="12" font-weight="600" text-anchor="middle">Worker конвейера</text>
+        <text x="290" y="340" fill="#94a3b8" font-size="9" text-anchor="middle">k-means / яркость</text>
         <text x="290" y="355" fill="#94a3b8" font-size="9" text-anchor="middle">Floyd–Steinberg</text>
-        <text x="290" y="370" fill="#94a3b8" font-size="9" text-anchor="middle">band merge · cleanup</text>
-        <text x="290" y="385" fill="#94a3b8" font-size="9" text-anchor="middle">heightmap → mesh</text>
-        <text x="290" y="414" fill="#34d399" font-size="8" text-anchor="middle">coalesced requests</text>
+        <text x="290" y="370" fill="#94a3b8" font-size="9" text-anchor="middle">слияние полос · чистка</text>
+        <text x="290" y="385" fill="#94a3b8" font-size="9" text-anchor="middle">карта высот → меш</text>
+        <text x="290" y="414" fill="#34d399" font-size="8" text-anchor="middle">запросы объединяются</text>
 
         <!-- Pipeline lib (pure TS) -->
         <rect x="440" y="300" width="210" height="140" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="545" y="322" fill="white" font-size="12" font-weight="600" text-anchor="middle">src/lib (pure TS)</text>
+        <text x="545" y="322" fill="white" font-size="12" font-weight="600" text-anchor="middle">src/lib (чистый TS)</text>
         <text x="545" y="340" fill="#94a3b8" font-size="8" text-anchor="middle">exportStl · export3mf · bundle</text>
-        <text x="545" y="355" fill="#94a3b8" font-size="8" text-anchor="middle">ΔE2000 · τ transmission</text>
-        <text x="545" y="370" fill="#94a3b8" font-size="8" text-anchor="middle">9 RU filament brands + custom</text>
-        <text x="545" y="385" fill="#94a3b8" font-size="8" text-anchor="middle">printers · project · printability</text>
-        <text x="545" y="414" fill="#34d399" font-size="8" text-anchor="middle">240 Vitest tests</text>
+        <text x="545" y="355" fill="#94a3b8" font-size="8" text-anchor="middle">ΔE2000 · пропускание τ</text>
+        <text x="545" y="370" fill="#94a3b8" font-size="8" text-anchor="middle">9 брендов филамента РФ + свой</text>
+        <text x="545" y="385" fill="#94a3b8" font-size="8" text-anchor="middle">принтеры · проект · печатаемость</text>
+        <text x="545" y="414" fill="#34d399" font-size="8" text-anchor="middle">292 теста Vitest</text>
 
         <!-- localStorage (persistence) -->
         <rect x="190" y="510" width="200" height="110" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
         <text x="290" y="532" fill="white" font-size="11" font-weight="600" text-anchor="middle">localStorage</text>
-        <text x="290" y="550" fill="#94a3b8" font-size="8" text-anchor="middle">theme · language · sizes</text>
-        <text x="290" y="564" fill="#94a3b8" font-size="8" text-anchor="middle">color count · dither · τ</text>
-        <text x="290" y="578" fill="#94a3b8" font-size="8" text-anchor="middle">custom filaments · spools</text>
-        <text x="290" y="592" fill="#94a3b8" font-size="8" text-anchor="middle">panel collapse · light mode</text>
+        <text x="290" y="550" fill="#94a3b8" font-size="8" text-anchor="middle">тема · язык · размеры</text>
+        <text x="290" y="564" fill="#94a3b8" font-size="8" text-anchor="middle">число цветов · дизеринг · τ</text>
+        <text x="290" y="578" fill="#94a3b8" font-size="8" text-anchor="middle">свои филаменты · катушки</text>
+        <text x="290" y="592" fill="#94a3b8" font-size="8" text-anchor="middle">сворачивание панелей · светлая тема</text>
 
         <!-- Export artifacts -->
         <rect x="440" y="510" width="210" height="110" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="545" y="532" fill="white" font-size="11" font-weight="600" text-anchor="middle">Export artifacts</text>
-        <text x="545" y="550" fill="#94a3b8" font-size="8" text-anchor="middle">binary STL · 3MF (MultiAsSingle)</text>
-        <text x="545" y="564" fill="#94a3b8" font-size="8" text-anchor="middle">Describe.txt swap schedule</text>
-        <text x="545" y="578" fill="#94a3b8" font-size="8" text-anchor="middle">slicer bundle · calib swatch</text>
-        <text x="545" y="592" fill="#94a3b8" font-size="8" text-anchor="middle">.hueforge.json project</text>
+        <text x="545" y="532" fill="white" font-size="11" font-weight="600" text-anchor="middle">Артефакты экспорта</text>
+        <text x="545" y="550" fill="#94a3b8" font-size="8" text-anchor="middle">бинарный STL · 3MF (MultiAsSingle)</text>
+        <text x="545" y="564" fill="#94a3b8" font-size="8" text-anchor="middle">расписание смен в Describe.txt</text>
+        <text x="545" y="578" fill="#94a3b8" font-size="8" text-anchor="middle">набор для слайсера · образец</text>
+        <text x="545" y="592" fill="#94a3b8" font-size="8" text-anchor="middle">проект .hueforge.json</text>
 
         <!-- =================================================================
              LOCAL MACHINE BOUNDARY
              ================================================================= -->
         <rect x="710" y="120" width="270" height="500" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
-        <text x="722" y="140" fill="#fbbf24" font-size="10" font-weight="600">Local machine — offline deploy</text>
+        <text x="722" y="140" fill="#fbbf24" font-size="10" font-weight="600">Локальный ПК — офлайн-установка</text>
 
         <!-- Slicers (external) -->
         <rect x="730" y="170" width="230" height="110" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="845" y="192" fill="white" font-size="11" font-weight="600" text-anchor="middle">Slicers (auto-discovered)</text>
+        <text x="845" y="192" fill="white" font-size="11" font-weight="600" text-anchor="middle">Слайсеры (находятся сами)</text>
         <text x="845" y="212" fill="#94a3b8" font-size="9" text-anchor="middle">Bambu Studio · PrusaSlicer</text>
-        <text x="845" y="227" fill="#94a3b8" font-size="9" text-anchor="middle">or custom path from settings</text>
-        <text x="845" y="252" fill="#fbbf24" font-size="7" text-anchor="middle">slicer-launch.mjs allowlist + guards</text>
+        <text x="845" y="227" fill="#94a3b8" font-size="9" text-anchor="middle">или свой путь в настройках</text>
+        <text x="845" y="252" fill="#fbbf24" font-size="7" text-anchor="middle">slicer-launch.mjs: белый список и защиты</text>
 
         <!-- Node server (backend) -->
         <rect x="730" y="330" width="230" height="120" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
-        <text x="845" y="352" fill="white" font-size="11" font-weight="600" text-anchor="middle">Local Node server</text>
+        <text x="845" y="352" fill="white" font-size="11" font-weight="600" text-anchor="middle">Локальный Node-сервер</text>
         <text x="845" y="370" fill="#94a3b8" font-size="8" text-anchor="middle">server.mjs · node:http · 127.0.0.1</text>
-        <text x="845" y="385" fill="#94a3b8" font-size="8" text-anchor="middle">static deploy build · CSP headers</text>
-        <text x="845" y="400" fill="#94a3b8" font-size="8" text-anchor="middle">POST /api/slicer/open (guarded)</text>
-        <text x="845" y="428" fill="#34d399" font-size="7" text-anchor="middle">size-capped body · no remote access</text>
+        <text x="845" y="385" fill="#94a3b8" font-size="8" text-anchor="middle">статика deploy-сборки · заголовки CSP</text>
+        <text x="845" y="400" fill="#94a3b8" font-size="8" text-anchor="middle">POST /api/slicer/open (с защитой)</text>
+        <text x="845" y="428" fill="#34d399" font-size="7" text-anchor="middle">ограничение размера тела · без удалённого доступа</text>
 
         <!-- Printer / filament ecosystem (external) -->
         <rect x="730" y="490" width="230" height="110" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="845" y="512" fill="white" font-size="11" font-weight="600" text-anchor="middle">Printer &amp; filament world</text>
-        <text x="845" y="530" fill="#94a3b8" font-size="8" text-anchor="middle">15 printer beds (Bambu/Prusa/Qidi…)</text>
+        <text x="845" y="512" fill="white" font-size="11" font-weight="600" text-anchor="middle">Мир принтеров и филамента</text>
+        <text x="845" y="530" fill="#94a3b8" font-size="8" text-anchor="middle">15 столов принтеров (Bambu/Prusa/Qidi…)</text>
         <text x="845" y="545" fill="#94a3b8" font-size="8" text-anchor="middle">FDplast · Bestfilament · Filamentarno!</text>
-        <text x="845" y="560" fill="#94a3b8" font-size="8" text-anchor="middle">Grantwidget · НИТ · user spools</text>
-        <text x="845" y="584" fill="#94a3b8" font-size="7" text-anchor="middle">catalogs baked in · M600 swap schedule</text>
+        <text x="845" y="560" fill="#94a3b8" font-size="8" text-anchor="middle">Grantwidget · НИТ · катушки пользователя</text>
+        <text x="845" y="584" fill="#94a3b8" font-size="7" text-anchor="middle">каталоги встроены · расписание смен M600</text>
 
         <!-- =================================================================
              GITHUB CI (cloud)
              ================================================================= -->
         <rect x="730" y="30" width="230" height="60" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
         <text x="845" y="52" fill="white" font-size="11" font-weight="600" text-anchor="middle">GitHub Actions</text>
-        <text x="845" y="68" fill="#94a3b8" font-size="8" text-anchor="middle">typecheck · 240 tests · build</text>
-        <text x="845" y="82" fill="#94a3b8" font-size="8" text-anchor="middle">tag → release + deploy-package zip</text>
+        <text x="845" y="68" fill="#94a3b8" font-size="8" text-anchor="middle">typecheck · 292 теста · сборка</text>
+        <text x="845" y="82" fill="#94a3b8" font-size="8" text-anchor="middle">тег → релиз + zip deploy-пакета</text>
 
         <!-- =================================================================
              LEGEND (below all boundaries)
              ================================================================= -->
-        <text x="140" y="700" fill="white" font-size="10" font-weight="600">Legend</text>
+        <text x="140" y="700" fill="white" font-size="10" font-weight="600">Легенда</text>
 
         <rect x="220" y="692" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
-        <text x="242" y="700" fill="#94a3b8" font-size="8">Frontend (UI)</text>
+        <text x="242" y="700" fill="#94a3b8" font-size="8">Фронтенд (UI)</text>
 
         <rect x="330" y="692" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
-        <text x="352" y="700" fill="#94a3b8" font-size="8">Compute / Server</text>
+        <text x="352" y="700" fill="#94a3b8" font-size="8">Вычисления / сервер</text>
 
         <rect x="460" y="692" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
-        <text x="482" y="700" fill="#94a3b8" font-size="8">Persistence</text>
+        <text x="482" y="700" fill="#94a3b8" font-size="8">Хранение</text>
 
         <rect x="575" y="692" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
-        <text x="597" y="700" fill="#94a3b8" font-size="8">Cloud / CI</text>
+        <text x="597" y="700" fill="#94a3b8" font-size="8">Облако / CI</text>
 
         <rect x="680" y="692" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
-        <text x="702" y="700" fill="#94a3b8" font-size="8">External</text>
+        <text x="702" y="700" fill="#94a3b8" font-size="8">Внешнее</text>
 
         <line x1="770" y1="697" x2="786" y2="697" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
-        <text x="792" y="700" fill="#94a3b8" font-size="8">Local API</text>
+        <text x="792" y="700" fill="#94a3b8" font-size="8">Локальный API</text>
 
         <line x1="860" y1="697" x2="876" y2="697" stroke="#fb923c" stroke-width="1.5"/>
-        <text x="882" y="700" fill="#94a3b8" font-size="8">Worker bus</text>
+        <text x="882" y="700" fill="#94a3b8" font-size="8">Шина worker</text>
       </svg>
     </div>
 
@@ -384,46 +384,46 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>Client-first compute</h3>
+          <h3>Вычисления на клиенте</h3>
         </div>
         <ul>
-          <li>• Everything runs in the browser — images never leave the machine</li>
-          <li>• Heavy quantization/meshing in a coalescing Web Worker</li>
-          <li>• Viewer3D: on-demand rendering, orbit + ortho top-down</li>
-          <li>• 9 RU filament brands + user-defined spools</li>
+          <li>• Всё считается в браузере — изображения не покидают ПК</li>
+          <li>• Тяжёлые шаги (квантование, меш) — в Web Worker с объединением запросов</li>
+          <li>• Viewer3D: отрисовка по необходимости, орбита и вид сверху</li>
+          <li>• 9 брендов филамента РФ + свои катушки</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Local server, narrow scope</h3>
+          <h3>Локальный сервер с узкой задачей</h3>
         </div>
         <ul>
-          <li>• node:http on 127.0.0.1 — no remote exposure</li>
-          <li>• Serves the prebuilt deploy package (no build tools on target PC)</li>
-          <li>• Single guarded API: open exported model in a slicer</li>
-          <li>• Slicer discovery via well-known install paths or custom path</li>
+          <li>• node:http на 127.0.0.1 — наружу не открыт</li>
+          <li>• Отдаёт готовый deploy-пакет (на целевом ПК не нужны сборщики)</li>
+          <li>• Единственный API с защитой: открыть экспорт в слайсере</li>
+          <li>• Поиск слайсера по типовым путям установки или по своему</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot amber"></div>
-          <h3>Delivery pipeline</h3>
+          <h3>Поставка и релизы</h3>
         </div>
         <ul>
-          <li>• CI on every push: typecheck + 240 Vitest tests + build</li>
-          <li>• Semantic-version tags cut GitHub Releases</li>
-          <li>• Release asset: hueforge-web-deploy-vX.Y.Z.zip (Node + deploy.bat)</li>
-          <li>• install.bat bootstraps dev setup; update.ps1 for upgrades</li>
+          <li>• CI на каждый push: typecheck + 292 теста Vitest + сборка</li>
+          <li>• Семантические теги создают релизы GitHub</li>
+          <li>• Артефакт релиза: hueforge-web-deploy-vX.Y.Z.zip (Node + deploy.bat)</li>
+          <li>• install.bat ставит dev-окружение; update.ps1 — обновления</li>
         </ul>
       </div>
     </div>
 
     <!-- Footer -->
     <p class="footer">
-      HueForge Web v0.7.6 • Vite + TypeScript + three.js • Offline-capable • self-contained diagram
+      HueForge Web v0.8.3 • Vite + TypeScript + three.js • работает офлайн • самодостаточная схема
     </p>
   </div>
 
@@ -437,9 +437,9 @@
         const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
         const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        btn.textContent = '✓ Copied!';
+        btn.textContent = '✓ Скопировано';
       } catch (e) {
-        btn.textContent = '✗ Failed';
+        btn.textContent = '✗ Ошибка';
       }
       setTimeout(() => btn.textContent = orig, 2000);
     }
@@ -456,9 +456,9 @@
         link.download = 'hueforge-web-architecture.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
-        btn.textContent = '✓ Done!';
+        btn.textContent = '✓ Готово';
       } catch (e) {
-        btn.textContent = '✗ Failed';
+        btn.textContent = '✗ Ошибка';
       }
       setTimeout(() => btn.textContent = orig, 2000);
     }
@@ -477,9 +477,9 @@
         const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
         pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
         pdf.save('hueforge-web-architecture.pdf');
-        btn.textContent = '✓ Done!';
+        btn.textContent = '✓ Готово';
       } catch (e) {
-        btn.textContent = '✗ Failed';
+        btn.textContent = '✗ Ошибка';
       }
       setTimeout(() => btn.textContent = orig, 2000);
     }
