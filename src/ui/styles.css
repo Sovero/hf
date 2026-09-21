@@ -691,6 +691,83 @@ body {
   color: var(--muted);
 }
 
+/* A saved style: the name applies it, the ✕ next to it deletes it. */
+.preset-user {
+  display: flex;
+  align-items: stretch;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.preset-btn-user {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-style: dashed;
+}
+
+.preset-del {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.preset-del:hover,
+.preset-del:focus-visible {
+  color: var(--danger, #f87171);
+  border-color: currentColor;
+}
+
+.preset-save {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+#tone-style-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+#tone-style-save {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+#tone-style-save:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tone-style-note {
+  margin: 0.3rem 0 0;
+}
+
 /* Result of the current setting: base + relief + filament changes. */
 .tone-result {
   margin: 0.5rem 0 0;

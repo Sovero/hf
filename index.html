@@ -182,7 +182,13 @@
               <button type="button" class="preset-btn" data-preset="graphic" data-i18n="presetGraphic" aria-pressed="false">Graphic</button>
               <span id="tone-custom" class="preset-custom" hidden data-i18n="presetCustom">Custom</span>
             </div>
+            <div class="preset-row preset-row-user" id="tone-custom-presets" role="group" aria-labelledby="relief-style-label" hidden></div>
+            <div class="preset-save">
+              <input id="tone-style-name" type="text" maxlength="40" data-i18n-placeholder="toneStyleName" data-i18n-aria="toneStyleName" />
+              <button id="tone-style-save" type="button" data-i18n="toneSaveStyle">Save style</button>
+            </div>
             <p id="preset-hint" class="muted small slider-hint"></p>
+            <p id="tone-style-note" class="muted small tone-style-note" role="status" hidden></p>
             <div class="slider-row dither-row">
               <span class="slider-label" data-i18n="toneContrast">Contrast</span>
               <div class="slider-main">

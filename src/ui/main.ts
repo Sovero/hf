@@ -3,6 +3,7 @@ import { exportStl, export3mfFile, exportFilename, type PipelineResult } from '.
 import { loadImageForPrint } from '../lib/loadImage'
 import { fitToneInWorker, quantizeInWorker, rebuildInWorker, setResultListener } from './workerClient'
 import { matchTonePreset, presetPercents, tonePreset, type TonePresetId } from '../lib/tonePresets'
+import { MAX_CUSTOM_TONES, addCustomTone, customTones, removeCustomTone, restoreCustomTone, toneForValues } from '../lib/customTones'
 import type { WorkerResult } from '../lib/workerProtocol'
 import { MATERIALS, LIBRARY, BRANDS, materialName, nearestLibraryFilament, findFilament, addCustomFilament, removeCustomFilament, restoreCustomFilament, customFilaments, isCustomId, CUSTOM_BRAND_ID, type LibraryChoice, type MaterialId, type CustomFilament } from '../lib/filamentLibrary'
 import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION, type ProjectFile, type ProjectSettings, type ProjectPaletteSlot } from '../lib/project'
@@ -119,6 +120,10 @@ const powerValue = $<HTMLSpanElement>('#power-value')
 const presetRow = $<HTMLDivElement>('#tone-presets')
 const presetHint = $<HTMLParagraphElement>('#preset-hint')
 const presetCustom = $<HTMLSpanElement>('#tone-custom')
+const presetRowUser = $<HTMLDivElement>('#tone-custom-presets')
+const toneStyleName = $<HTMLInputElement>('#tone-style-name')
+const toneStyleSave = $<HTMLButtonElement>('#tone-style-save')
+const toneStyleNote = $<HTMLParagraphElement>('#tone-style-note')
 const toneResult = $<HTMLParagraphElement>('#tone-result')
 const reliefSplit = $<HTMLParagraphElement>('#relief-split')
 const mergeCheck = $<HTMLInputElement>('#merge-deltae-check')
@@ -480,6 +485,12 @@ function applyStaticText() {
     const key = el.dataset.i18nAria
     if (key) el.ariaLabel = tr(key)
   }
+  // Text fields: [data-i18n-placeholder] maps a key to el.placeholder, so a
+  // hint typed into the field itself follows the language like the rest.
+  for (const el of document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]')) {
+    const key = el.dataset.i18nPlaceholder
+    if (key) el.placeholder = tr(key)
+  }
   // Help: every [data-help] element gets a localized tooltip; sections also
   // title themselves so hovering anywhere on the intro paragraph explains it.
   for (const el of document.querySelectorAll<HTMLElement>('[data-help]')) {
@@ -528,6 +539,7 @@ function setLang(next: Lang, persist = true) {
   langCode.textContent = lang.toUpperCase()
   applyStaticText()
   syncReliefSplit()
+  renderCustomToneChips() // chip names are the user's, but their tooltips follow the language
   syncToneReadouts()
   renderToneResult()
   setDesktopLang(lang)
@@ -1199,9 +1211,10 @@ function tonePercents(): { contrast: number; power: number } {
 
 /**
  * Percentage badges of the two relief-tone sliders, plus which named style
- * they currently hold. A tone matching no style is not an error — the auto-fit
- * and hand-made settings land there — so it is shown as «Custom» with its own
- * numbers rather than leaving the row looking unset.
+ * they currently hold — a built-in one or a style the user saved. A tone
+ * matching no style is not an error (the auto-fit and hand-made settings land
+ * there), so it is shown as «Custom» with its own numbers rather than leaving
+ * the row looking unset.
  */
 function syncToneReadouts() {
   const { contrast, power } = tonePercents()
@@ -1213,7 +1226,20 @@ function syncToneReadouts() {
     btn.classList.toggle('is-active', on)
     btn.ariaPressed = on ? 'true' : 'false'
   }
-  presetCustom.hidden = active !== null
+  // A saved style is the same thing with a user's name on it: its chip lights
+  // up and the hint names the style instead of the generic «Custom», so the
+  // panel answers «what am I looking at» the same way for both kinds.
+  const saved = toneForValues(customTones(), contrast, power)
+  for (const [id, chip] of toneChips) {
+    const on = saved?.id === id
+    chip.classList.toggle('is-active', on)
+    chip.ariaPressed = on ? 'true' : 'false'
+  }
+  presetCustom.hidden = active !== null || saved !== null
+  if (saved) {
+    presetHint.textContent = tr('presetHintCustomSaved', { name: saved.name, contrast, power })
+    return
+  }
   const key = active ? `presetHint${active.charAt(0).toUpperCase()}${active.slice(1)}` : 'presetHintCustom'
   presetHint.textContent = tr(key, { contrast, power })
 }
@@ -1251,6 +1277,98 @@ function renderToneResult() {
           swaps: swaps.map(mm2).join(' / '),
         })
       : tr('toneResultSingle', { base: mm2(base), relief: mm2(total - base), total: mm2(total), colors })
+}
+
+/**
+ * Live map of a saved style's id to its chip, so highlighting follows the
+ * sliders without rebuilding the row: a rebuilt row would drop the focus from
+ * the button that was just pressed and turn the ✕ into a moving target.
+ */
+const toneChips = new Map<string, HTMLButtonElement>()
+
+/**
+ * Draw the saved styles as chips: the name applies the setting, the ✕ beside it
+ * deletes it. Run when the list itself changes — a save, a delete, a project
+ * that brings its own styles, a language switch — never on a slider move.
+ */
+function renderCustomToneChips() {
+  const list = customTones()
+  toneChips.clear()
+  presetRowUser.textContent = ''
+  presetRowUser.hidden = list.length === 0
+  for (const tone of list) {
+    const wrap = document.createElement('div')
+    wrap.className = 'preset-user'
+    const chip = document.createElement('button')
+    chip.type = 'button'
+    chip.className = 'preset-btn preset-btn-user'
+    chip.dataset.tone = tone.id
+    chip.textContent = tone.name
+    chip.ariaPressed = 'false'
+    chip.title = tr('presetHintCustomSaved', { name: tone.name, contrast: tone.contrast, power: tone.power })
+    const del = document.createElement('button')
+    del.type = 'button'
+    del.className = 'preset-del'
+    del.dataset.del = tone.id
+    del.textContent = '✕'
+    del.title = tr('toneStyleDelete', { name: tone.name })
+    del.ariaLabel = del.title
+    wrap.append(chip, del)
+    presetRowUser.appendChild(wrap)
+    toneChips.set(tone.id, chip)
+  }
+  syncToneReadouts()
+}
+
+/**
+ * Note under the save row. Saving and deleting are one click with no dialog, so
+ * this note is the whole feedback, and it clears itself: a stale «saved»
+ * message left standing would read as the state of the current setting.
+ */
+let toneNoteTimer = 0
+
+function showToneNote(text: string) {
+  toneStyleNote.textContent = text
+  toneStyleNote.hidden = false
+  window.clearTimeout(toneNoteTimer)
+  toneNoteTimer = window.setTimeout(() => {
+    toneStyleNote.hidden = true
+    toneStyleNote.textContent = ''
+  }, 6000)
+}
+
+/**
+ * Save the current sliders as a named style. An empty name is not an error —
+ * the style is stored as «My style» rather than refusing to save it. A setting
+ * that already has a style is not stored twice: the note names the existing
+ * one, so two identical chips can never appear.
+ */
+function saveCurrentToneAsStyle() {
+  const { contrast, power } = tonePercents()
+  const name = toneStyleName.value.trim() || tr('toneStyleDefaultName')
+  const result = addCustomTone({ name, contrast, power })
+  if (result.status === 'duplicate') {
+    showToneNote(tr('toneStyleExists', { name: result.tone?.name ?? name }))
+    return
+  }
+  if (result.status === 'full') {
+    showToneNote(tr('toneStyleFull', { max: MAX_CUSTOM_TONES }))
+    return
+  }
+  // 'invalid' needs a value outside the slider range, which the sliders cannot
+  // produce: nothing was stored and there is nothing to report.
+  if (result.status !== 'added' || !result.tone) return
+  toneStyleName.value = ''
+  renderCustomToneChips()
+  showToneNote(tr('toneStyleSaved', { name: result.tone.name }))
+}
+
+/** Delete a saved style: gone from this browser and from the next project save. */
+function deleteToneStyle(id: string) {
+  const removed = removeCustomTone(id)
+  if (!removed) return
+  renderCustomToneChips()
+  showToneNote(tr('toneStyleRemoved', { name: removed.name }))
 }
 
 /**
@@ -2972,6 +3090,15 @@ function bindInputs() {
     }
     if (currentFile) void readFile(currentFile)
   }
+  // A named style writes both sliders at once and then takes the same path a
+  // drag does, so built-in chips and saved chips cannot drift apart.
+  const applyToneValues = (contrast: number, power: number) => {
+    contrastSlider.value = String(contrast)
+    powerSlider.value = String(power)
+    syncToneReadouts()
+    saveSettings()
+    flushReprocess()
+  }
   colorsSlider.addEventListener('change', () => {
     flushReprocess()
     saveSettings()
@@ -3062,13 +3189,29 @@ function bindInputs() {
       const id = btn.dataset.preset as TonePresetId | undefined
       if (!id) return
       const { contrast, power } = presetPercents(tonePreset(id))
-      contrastSlider.value = String(contrast)
-      powerSlider.value = String(power)
-      syncToneReadouts()
-      saveSettings()
-      flushReprocess()
+      applyToneValues(contrast, power)
     })
   }
+
+  // Saving the current setting under a name, and deleting a saved style: the
+  // row of saved chips is bound once here (its buttons come and go), so a chip
+  // re-render never leaves a listener behind.
+  toneStyleSave.addEventListener('click', () => saveCurrentToneAsStyle())
+  toneStyleName.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    saveCurrentToneAsStyle()
+  })
+  presetRowUser.addEventListener('click', (e) => {
+    const btn = e.target instanceof Element ? e.target.closest<HTMLButtonElement>('button') : null
+    if (!btn) return
+    if (btn.dataset.del) {
+      deleteToneStyle(btn.dataset.del)
+      return
+    }
+    const tone = customTones().find((t) => t.id === btn.dataset.tone)
+    if (tone) applyToneValues(tone.contrast, tone.power)
+  })
 
   // ΔE merge: checkbox toggles the threshold input; both reprocess.
   mergeCheck.addEventListener('change', () => {
@@ -3727,6 +3870,7 @@ function saveProject() {
         darkIsTall,
         backlight: lightBackBtn.classList.contains('is-active'),
         ...(bandHeights ? { bandHeightsMm: [...bandHeights] } : {}),
+        ...(customTones().length ? { customTones: customTones() } : {}),
       },
       palette,
     })
@@ -3748,7 +3892,11 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   ditherValue.textContent = `${ditherSlider.value}%`
   contrastSlider.value = String(clamp(s.contrast ?? 100, 0, 300, 100))
   powerSlider.value = String(clamp(s.power ?? 100, 20, 300, 100))
-  syncToneReadouts()
+  // Styles carried by the project are registered in this browser too (by id, so
+  // one already saved here is not duplicated) — that is what makes a shared
+  // project bring its chips along. The render also refreshes the highlight.
+  for (const tone of s.customTones ?? []) restoreCustomTone(tone)
+  renderCustomToneChips()
   if (s.mergeDeltaE !== undefined) {
     const on = s.mergeDeltaE > 0
     mergeCheck.checked = on
@@ -3951,6 +4099,7 @@ btnOpenSlicer.addEventListener('click', async () => {
 versionBadge.textContent = `v${__APP_VERSION__}`
 
 restoreSettings()
+renderCustomToneChips() // saved styles come from their own store, not from the settings blob
 fillPrinterSelect()
 void setupOpenInSlicer()
 

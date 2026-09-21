@@ -9,6 +9,7 @@
  */
 
 import { TONE_CONTRAST_MAX, TONE_CONTRAST_MIN, TONE_POWER_MAX, TONE_POWER_MIN } from './quantize'
+import { normalizeToneName, type CustomTone } from './customTones'
 
 export interface EmbeddedFilament {
   /** Composite id, always starting with `my:` for user filaments. */
@@ -49,6 +50,11 @@ export interface ProjectSettings {
   backlight: boolean
   /** Per-band sheet thickness in mm (palette order); absent = equal bands. */
   bandHeightsMm?: number[]
+  /**
+   * Relief styles saved by the user (percent on both sliders). Carried by the
+   * project so a shared file brings its styles along; absent = none.
+   */
+  customTones?: CustomTone[]
 }
 
 export interface ProjectFile {
@@ -189,6 +195,31 @@ export function parseProjectFile(text: string): ProjectFile {
       throw new ProjectFileError('settings.bandHeightsMm must have one positive finite number per color')
     }
     settings.bandHeightsMm = [...(s.bandHeightsMm as number[])]
+  }
+  // Optional saved relief styles: id, name and both values in the slider
+  // range. Kept verbatim (the cap on the list is a panel guard, not a file
+  // rule), so a project round-trips its styles exactly.
+  if (s.customTones !== undefined) {
+    if (!Array.isArray(s.customTones)) throw new ProjectFileError('settings.customTones must be an array')
+    settings.customTones = s.customTones.map((item, i) => {
+      if (!isRecord(item)) throw new ProjectFileError(`settings.customTones[${i}] must be an object`)
+      const id = str(item.id)
+      const name = typeof item.name === 'string' ? normalizeToneName(item.name) : ''
+      if (!id || name.length === 0) {
+        throw new ProjectFileError(`settings.customTones[${i}] needs an id and a name`)
+      }
+      const values: Record<'contrast' | 'power', number> = { contrast: 0, power: 0 }
+      for (const key of ['contrast', 'power'] as const) {
+        const value = item[key]
+        const lo = key === 'contrast' ? TONE_CONTRAST_MIN : TONE_POWER_MIN
+        const hi = key === 'contrast' ? TONE_CONTRAST_MAX : TONE_POWER_MAX
+        if (!isFiniteNumber(value) || (value as number) < lo * 100 || (value as number) > hi * 100) {
+          throw new ProjectFileError(`settings.customTones[${i}].${key} must be a number in ${lo * 100}..${hi * 100}`)
+        }
+        values[key] = value as number
+      }
+      return { id, name, contrast: values.contrast, power: values.power }
+    })
   }
   // Optional relief tone (percent, 100 = unchanged): keeps the geometry of
   // older projects identical when the keys are absent.

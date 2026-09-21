@@ -360,8 +360,35 @@ export const dict: Dict = {
     ru: 'Графика: тона расходятся к краям диапазона, переходы между цветами резкие, рельеф читается как гравировка — контраст {contrast} %, детали {power} %.',
   },
   presetHintCustom: {
-    en: 'Custom setting: contrast {contrast}%, detail {power}%. Pick a style above to return to a named look.',
-    ru: 'Свой набор: контраст {contrast} %, детали {power} %. Выберите стиль выше, чтобы вернуться к именованному виду.',
+    en: 'Custom setting: contrast {contrast}%, detail {power}%. Pick a style above to return to a named look, or save this one under a name of your own.',
+    ru: 'Свой набор: контраст {contrast} %, детали {power} %. Выберите стиль выше, чтобы вернуться к именованному виду, или сохраните этот под своим именем.',
+  },
+  presetHintCustomSaved: {
+    en: 'Saved style «{name}»: contrast {contrast}%, detail {power}%.',
+    ru: 'Сохранённый стиль «{name}»: контраст {contrast} %, детали {power} %.',
+  },
+  toneStyleName: { en: 'Style name', ru: 'Название стиля' },
+  toneSaveStyle: { en: 'Save style', ru: 'Сохранить стиль' },
+  toneStyleDefaultName: { en: 'My style', ru: 'Мой стиль' },
+  toneStyleSaved: {
+    en: 'Style «{name}» saved — it stays in this browser and in the project file.',
+    ru: 'Стиль «{name}» сохранён — он останется в этом браузере и в файле проекта.',
+  },
+  toneStyleExists: {
+    en: 'This setting is already saved as «{name}».',
+    ru: 'Такая настройка уже сохранена как «{name}».',
+  },
+  toneStyleFull: {
+    en: 'Style list is full ({max} styles) — delete one first.',
+    ru: 'Список стилей заполнен ({max}) — сначала удалите один.',
+  },
+  toneStyleRemoved: {
+    en: 'Style «{name}» deleted.',
+    ru: 'Стиль «{name}» удалён.',
+  },
+  toneStyleDelete: {
+    en: 'Delete style «{name}»',
+    ru: 'Удалить стиль «{name}»',
   },
   toneResult: {
     en: 'Base {base} + relief {relief} = {total} mm tall · {colors} · filament changes at {swaps} mm',
