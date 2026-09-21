@@ -123,3 +123,74 @@ export function smoothScalarField(
   }
   return out
 }
+
+/**
+ * Large-scale low-pass for the RELIEF map. Deliberately NOT edge-preserving:
+ * for a printed bas-relief every photographic edge that survives into the
+ * height map becomes a cliff ("himalayas") exactly where the picture has
+ * detail. Detail belongs to the COLOR bands; the height should follow only
+ * the large forms. So this pass blurs everything within a large radius and
+ * then renormalizes to the original 0..1 envelope, keeping the tone curve
+ * and the band alignment intact.
+ *
+ * Radius scales with the picture: ~1/18 of the larger side at strength 1
+ * (a 150 mm print at 0.4 mm nozzle is ~375 px → radius ≈ 21 px ≈ 8 mm),
+ * ramping linearly down to ~1/36 at half strength. Two box-blur passes
+ * approximate a Gaussian — cheap and separable, and the printed surface
+ * is re-snapped to the layer ladder afterwards anyway.
+ */
+export function reliefLowPassField(
+  t: Float32Array,
+  width: number,
+  height: number,
+  strength: number,
+): Float32Array {
+  const k = Math.min(1, Math.max(0, strength))
+  if (k === 0 || width < 3 || height < 3) return t
+  const large = Math.max(width, height)
+  const radius = Math.max(2, Math.round((large / 36) * (0.5 + k)))
+  // No renormalization on purpose: stretching the blurred field back to the
+  // original envelope would hand the extremes right back to the small
+  // details, and the cliffs would return. The blur simply compresses the
+  // relief range (cliffs become slopes) while the large-form ordering —
+  // what the tone curve and the band alignment actually read — survives.
+  return boxBlur2D(t, width, height, radius)
+}
+
+/** Two separable box passes ≈ Gaussian; clamped edges, one O(n) sweep per axis. */
+function boxBlur2D(src: Float32Array, width: number, height: number, radius: number): Float32Array {
+  const tmp = new Float32Array(src.length)
+  const out = new Float32Array(src.length)
+  boxBlurAxis(src, tmp, width, height, radius, true)
+  boxBlurAxis(tmp, out, width, height, radius, false)
+  return out
+}
+
+function boxBlurAxis(
+  src: Float32Array,
+  dst: Float32Array,
+  width: number,
+  height: number,
+  radius: number,
+  horizontal: boolean,
+): void {
+  const outer = horizontal ? height : width
+  const inner = horizontal ? width : height
+  const stride = horizontal ? 1 : width
+  for (let o = 0; o < outer; o++) {
+    const base = o * (horizontal ? width : 1)
+    // Sliding window sum with clamped edges.
+    let sum = 0
+    for (let d = -radius; d <= radius; d++) {
+      const i = Math.min(inner - 1, Math.max(0, d))
+      sum += src[base + i * stride]
+    }
+    const norm = 2 * radius + 1
+    for (let p = 0; p < inner; p++) {
+      dst[base + p * stride] = sum / norm
+      const outIdx = Math.min(inner - 1, Math.max(0, p - radius))
+      const inIdx = Math.min(inner - 1, Math.max(0, p + radius + 1))
+      sum += src[base + inIdx * stride] - src[base + outIdx * stride]
+    }
+  }
+}

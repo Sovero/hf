@@ -1,5 +1,5 @@
 import { mapToLuminanceBands, quantizeToPalette } from './quantize'
-import { bilateralSmoothRGBA, smoothScalarField } from './smooth'
+import { bilateralSmoothRGBA, reliefLowPassField } from './smooth'
 import { applyMerge, mergeMap } from './bandMerge'
 import { finishPipeline, type PaletteEntry, type PipelineOptions } from './pipeline'
 import { measureRelief, type ReliefMetrics } from './reliefCompare'
@@ -221,9 +221,12 @@ function quantizeOnce(
   }
   // Relief smoothing: the stored luminance is the height map's input, so
   // smoothing it here means previews, mesh, exports and printability all
-  // share one smoothed field. The color assignment above stays untouched.
+  // share one smoothed field. Deliberately a plain low-pass (NOT edge
+  // preserving): every photographic edge kept in the height map prints as a
+  // cliff — detail belongs to the color bands, the relief follows the large
+  // forms. The color assignment above stays untouched.
   if (smooth > 0 && q.luminance.length === width * height) {
-    q.luminance = smoothScalarField(q.luminance, width, height, smooth)
+    q.luminance = reliefLowPassField(q.luminance, width, height, smooth)
   }
   // Seed custom per-band thicknesses so the merge pass can carry them
   // through (finishPipeline re-applies them to the merged lengths).
