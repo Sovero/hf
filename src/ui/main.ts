@@ -120,7 +120,7 @@ const contrastValue = $<HTMLSpanElement>('#contrast-value')
 const powerSlider = $<HTMLInputElement>('#power-slider')
 const powerValue = $<HTMLSpanElement>('#power-value')
 const presetRow = $<HTMLDivElement>('#tone-presets')
-const presetHint = $<HTMLParagraphElement>('#preset-hint')
+
 const presetCustom = $<HTMLSpanElement>('#tone-custom')
 const presetRowUser = $<HTMLDivElement>('#tone-custom-presets')
 const toneStyleName = $<HTMLInputElement>('#tone-style-name')
@@ -1235,6 +1235,14 @@ function syncToneReadouts() {
     const on = btn.dataset.preset === active
     btn.classList.toggle('is-active', on)
     btn.ariaPressed = on ? 'true' : 'false'
+    // What the style does is a HINT on the style itself, not a permanent line
+    // under the row: the style's own numbers never change, and the current ones
+    // already sit next to the two sliders below.
+    const preset = btn.dataset.preset as TonePresetId | undefined
+    if (preset) {
+      const { contrast: c, power: p } = presetPercents(tonePreset(preset))
+      btn.title = tr(`presetHint${preset.charAt(0).toUpperCase()}${preset.slice(1)}`, { contrast: c, power: p })
+    }
   }
   // A saved style is the same thing with a user's name on it: its chip lights
   // up and the hint names the style instead of the generic «Custom», so the
@@ -1247,11 +1255,10 @@ function syncToneReadouts() {
   }
   presetCustom.hidden = active !== null || saved !== null
   if (saved) {
-    presetHint.textContent = tr('presetHintCustomSaved', { name: saved.name, contrast, power })
+    presetCustom.title = tr('presetHintCustomSaved', { name: saved.name, contrast, power })
     return
   }
-  const key = active ? `presetHint${active.charAt(0).toUpperCase()}${active.slice(1)}` : 'presetHintCustom'
-  presetHint.textContent = tr(key, { contrast, power })
+  presetCustom.title = active ? '' : tr('presetHintCustom', { contrast, power })
 }
 
 /** Bare millimetre number in the panel's own style: «3.60». */

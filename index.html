@@ -142,7 +142,6 @@
               </div>
               <input id="colors-value" class="colors-value" type="number" min="2" max="8" step="1" value="4" aria-label="Number of colors (type to set)" data-help="helpColorsValue" />
             </div>
-            <p class="muted small slider-hint" data-i18n="sliderHint">Drag the slider, or type a count (2–8) in the box</p>
             <div class="slider-row dither-row">
               <span class="slider-label" data-i18n="ditherLabel">Dithering</span>
               <div class="slider-main">
@@ -150,7 +149,6 @@
               </div>
               <span id="dither-value" class="dither-value muted small">0%</span>
             </div>
-            <p class="muted small slider-hint" data-i18n="ditherHint">Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.</p>
             <div class="slider-row dither-row">
               <span class="slider-label" data-i18n="smoothLabel">Smoothing</span>
               <div class="slider-main">
@@ -158,12 +156,10 @@
               </div>
               <span id="smooth-value" class="dither-value muted small">30%</span>
             </div>
-            <p class="muted small slider-hint" data-i18n="smoothHint">Smoothing flattens photo noise before colors and heights are built — no more rough «himalaya» surfaces, gradients become clean fills. Edges stay sharp. 0 = off.</p>
             <div class="merge-row">
               <label class="merge-label"><input id="merge-deltae-check" type="checkbox" data-help="helpMergeDeltaE" /> <span data-i18n="mergeCheck">Merge near-duplicate colors</span></label>
               <label class="merge-thresh" id="merge-thresh-wrap"><input id="merge-deltae" type="number" min="1" max="40" step="1" value="10" aria-label="ΔE merge threshold" data-help="helpMergeDeltaE" /> <span class="muted small">ΔE</span></label>
             </div>
-            <p class="muted small slider-hint" data-i18n="mergeHint">Adjacent bands whose colors are closer than the ΔE threshold become one filament — fewer swaps, same look.</p>
           </div>
           </div>
         </section>
@@ -195,7 +191,6 @@
               <input id="tone-style-name" type="text" maxlength="40" data-i18n-placeholder="toneStyleName" data-i18n-aria="toneStyleName" />
               <button id="tone-style-save" type="button" data-i18n="toneSaveStyle">Save style</button>
             </div>
-            <p id="preset-hint" class="muted small slider-hint"></p>
             <p id="tone-style-note" class="muted small tone-style-note" role="status" hidden></p>
             <div class="slider-row dither-row">
               <span class="slider-label" data-i18n="toneContrast">Contrast</span>
@@ -230,7 +225,6 @@
             <label><span data-i18n="paramLayer">Layer height</span> <input id="layer-mm" type="number" value="0.2" min="0.04" max="0.6" step="0.02" data-help="helpLayerMm" /> <span data-i18n="unitMm">mm</span></label>
           </div>
           <p id="relief-split" class="muted small"></p>
-          <p class="muted small" data-i18n="sizeHint">Colors are stacked as equal bands from base to max height.</p>
           </div>
         </section>
 

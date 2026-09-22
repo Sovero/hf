@@ -83,8 +83,8 @@ export const dict: Dict = {
     ru: 'Тёмные участки печатаются последними, сверху — подходит для тёмного на светлом фоне.',
   },
   helpSize: {
-    en: 'Physical print dimensions and layer settings. The resolution of the working image adapts to the print size automatically.',
-    ru: 'Физические размеры печати и настройки слоёв. Разрешение рабочего изображения подстраивается под размер печати автоматически.',
+    en: 'Physical print dimensions and layer settings. The resolution of the working image adapts to the print size automatically. Brightness sets how tall each spot prints, measured in whole print layers (0.2 mm by default): dark areas stay low, bright areas rise — or the other way round in the opposite depth mode. Neighbouring pixels share their corner heights, so a tonal change prints as a slanted face and a flat area stays exactly flat; vertical walls appear only along the outer edge of the model. Every color still owns a slice of the total height (that slice is where its filament is loaded); the surface within a slice uses every layer, so the picture is smooth instead of one plateau per color. By default the slices are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom slices thicker than the top ones — a dark base blocks light, thin light slices blend softly.',
+    ru: 'Физические размеры печати и настройки слоёв. Разрешение рабочего изображения подстраивается под размер печати автоматически. Яркость задаёт высоту каждого места в целых слоях печати (по умолчанию шаг 0,2 мм): тёмные участки печатаются ниже, светлые — выше (в обратном режиме глубины наоборот). Соседние пиксели делят общие вершины по углам, поэтому перепад тона печатается наклонной гранью, а ровный участок остаётся ровным; вертикальные стенки есть только по внешнему контуру модели. Каждый цвет по-прежнему владеет своей частью общей высоты — на её границе загружается его филамент — но внутри части используется вся лестница слоёв, поэтому картинка получается плавной, а не по одной плоскости на цвет. По умолчанию части равные; ползунок высоты в строке палитры задаёт цвету собственную толщину. HueForge-практика: нижние части делайте толще верхних — тёмный низ лучше держит свет, а тонкие светлые верха мягко смешиваются.',
   },
   helpWidth: {
     en: 'Print width in millimeters (20–500).',
@@ -248,20 +248,8 @@ export const dict: Dict = {
   },
 
   // ---- colors slider ----
-  sliderHint: {
-    en: 'Drag the slider, or type a count (2–8) in the box',
-    ru: 'Потяните ползунок или введите число (2–8) в поле',
-  },
   ditherLabel: { en: 'Dithering', ru: 'Дизеринг' },
-  ditherHint: {
-    en: 'Dithering scatters band boundaries into smooth gradients (Floyd–Steinberg). 0 = off.',
-    ru: 'Дизеринг размывает границы полос в плавные градиенты (Флойда–Стейнберга). 0 = выкл.',
-  },
   smoothLabel: { en: 'Smoothing', ru: 'Сглаживание' },
-  smoothHint: {
-    en: 'Smoothing flattens photo noise before colors and heights are built — no more rough «himalaya» surfaces, gradients become clean fills. Edges stay sharp. 0 = off.',
-    ru: 'Сглаживание убирает фотографический шум до построения цветов и высот — поверхность без «гималаев», градиенты превращаются в чистые заливки. Границы остаются резкими. 0 = выкл.',
-  },
   mergeCheck: {
     en: 'Merge near-duplicate colors',
     ru: 'Сливать близкие цвета',
@@ -273,10 +261,6 @@ export const dict: Dict = {
   previewQuantEmpty: {
     en: 'The printable preview appears after loading',
     ru: 'Предпросмотр печати появится после загрузки',
-  },
-  mergeHint: {
-    en: 'Adjacent bands whose colors are closer than the ΔE threshold become one filament — fewer swaps, same look.',
-    ru: 'Соседние полосы с цветами ближе порога ΔE печатаются одним филаментом — меньше смен, тот же вид.',
   },
   helpMergeDeltaE: {
     en: 'Merges adjacent bands whose colors differ by less than the threshold (CIE76 ΔE in Lab). 2–3 is a just-noticeable difference; 10+ merges clearly similar shades. The merged band keeps the taller step; the survivor keeps its own filament color.',
@@ -311,12 +295,12 @@ export const dict: Dict = {
     ru: 'Модель — цвета филаментов. ΔE-карта — верхняя поверхность окрашена тепловой картой ошибок (зелёный = совпадает с целью, красный = заметное расхождение; шкала как в панели ΔE-карты). Срез слоя — следите за ползунком слоёв: всё выше выбранного слоя отрезано, видно, какие цвета напечатаны к этой высоте.',
   },
   helpDither: {
-    en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it.',
-    ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт.',
+    en: 'Error-diffusion strength: at higher values the boundary between two filaments becomes a dithered mix of both instead of a hard step — smoother gradients, but more tiny regions. Applies on reprocess; exports include it. 0 = off.',
+    ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт. 0 = выкл.',
   },
   helpSmooth: {
-    en: 'Applied twice: colors get bilateral smoothing before quantization (clean fills instead of muddy mixes, sharp edges kept), and the relief map gets a large-scale blur — the height follows only the big forms of the picture, so photographic detail prints as color, not as cliffs. Higher = flatter relief; photo prints usually want 30–60%.',
-    ru: 'Применяется дважды: цвета сглаживаются перед квантованием (чистые заливки вместо грязных смесей, границы резкие), а карта рельефа — крупномасштабным размытием: высота следует только за большими формами картинки, детали фотографии печатаются цветом, а не утёсами. Больше — ровнее рельеф; фотографиям обычно хорошо 30–60%.',
+    en: 'Sets how large the forms are that the print height follows. The relief map is blurred over a wide radius, so the height carries only the big shapes of the picture — photographic detail prints as color instead of turning into cliffs (the «himalayas»), and the depth of the picture’s tones is kept as the blur is undone in amplitude. The colors are cleaned separately and gently (one-cell edge-preserving pass), so the picture’s shapes and the filament fills never blur away. Higher = only larger forms in the height; photo prints usually want 30–60%. 0 = off.',
+    ru: 'Задаёт, насколько крупным формам следует высота печати. Карта рельефа размывается широким радиусом, поэтому в высоте остаются только большие формы картинки — детали фотографии печатаются цветом, а не превращаются в утёсы («гималаи»), а глубина тонов сохраняется: размытие компенсируется по амплитуде. Цвета чистятся отдельно и мягко (сглаживание с сохранением границ в одну клетку), поэтому формы картинки и заливки филаментов не размываются. Больше — в высоте остаются только более крупные формы; фотографиям обычно хорошо 30–60%. 0 = выкл.',
   },
   helpToneContrast: {
     en: 'Relief contrast (Filapaint calls this «Contrast»): how far the picture’s tones reach across the relief height. 100% = the tones as they are; below 100% every height moves toward the middle of the range, so the surface flattens; above 100% the tonal steps are pushed outward — deeper shadows against higher highlights. The curve never saturates, and the lowest and highest tones stay on the base and on the top of the model, so the full relief height is always used. Which filament prints each pixel, and the palette itself, stay exactly as they were: the color bands are read off the same values, so no color region shifts.',
@@ -429,10 +413,6 @@ export const dict: Dict = {
     ru: 'Основание {base} мм + рельеф {relief} мм = {total} мм высоты',
   },
   unitMm: { en: 'mm', ru: 'мм' },
-  sizeHint: {
-    en: 'Brightness sets how tall each spot prints, measured in whole print layers (0.2 mm by default): dark areas stay low, bright areas rise — or the other way round in the opposite depth mode. Neighbouring pixels share their corner heights, so a tonal change prints as a slanted face and a flat area stays exactly flat; vertical walls appear only along the outer edge of the model. Every color still owns a slice of the total height (that slice is where its filament is loaded); the surface within a slice uses every layer, so the picture is smooth instead of one plateau per color. By default the slices are equal; drag the height slider in a palette row to give a color its own thickness. HueForge practice: keep the bottom slices thicker than the top ones — a dark base blocks light, thin light slices blend softly.',
-    ru: 'Яркость задаёт высоту каждого места в целых слоях печати (по умолчанию шаг 0,2 мм): тёмные участки печатаются ниже, светлые — выше (в обратном режиме глубины наоборот). Соседние пиксели делят общие вершины по углам, поэтому перепад тона печатается наклонной гранью, а ровный участок остаётся ровным; вертикальные стенки есть только по внешнему контуру модели. Каждый цвет по-прежнему владеет своей частью общей высоты — на её границе загружается его филамент — но внутри части используется вся лестница слоёв, поэтому картинка получается плавной, а не по одной плоскости на цвет. По умолчанию части равные; ползунок высоты в строке палитры задаёт цвету собственную толщину. HueForge-практика: нижние части делайте толще верхних — тёмный низ лучше держит свет, а тонкие светлые верха мягко смешиваются.',
-  },
 
   // ---- printability ----
   pbDefault: { en: 'Load an image to run the check.', ru: 'Загрузите изображение, чтобы выполнить проверку.' },
@@ -1204,6 +1184,7 @@ export const dict: Dict = {
   },
   deltaEStats: { en: 'Mean ΔE {mean} · max {max}', ru: 'Средний ΔE {mean} · макс {max}' },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
+  tourSmoothTitle: { en: 'Smoothing', ru: 'Сглаживание' },
   helpMode3dModel: {
     en: 'The height map itself, one print layer per height step, with neighbouring pixels sharing their corner heights — exactly how the model looks in the slicer and after printing.',
     ru: 'Сама высотная карта: шаг высоты — один слой печати, а соседние пиксели делят общие вершины по углам — так модель выглядит в слайсере и после печати.',
