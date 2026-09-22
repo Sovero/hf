@@ -151,8 +151,8 @@ export const dict: Dict = {
     ru: 'Ваши цвета в порядке печати. Щёлкните по образцу, чтобы изменить цвет; ★ — выбрать реальный филамент из каталога российских производителей; ↺ — вернуть.',
   },
   paletteTau: {
-    en: 'Opacity length τ (mm): the thickness that hides ~63% of the layer below. Bigger = more opaque. Calibrate per spool with a swatch for accurate previews.',
-    ru: 'Длина пропускания τ (мм): толщина, скрывающая ~63% слоя ниже. Больше = плотнее. Для точных предпросмотров откалибруйте филамент по образцу.',
+    en: 'Opacity length τ (mm): the thickness that hides ~63% of the layer below. Bigger = more opaque. The default 0.3 mm matches a typical opaque PLA; translucent spools want more — calibrate per spool with a swatch for accurate previews.',
+    ru: 'Длина пропускания τ (мм): толщина, скрывающая ~63% слоя ниже. Больше = плотнее. По умолчанию 0.3 мм — типичный непрозрачный PLA; прозрачным катушкам нужно больше. Для точных предпросмотров откалибруйте филамент по образцу.',
   },
   calibIntro: {
     en: 'Per-filament opacity: print the swatch for a color, photograph it, and the app fits τ from your photo — previews then match the real spool.',
@@ -270,6 +270,22 @@ export const dict: Dict = {
     en: 'Merged {n} near-duplicate color(s): {a} → {b} colors',
     ru: 'Слито {n} близких цветов: {a} → {b}',
   },
+  colorModeLuma: {
+    en: 'Brightness bands',
+    ru: 'По яркости (HueForge)',
+  },
+  colorModeImage: {
+    en: 'Colors from the picture',
+    ru: 'По цветам изображения',
+  },
+  helpColorMode: {
+    en: 'How each pixel gets its filament. Brightness bands (the HueForge Standard / Filapaint model): the picture’s brightness sets the column height and the height band sets the color, so the palette is the average color of a brightness slice. Best for graphics, logos and high-contrast artwork — and the mode that matches a HueForge reference model.',
+    ru: 'Как пиксель получает филамент. По яркости (модель HueForge Standard / Filapaint): яркость задаёт высоту столбика, а полоса высоты — цвет, поэтому палитра — это средний цвет среза яркости. Лучше всего для графики, логотипов и контрастного арта; это же режим, которым сверяется эталонная модель HueForge.',
+  },
+  helpColorModeImage: {
+    en: 'Colors from the picture: the palette is cut from the image’s own RGB (median cut), each pixel takes the nearest color, and every color owns one equal slice of the height. Details that share a brightness but differ in hue — a face in shadow next to its cloak — keep their own filaments instead of averaging into one muddy color, and the palette no longer mixes a red sky with pale stone into brown. Inside each terrace the shading still follows the local brightness. It no longer follows the documented «height follows brightness» model, so a HueForge reference model will not line up — use it for photographs.',
+    ru: 'По цветам изображения: палитра берётся из собственных цветов картинки (median cut), пиксель берёт ближайший цвет, и каждый цвет владеет одной равной долей высоты. Детали, которые совпадают по яркости, но различаются оттенком — лицо в тени рядом с плащом, — получают свои филаменты вместо усреднения в один грязный цвет, а палитра больше не смешивает красное небо со светлым камнем в коричневый. Внутри каждой террасы светотень по-прежнему следует локальной яркости. Документированная модель «высота следует яркости» здесь больше не действует, поэтому эталонная модель HueForge не совпадёт — режим для фотографий.',
+  },
   coverageSegTitle: {
     en: 'Color {order} ({hex}) covers {pct} of the print area',
     ru: 'Цвет {order} ({hex}) занимает {pct} площади печати',
@@ -299,8 +315,8 @@ export const dict: Dict = {
     ru: 'Сила дизеринга: чем выше, тем больше граница двух филаментов превращается в их смесь, а не резкую ступень — градиенты плавнее, но мелких участков больше. Применяется при пересчёте и попадает в экспорт. 0 = выкл.',
   },
   helpSmooth: {
-    en: 'Sets how large the forms are that the print height follows. The relief map is blurred over a wide radius, so the height carries only the big shapes of the picture — photographic detail prints as color instead of turning into cliffs (the «himalayas»), and the depth of the picture’s tones is kept as the blur is undone in amplitude. The colors are cleaned separately and gently (one-cell edge-preserving pass), so the picture’s shapes and the filament fills never blur away. Higher = only larger forms in the height; photo prints usually want 30–60%. 0 = off.',
-    ru: 'Задаёт, насколько крупным формам следует высота печати. Карта рельефа размывается широким радиусом, поэтому в высоте остаются только большие формы картинки — детали фотографии печатаются цветом, а не превращаются в утёсы («гималаи»), а глубина тонов сохраняется: размытие компенсируется по амплитуде. Цвета чистятся отдельно и мягко (сглаживание с сохранением границ в одну клетку), поэтому формы картинки и заливки филаментов не размываются. Больше — в высоте остаются только более крупные формы; фотографиям обычно хорошо 30–60%. 0 = выкл.',
+    en: 'Sets how large the forms are that the print height follows. The relief map is blurred over a wide radius, so the height carries only the big shapes of the picture — photographic detail prints as color instead of turning into cliffs (the «himalayas»), and the depth of the picture’s tones is kept as the blur is undone in amplitude. The colors are cleaned separately and gently (one-cell edge-preserving pass), so the picture’s shapes and the filament fills never blur away. Higher = only larger forms in the height; photo prints usually want 30–60%. 0 = off. In the «colors from the picture» mode the height map follows the colors, so this wide blur is skipped there — the slider then only cleans the colors, and the geometry keeps its terraces with sloped shoulders instead of cliffs.',
+    ru: 'Задаёт, насколько крупным формам следует высота печати. Карта рельефа размывается широким радиусом, поэтому в высоте остаются только большие формы картинки — детали фотографии печатаются цветом, а не превращаются в утёсы («гималаи»), а глубина тонов сохраняется: размытие компенсируется по амплитуде. Цвета чистятся отдельно и мягко (сглаживание с сохранением границ в одну клетку), поэтому формы картинки и заливки филаментов не размываются. Больше — в высоте остаются только более крупные формы; фотографиям обычно хорошо 30–60%. 0 = выкл. В режиме «По цветам изображения» карта высот следует за цветами, поэтому широкое размытие там не применяется — ползунок чистит только цвета, а геометрия сохраняет террасы со склонами вместо стен.',
   },
   helpToneContrast: {
     en: 'Relief contrast (Filapaint calls this «Contrast»): how far the picture’s tones reach across the relief height. 100% = the tones as they are; below 100% every height moves toward the middle of the range, so the surface flattens; above 100% the tonal steps are pushed outward — deeper shadows against higher highlights. The curve never saturates, and the lowest and highest tones stay on the base and on the top of the model, so the full relief height is always used. Which filament prints each pixel, and the palette itself, stay exactly as they were: the color bands are read off the same values, so no color region shifts.',
@@ -524,8 +540,8 @@ export const dict: Dict = {
     ru: 'Автоподбор филаментов',
   },
   autoPickHelp: {
-    en: 'Suggest the closest real filament for every palette color (each spool used once), adopt their exact colors into the palette, then fine-tune any slot with ★.',
-    ru: 'Подбирает ближайший реальный филамент к каждому цвету палитры (без повторов), принимает их точные цвета в палитру — затем любой слот можно поправить вручную через ★.',
+    en: 'Picks real catalog spools for the palette: the tones stay visually distinct (ΔE ≥ 2.5), your own filaments win between equal colors, and a color covering more of the print gets the closer match. Their exact colors are adopted into the palette — fine-tune any slot with ★.',
+    ru: 'Подбирает реальные катушки под палитру: цвета остаются различимыми в печати (ΔE ≥ 2.5), ваши собственные филаменты побеждают при равных цветах, а цвет, занимающий большую площадь, получает более точное совпадение. Точные цвета катушек принимаются в палитру — любой слот можно поправить через ★.'
   },
   autoPickDone: {
     en: 'Filaments picked for every color — fine-tune with ★ if needed',
@@ -1181,6 +1197,7 @@ export const dict: Dict = {
   deltaEStats: { en: 'Mean ΔE {mean} · max {max}', ru: 'Средний ΔE {mean} · макс {max}' },
   tourDitherTitle: { en: 'Dithering', ru: 'Дизеринг' },
   tourSmoothTitle: { en: 'Smoothing', ru: 'Сглаживание' },
+  tourColorModeTitle: { en: 'Where colors come from', ru: 'Откуда берутся цвета' },
   helpMode3dModel: {
     en: 'The height map itself, one print layer per height step, with neighbouring pixels sharing their corner heights — exactly how the model looks in the slicer and after printing.',
     ru: 'Сама высотная карта: шаг высоты — один слой печати, а соседние пиксели делят общие вершины по углам — так модель выглядит в слайсере и после печати.',

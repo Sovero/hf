@@ -76,6 +76,7 @@ export const TOUR_STEPS: TourStep[] = [
   { target: '#colors-slider', titleKey: 'sliderAria', textKey: 'helpColorsSlider', interactive: true },
   { target: '#dither-slider', titleKey: 'tourDitherTitle', textKey: 'helpDither' },
   { target: '#smooth-slider', titleKey: 'tourSmoothTitle', textKey: 'helpSmooth' },
+  { target: '#color-mode-options', titleKey: 'tourColorModeTitle', textKey: 'helpColorMode' },
   { target: '#depth-details', titleKey: 'panelDepth', textKey: 'helpDepth' },
   { target: '#size-details', titleKey: 'panelSize', textKey: 'helpSize' },
   { target: '#width-mm', titleKey: 'tourWidthTitle', textKey: 'helpWidth' },

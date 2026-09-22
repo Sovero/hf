@@ -11,7 +11,7 @@ import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
 import { DEFAULT_TAU_MM, backlitBandColors, tauBandHeights, transmittedBandColors } from '../lib/transmission'
-import type { ColorCount, QuantizedImage, SourcePreview } from '../lib/types'
+import type { ColorCount, ColorMode, QuantizedImage, SourcePreview } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { fitPrintSizeToAspect } from '../lib/printConsts'
@@ -224,6 +224,15 @@ type Settings = {
   backlight: boolean
   mergeDeltaE: number
   dropThreshold: number
+  /** 'image' = palette from the picture's own colors; absent = brightness bands. */
+  colorMode?: ColorMode
+}
+
+/** Depth-of-colors choice from the Colors panel (absent control = brightness bands). */
+function readColorMode(): ColorMode {
+  return document.querySelector<HTMLInputElement>('input[name="color-mode"]:checked')?.value === 'image'
+    ? 'image'
+    : 'luma'
 }
 /** Clamp to [lo, hi]; non-finite or missing input falls back to `fb`. */
 function clampNum(v: number, lo: number, hi: number, fb: number): number {
@@ -254,6 +263,7 @@ function saveSettings() {
       backlight: lightBackBtn.classList.contains('is-active'),
       mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
       dropThreshold: clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1),
+      colorMode: readColorMode(),
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -293,6 +303,10 @@ function restoreSettings() {
       syncMergeThreshold()
     }
     if (s.backlight === true) setLightMode('back')
+    const colorModeInput = document.querySelector<HTMLInputElement>(
+      `input[name="color-mode"][value="${s.colorMode === 'image' ? 'image' : 'luma'}"]`,
+    )
+    if (colorModeInput) colorModeInput.checked = true
     if (s.dropThreshold !== undefined) {
       dropSparseThreshold.value = String(clampNum(Number(s.dropThreshold), 0.1, 10, 1))
     }
@@ -352,6 +366,7 @@ function readOptions() {
     maxHeightMm,
     layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
     mergeDeltaE,
+    colorMode: readColorMode(),
   }
 }
 
@@ -1672,14 +1687,14 @@ function captureSnapshot(): EditorSnapshot | null {
     maxMm: opts.maxHeightMm,
     layerMm: opts.layerMm,
     dither: Math.round(opts.dither * 100),
-    smooth: Math.round(opts.smooth * 100),
-    contrast: Math.round(opts.contrast * 100),
-    power: Math.round(opts.power * 100),
-    darkIsTall: opts.darkIsTall,
-    backlight: lightBackBtn.classList.contains('is-active'),
-    ...(opts.mergeDeltaE ? { mergeDeltaE: opts.mergeDeltaE } : {}),
-    ...(bandHeights && bandHeights.length ? { bandHeightsMm: [...bandHeights] } : {}),
-  }
+    smooth: Math.round(opts.smooth * 100),        contrast: Math.round(opts.contrast * 100),
+        power: Math.round(opts.power * 100),
+        darkIsTall: opts.darkIsTall,
+        backlight: lightBackBtn.classList.contains('is-active'),
+        ...(opts.mergeDeltaE ? { mergeDeltaE: opts.mergeDeltaE } : {}),
+        ...(opts.colorMode === 'image' ? { colorMode: 'image' as const } : {}),
+        ...(bandHeights && bandHeights.length ? { bandHeightsMm: [...bandHeights] } : {}),
+      }
   return {
     settings,
     catalogActive,
@@ -2335,15 +2350,21 @@ function openCatalogDialog() {
 }
 
 /**
- * Auto-pick: suggest the closest real filament for every palette color
- * (unique assignment, so N slots get N different spools), adopt each
- * suggestion's color into the palette and record it as the slot's filament.
- * The user can then fine-tune any slot through the ★ popover.
+ * Auto-pick: suggest a real catalog spool for every palette color. The pick
+ * works on spool colors, weighs each slot by the share of the print it
+ * covers, keeps the tones visually distinct and prefers the user's own
+ * filaments. Each suggestion's exact color is adopted into the palette and
+ * recorded as the slot's filament; the user can then fine-tune any slot
+ * through the ★ popover.
  */
 autoPickBtn.addEventListener('click', () => {
   if (!current) return
   const palette = current.quantized.palette
-  const result = autoPickFilaments(palette)
+  const shares = colorShares(current.quantized.indexMap, palette.length)
+  const result = autoPickFilaments(palette, {
+    weights: shares.map((s) => s.share),
+    preferredIds: [...customFilaments().map((f) => f.id), ...recentSpoolIds()],
+  })
   if (!result.ids.some(Boolean)) {
     showStatus(tr('autoPickNone'), true)
     return
@@ -2848,7 +2869,7 @@ function renderPalette() {
     const tauInput = document.createElement('input')
     tauInput.type = 'number'
     tauInput.className = 'palette-tau'
-    tauInput.min = '0.2'
+    tauInput.min = '0.05'
     tauInput.max = '6'
     tauInput.step = '0.1'
     tauInput.value = tauOfSlot(i).toFixed(2)
@@ -3349,7 +3370,7 @@ function setupDropZone() {
 
 function bindInputs() {
   for (const el of document.querySelectorAll<HTMLInputElement>(
-    'input[name="mode"], #width-mm, #height-mm, #base-mm, #max-mm, #layer-mm',
+    'input[name="mode"], input[name="color-mode"], #width-mm, #height-mm, #base-mm, #max-mm, #layer-mm',
   )) {
     el.addEventListener('change', () => {
       saveSettings()
@@ -4163,6 +4184,7 @@ function saveProject() {
         power: Math.round(opts.power * 100),
         darkIsTall,
         backlight: lightBackBtn.classList.contains('is-active'),
+        ...(readColorMode() === 'image' ? { colorMode: 'image' as const } : {}),
         ...(bandHeights ? { bandHeightsMm: [...bandHeights] } : {}),
         ...(customTones().length ? { customTones: customTones() } : {}),
       },
@@ -4216,6 +4238,10 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   syncMaxInput()
   const mode = document.querySelector<HTMLInputElement>(`input[name="mode"][value="${s.darkIsTall ? 'dark' : 'light'}"]`)
   if (mode) mode.checked = true
+  const colorMode = document.querySelector<HTMLInputElement>(
+    `input[name="color-mode"][value="${s.colorMode === 'image' ? 'image' : 'luma'}"]`,
+  )
+  if (colorMode) colorMode.checked = true
   setLightMode(s.backlight ? 'back' : 'front')
   renderTicks()
   saveSettings()

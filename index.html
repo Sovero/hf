@@ -160,6 +160,10 @@
               <label class="merge-label"><input id="merge-deltae-check" type="checkbox" data-help="helpMergeDeltaE" /> <span data-i18n="mergeCheck">Merge near-duplicate colors</span></label>
               <label class="merge-thresh" id="merge-thresh-wrap"><input id="merge-deltae" type="number" min="1" max="40" step="1" value="10" aria-label="ΔE merge threshold" data-help="helpMergeDeltaE" /> <span class="muted small">ΔE</span></label>
             </div>
+            <div id="color-mode-options" class="mode-options">
+              <label><input type="radio" name="color-mode" value="luma" checked data-help="helpColorMode" /><span data-i18n="colorModeLuma">Brightness bands (HueForge)</span></label>
+              <label><input type="radio" name="color-mode" value="image" data-help="helpColorModeImage" /><span data-i18n="colorModeImage">Colors from the picture</span></label>
+            </div>
           </div>
           </div>
         </section>
