@@ -10,6 +10,7 @@
 
 import { TONE_CONTRAST_MAX, TONE_CONTRAST_MIN, TONE_POWER_MAX, TONE_POWER_MIN } from './quantize'
 import { normalizeToneName, type CustomTone } from './customTones'
+import type { ColorMode } from './types'
 
 export interface EmbeddedFilament {
   /** Composite id, always starting with `my:` for user filaments. */
@@ -48,6 +49,12 @@ export interface ProjectSettings {
   mergeDeltaE?: number
   /** Edge-preserving smoothing (percent, 0 = off); absent = not specified (old projects). */
   smooth?: number
+  /**
+   * How pixels get their filament: 'image' = colors from the picture (median
+   * cut), absent = the brightness-band model every older project was made
+   * with.
+   */
+  colorMode?: ColorMode
   darkIsTall: boolean
   backlight: boolean
   /** Per-band sheet thickness in mm (palette order); absent = equal bands. */
@@ -194,6 +201,14 @@ export function parseProjectFile(text: string): ProjectFile {
       throw new ProjectFileError('settings.smooth must be a number in 0..100')
     }
     settings.smooth = s.smooth as number
+  }
+  // Optional color mode: absent = the brightness-band model, which is what
+  // every project written before the mode existed was built with.
+  if (s.colorMode !== undefined) {
+    if (s.colorMode !== 'luma' && s.colorMode !== 'image') {
+      throw new ProjectFileError("settings.colorMode must be 'luma' or 'image'")
+    }
+    settings.colorMode = s.colorMode as ColorMode
   }
   // Optional per-band thicknesses: one positive finite number per color.
   if (s.bandHeightsMm !== undefined) {

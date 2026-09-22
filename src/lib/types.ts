@@ -7,6 +7,18 @@ export interface RGB {
 /** Allowed filament color counts (the UI slider is capped at 8). */
 export type ColorCount = 2 | 3 | 4 | 5 | 6 | 7 | 8
 
+/**
+ * Where a pixel's filament comes from.
+ *
+ * - `luma` (default) — the Filapaint / HueForge Standard model: the picture's
+ *   brightness decides the column height, the height band decides the color.
+ *   The palette is the mean color of each brightness slice.
+ * - `image` — colors first: the palette is a median cut of the picture's own
+ *   RGB (so hues survive instead of averaging into mud), every pixel takes the
+ *   nearest color, and each color owns one equal slice of the printed height.
+ */
+export type ColorMode = 'luma' | 'image'
+
 /** A decoded, downscaled image ready for processing. */
 export interface LoadedImage {
   width: number

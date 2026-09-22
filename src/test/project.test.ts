@@ -37,6 +37,18 @@ function sample(): ProjectFile {
 }
 
 describe('project save/load', () => {
+  it('roundtrips the color mode and leaves old files on the brightness model', () => {
+    const image = parseProjectFile(
+      JSON.stringify({ ...sample(), settings: { ...sample().settings, colorMode: 'image' } }),
+    )
+    expect(image.settings.colorMode).toBe('image')
+    // Projects written before the mode existed keep the HueForge model.
+    expect(sample().settings.colorMode).toBeUndefined()
+    expect(() =>
+      parseProjectFile(JSON.stringify({ ...sample(), settings: { ...sample().settings, colorMode: 'rainbow' } })),
+    ).toThrow(ProjectFileError)
+  })
+
   it('roundtrips smooth strength and leaves old files without the field', () => {
     const withSmooth = parseProjectFile(
       JSON.stringify({ ...sample(), settings: { ...sample().settings, smooth: 45 } }),

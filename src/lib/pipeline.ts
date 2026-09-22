@@ -1,7 +1,8 @@
-import type { ColorCount, HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
+import type { ColorCount, ColorMode, HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
 import { loadImageForPrint } from './loadImage'
 import type { Lang } from '../i18n'
-import { mapToLuminanceBands } from './quantize'
+import { mapToImageColors, mapToLuminanceBands, relaxCliffs, withBandFloor } from './quantize'
+import { maxReliefStep, minBandFraction } from './printConsts'
 import { buildHeightField, snappedBandTops } from './heightmap'
 import { buildMesh } from './mesh'
 import { generateBinaryStl } from './exportStl'
@@ -72,6 +73,12 @@ export interface PipelineOptions {
    * fills) and the luminance/relief field after (no per-pixel spikes).
    */
   smooth?: number
+  /**
+   * Where a pixel's filament comes from: the picture's brightness bands
+   * (default, HueForge Standard — the documented relief model) or the
+   * picture's own colors by median cut. See `ColorMode`.
+   */
+  colorMode?: ColorMode
 }
 
 /**
@@ -85,17 +92,47 @@ export interface PipelineOptions {
 export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang = 'en'): Promise<PipelineResult> {
   const { image } = await loadImageForPrint(file, opts.widthMm, opts.heightMm, lang)
 
-  // The palette is derived from the image's luminance bands, so no separate
-  // color quantization step is needed — band colors are the band contents.
-  const quantized = mapToLuminanceBands(
-    image.rgba,
+  // Two ways to decide a pixel's filament, both ending in the same geometry:
+  // brightness bands (the HueForge Standard model, band colors are the band
+  // contents) or the picture's own colors (median cut, equal height slices per
+  // color). The band floor keeps a strong tone preset from squeezing a color
+  // down to one unprintable layer (see `enforceBandFloor`); the worker applies
+  // the same floor, so both entry points produce the same schedule.
+  const floorFrac = minBandFraction(
     opts.numColors,
-    image.width,
-    image.height,
-    opts.darkIsTall,
-    opts.dither,
-    { contrast: opts.contrast, power: opts.power },
+    Math.max(0, opts.maxHeightMm - opts.baseMm),
+    opts.layerMm ?? 0.2,
   )
+  let quantized: QuantizedImage
+  if (opts.colorMode === 'image') {
+    const banded = withBandFloor(
+      mapToImageColors(image.rgba, opts.numColors, image.width, image.height, opts.darkIsTall, opts.dither),
+      floorFrac,
+    )
+    // Color boundaries are height steps: spread them into printable slopes so
+    // a detailed picture does not print as a comb of vertical fins.
+    quantized = {
+      ...banded,
+      luminance: relaxCliffs(
+        banded.luminance,
+        image.width,
+        image.height,
+        maxReliefStep(Math.max(0, opts.maxHeightMm - opts.baseMm), opts.layerMm ?? 0.2),
+      ),
+    }
+  } else {
+    quantized = mapToLuminanceBands(
+      image.rgba,
+      opts.numColors,
+      image.width,
+      image.height,
+      opts.darkIsTall,
+      opts.dither,
+      { contrast: opts.contrast, power: opts.power },
+      undefined,
+      floorFrac,
+    )
+  }
 
   return finishPipeline(image, quantized, opts)
 }

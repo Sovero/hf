@@ -5,13 +5,15 @@ import {
   TONE_POWER_MAX,
   TONE_POWER_MIN,
   applyTone,
+  enforceBandFloor,
   mapToLuminanceBands,
 } from '../lib/quantize'
+import { NOZZLE_MM, minBandFraction } from '../lib/printConsts'
 import { finishPipeline } from '../lib/pipeline'
 import { snappedBandTops } from '../lib/heightmap'
 import { buildProjectFile, parseProjectFile } from '../lib/project'
 import type { PipelineOptions } from '../lib/pipeline'
-import type { RGB } from '../lib/types'
+import type { PrintSettings, RGB } from '../lib/types'
 
 /**
  * Relief tone stage: the Filapaint / HueForge Standard pair of knobs — relief
@@ -259,6 +261,95 @@ describe('relief tone in project files', () => {
   it('rejects an out-of-range or non-numeric tone', () => {
     for (const bad of [{ contrast: 400 }, { contrast: -10 }, { power: 5 }, { power: 500 }, { contrast: 'lots' }, { power: null }]) {
       expect(() => parseProjectFile(JSON.stringify(file(bad))), JSON.stringify(bad)).toThrow()
+    }
+  })
+})
+
+/**
+ * Printable band floor: the tone curve moves the swap heights with the relief,
+ * so a strong preset can squeeze a color into a single layer — a band the print
+ * preview (rightly) renders as almost fully transparent, which is how a
+ * picture's shadows melt into one muddy mass of the color below. The floor
+ * keeps every band at least one nozzle wide without ever letting a pixel leave
+ * the band it was assigned to.
+ */
+describe('printable band floor', () => {
+  /** Shipped «deep relief» preset: contrast 130 %, power 250 %. */
+  const DEEP = { contrast: 1.3, power: 2.5 }
+  const settings: PrintSettings = {
+    widthMm: 40,
+    heightMm: 40,
+    baseMm: 0.8,
+    maxHeightMm: 8,
+    darkIsTall: true,
+    layerMm: 0.2,
+  }
+
+  it('is the nozzle width plus one layer of headroom, capped at an even split', () => {
+    expect(minBandFraction(4, 7.2, 0.2)).toBeCloseTo((NOZZLE_MM + 0.2) / 7.2, 12)
+    // More colors than the height can carry: the floor can only divide evenly.
+    expect(minBandFraction(40, 7.2, 0.2)).toBeCloseTo(1 / 40, 12)
+    expect(minBandFraction(4, 0, 0.2)).toBe(0)
+    expect(minBandFraction(0, 7.2, 0.2)).toBeGreaterThan(0)
+  })
+
+  it('raises only the bands that are too thin and keeps the tops monotone', () => {
+    const relief = new Float32Array([0, 0.2, 0.5, 0.9])
+    const floored = enforceBandFloor(relief, [0.02, 0.5, 0.8], 0.1)
+    expect(floored.tops[0]).toBeCloseTo(0.1, 12)
+    expect(floored.tops[1]).toBeCloseTo(0.5, 12)
+    // The top band always ends at 1: the maximum height is an input, and the
+    // floor may only redistribute heights below it.
+    expect(floored.tops[2]).toBeCloseTo(1, 12)
+    for (let b = 1; b < floored.tops.length; b++) {
+      expect(floored.tops[b]!).toBeGreaterThan(floored.tops[b - 1]!)
+    }
+  })
+
+  it('keeps every pixel inside the band it was assigned to', () => {
+    const relief = new Float32Array(200)
+    for (let i = 0; i < relief.length; i++) relief[i] = i / (relief.length - 1)
+    const tops = [0.02, 0.53, 0.81]
+    const floored = enforceBandFloor(relief, tops, 0.15)
+    relief.forEach((v, i) => {
+      let band = 0
+      while (band < tops.length - 1 && v > tops[band]!) band++
+      const lo = band === 0 ? 0 : floored.tops[band - 1]!
+      const hi = floored.tops[band]!
+      expect(floored.luminance[i]!, `v=${v}`).toBeGreaterThanOrEqual(lo - 1e-9)
+      expect(floored.luminance[i]!, `v=${v}`).toBeLessThanOrEqual(hi + 1e-9)
+    })
+  })
+
+  it('leaves a healthy schedule byte-identical', () => {
+    const quantized = bands({})
+    const floored = enforceBandFloor(quantized.luminance, quantized.bandTops, minBandFraction(4, 7.2))
+    expect(floored.luminance).toBe(quantized.luminance)
+    expect(floored.tops).toBe(quantized.bandTops)
+  })
+
+  it('rescues the deep-relief preset from one-layer color bands', () => {
+    const raw = mapToLuminanceBands(RGBA, 4, W, H, true, 0, DEEP)
+    const rawTops = snappedBandTops(raw, settings)
+    // The state the printability check flags: the bottom color gets one layer.
+    expect(rawTops[0]! - settings.baseMm).toBeLessThan(NOZZLE_MM)
+
+    const floored = mapToLuminanceBands(
+      RGBA,
+      4,
+      W,
+      H,
+      true,
+      0,
+      DEEP,
+      undefined,
+      minBandFraction(4, settings.maxHeightMm - settings.baseMm, settings.layerMm),
+    )
+    const tops = snappedBandTops(floored, settings)
+    let prev = settings.baseMm
+    for (const top of tops) {
+      expect(top - prev, `band under ${top} mm`).toBeGreaterThanOrEqual(NOZZLE_MM - 1e-9)
+      prev = top
     }
   })
 })

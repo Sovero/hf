@@ -20,6 +20,46 @@ export function fitResolution(sizeMm: number): number {
 }
 
 /**
+ * Smallest fraction of the usable height a single color band may occupy.
+ *
+ * A band thinner than the nozzle is one smeared layer: the print preview —
+ * which models the filaments as translucent sheets — shows it as almost fully
+ * transparent, so that filament's color all but vanishes and its area washes
+ * into the color printed below it. The tone curve (contrast / power) moves the
+ * band tops with the relief, so a strong preset can squeeze the bottom bands
+ * into exactly that state; this floor is what keeps a look choice from
+ * producing a model the printability check flags as unfixable-by-looks.
+ *
+ * The floor is the nozzle width plus one layer of headroom, because
+ * `snappedBandTops` rounds the band tops onto the layer grid and could
+ * otherwise shave a band back under the nozzle. Capped at 1/n: when the height
+ * cannot carry n printable bands, the floor can only divide it evenly.
+ */
+export function minBandFraction(numColors: number, usableMm: number, layerMm = 0.2): number {
+  const n = Math.max(1, Math.floor(numColors))
+  if (!(usableMm > 0)) return 0
+  const layer = Number.isFinite(layerMm) && layerMm > 0 ? layerMm : 0.2
+  return Math.min(1 / n, (NOZZLE_MM + layer) / usableMm)
+}
+
+/**
+ * Largest height change allowed between neighbouring cells, in relief units
+ * (fraction of the usable height).
+ *
+ * Two layers of filament per cell is a 45° face at the nozzle-exact cell size —
+ * the steepest overhang FDM prints without support, so the surface keeps its
+ * shape while never growing a vertical cliff. The color-first model turns every
+ * colour boundary into a height step, and without this limit a detailed picture
+ * prints as a picket fence of fins: a 1.2 mm step then spreads over three cells
+ * instead, i.e. a compact shoulder.
+ */
+export function maxReliefStep(usableMm: number, layerMm = 0.2): number {
+  const layer = Number.isFinite(layerMm) && layerMm > 0 ? layerMm : 0.2
+  if (!(usableMm > 0)) return (2 * layer) / 7.2
+  return Math.min(0.5, (2 * layer) / usableMm)
+}
+
+/**
  * Fit the print size to an image's aspect ratio: the larger print side is
  * preserved, the other scales to the picture's proportions (rounded to
  * 0.1 mm, clamped to the 20–500 mm input range). Used when a new image is

@@ -320,4 +320,88 @@ describe('relief smoothing (opts.smooth)', () => {
     )
     expect(Array.from(strong.quantized.indexMap)).toEqual(Array.from(capped.quantized.indexMap))
   })
+
+  it('quantizes by the picture\'s colors when the color mode asks for it', () => {
+    // Interleaved red/blue columns of equal luma: the brightness model has to
+    // split them by rank and prints two muddy colors, the color model keeps
+    // red and blue as their own filaments.
+    const w = 20
+    const h = 20
+    const rgba = new Uint8ClampedArray(w * h * 4)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = (y * w + x) * 4
+        const blue = x % 2 === 0
+        rgba[p] = blue ? 0 : 86
+        rgba[p + 2] = blue ? 255 : 0
+        rgba[p + 3] = 255
+      }
+    }
+    resetWorkerState()
+    const luma = runWorkerTask(
+      quantizeTask({ id: 41, rgba: rgba.slice(), width: w, height: h, opts: opts({ numColors: 2, darkIsTall: false }) }),
+    )
+    for (const c of luma.quantized.palette) {
+      expect(c.r, 'brightness bands mix both hues').toBeGreaterThan(0)
+      expect(c.b).toBeGreaterThan(0)
+    }
+
+    resetWorkerState()
+    const image = runWorkerTask(
+      quantizeTask({
+        id: 42,
+        rgba: rgba.slice(),
+        width: w,
+        height: h,
+        opts: opts({ numColors: 2, darkIsTall: false, colorMode: 'image' }),
+      }),
+    )
+    expect(image.quantized.palette.find((c) => c.r > c.b * 2)).toBeDefined()
+    expect(image.quantized.palette.find((c) => c.b > c.r * 2)).toBeDefined()
+    expect(image.quantized.bandTops).toEqual([0.5, 1])
+  })
+
+  it('slopes the step between two colors instead of printing a cliff', () => {
+    // Two blocks of equal luma, one filament each: their boundary is half the
+    // model height (1/n) and vertical. The worker has to turn that step into a
+    // printable shoulder — at most two layers per cell — while the plateaus
+    // keep their own height and the relief still reaches the top.
+    const w = 60
+    const h = 20
+    const rgba = new Uint8ClampedArray(w * h * 4)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = (y * w + x) * 4
+        const left = x < w / 2
+        rgba[p] = left ? 86 : 0
+        rgba[p + 2] = left ? 0 : 255
+        rgba[p + 3] = 255
+      }
+    }
+    resetWorkerState()
+    const image = runWorkerTask(
+      quantizeTask({
+        id: 43,
+        rgba,
+        width: w,
+        height: h,
+        opts: opts({ numColors: 2, darkIsTall: false, colorMode: 'image' }),
+      }),
+    )
+    expect(Math.max(...image.quantized.luminance)).toBeCloseTo(1, 5)
+    const { width: fw, values } = image.field
+    let worst = 0
+    for (let i = 0; i < values.length; i++) {
+      if (i % fw < fw - 1) worst = Math.max(worst, Math.abs(values[i]! - values[i + 1]!))
+      if (i + fw < values.length) worst = Math.max(worst, Math.abs(values[i]! - values[i + fw]!))
+    }
+    expect(worst, 'a printable face survives between the plateaus')
+      .toBeGreaterThan(0)
+    expect(worst, 'no cliff').toBeLessThanOrEqual(3 * 0.2 + 1e-6)
+    // Each plateau still sits at its own slice top: the colors keep their
+    // height apart, only the boundary is sloped.
+    const firstPlateau = image.field.values[0]!
+    const lastPlateau = image.field.values[image.field.values.length - 1]!
+    expect(Math.abs(firstPlateau - lastPlateau)).toBeGreaterThan(0.5)
+  })
 })

@@ -494,6 +494,12 @@ export function mapToLuminanceBands(
    * identical) = average the same pixels, the historical behaviour.
    */
   colorSource?: Uint8ClampedArray,
+  /**
+   * Smallest fraction of the usable height any color band may occupy (see
+   * `enforceBandFloor`). 0 (default) leaves the band tops exactly as the tone
+   * curve produced them — the historical behaviour.
+   */
+  minBandFrac = 0,
 ): QuantizedImage {
   const pixelCount = width * height
   const n = Math.max(1, numColors)
@@ -593,7 +599,7 @@ export function mapToLuminanceBands(
   // band tops the swap heights are read from. Because the map preserves order,
   // every surface stays exactly where it was relative to its own band — the
   // relief deepens or flattens, while the color regions keep their pixels.
-  const { luminance, tops } = applyToneToRelief(relief, bandTops, tone)
+  const { luminance, tops } = applyToneToRelief(relief, bandTops, tone, minBandFrac)
 
   const result: QuantizedImage = { palette, indexMap: finalIndexMap, luminance, bandTops: tops, width, height }
   if (finalIndexMap !== indexMap) result.cleanIndexMap = indexMap
@@ -612,15 +618,88 @@ function applyToneToRelief(
   relief: Float32Array,
   bandTops: number[],
   tone?: ToneCurve,
+  minBandFrac = 0,
 ): { luminance: Float32Array; tops: number[] } {
   const neutral =
     tone === undefined ||
     ((tone.contrast === undefined || !Number.isFinite(tone.contrast) || tone.contrast === 1) &&
       (tone.power === undefined || !Number.isFinite(tone.power) || tone.power === 1))
-  if (neutral) return { luminance: relief, tops: bandTops }
+  if (neutral) return enforceBandFloor(relief, bandTops, minBandFrac)
   const luminance = new Float32Array(relief.length)
   for (let i = 0; i < relief.length; i++) luminance[i] = applyTone(relief[i]!, tone)
-  return { luminance, tops: bandTops.map((t) => applyTone(t, tone)) }
+  return enforceBandFloor(luminance, bandTops.map((t) => applyTone(t, tone)), minBandFrac)
+}
+
+/**
+ * Apply the printable band floor to a quantized image, returning the input
+ * untouched (same object) when nothing was thin — the neutral path stays
+ * byte-identical.
+ */
+export function withBandFloor(q: QuantizedImage, minFrac: number): QuantizedImage {
+  const floored = enforceBandFloor(q.luminance, q.bandTops, minFrac)
+  if (floored.luminance === q.luminance && floored.tops === q.bandTops) return q
+  return { ...q, luminance: floored.luminance, bandTops: floored.tops }
+}
+
+/**
+ * Give every color band at least `minFrac` of the usable height.
+ *
+ * The tone curve reshapes the relief *and* the band tops with the same
+ * monotone map, so a strong preset (the shipped «deep relief» is contrast 130 %
+ * / power 250 % on a typical photo) can push the bottom bands down to one
+ * layer. Such a band is invisible in the print: the preview models filaments
+ * as translucent sheets, so a one-layer sheet shows the color below it, and the
+ * picture's shadows — exactly the area a deep-relief look wants to keep — melt
+ * into a single muddy mass of a neighboring color.
+ *
+ * The repair is a second monotone map, built from the band tops themselves:
+ * each top is raised to at least its predecessor plus the floor, and every
+ * pixel is remapped through the same piecewise-linear curve. Because the curve
+ * is monotone and maps each band's own range into its own (raised) slice, a
+ * pixel can never leave the color band it was assigned — the swap heights move
+ * with the surface, which is the invariant the tone curve already promises.
+ *
+ * Returns the inputs untouched (same references) when no band is thin, so the
+ * neutral path stays byte-identical to the pre-floor geometry.
+ */
+export function enforceBandFloor(
+  luminance: Float32Array,
+  bandTops: number[],
+  minFrac: number,
+): { luminance: Float32Array; tops: number[] } {
+  const n = bandTops.length
+  if (!(minFrac > 0) || n === 0 || luminance.length === 0) return { luminance, tops: bandTops }
+  const floor = Math.min(minFrac, 1 / n)
+
+  const src = bandTops.map((t) => (Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 1))
+  const raised: number[] = new Array(n)
+  let changed = false
+  let prev = 0
+  for (let b = 0; b < n; b++) {
+    // The top band always ends at 1: the model's maximum height is the input,
+    // and the floor may only redistribute heights below it.
+    const ideal = b === n - 1 ? 1 : src[b]!
+    const top = Math.min(1, Math.max(ideal, prev + floor))
+    if (top > ideal + 1e-9) changed = true
+    raised[b] = top
+    prev = top
+  }
+  if (!changed) return { luminance, tops: bandTops }
+
+  const mapValue = (v: number): number => {
+    let band = 0
+    while (band < n - 1 && v > src[band]!) band++
+    const loSrc = band === 0 ? 0 : src[band - 1]!
+    const hiSrc = Math.max(loSrc + 1e-9, src[band]!)
+    const loDst = band === 0 ? 0 : raised[band - 1]!
+    const hiDst = raised[band]!
+    const local = Math.min(1, Math.max(0, (v - loSrc) / (hiSrc - loSrc)))
+    return loDst + (hiDst - loDst) * local
+  }
+
+  const out = new Float32Array(luminance.length)
+  for (let i = 0; i < luminance.length; i++) out[i] = mapValue(luminance[i]!)
+  return { luminance: out, tops: raised }
 }
 // ---- Catalog palette quantization (HueForge-style: nearest filament color) ----
 
@@ -759,6 +838,216 @@ function ditherColors(
  * Floyd–Steinberg dithering smooths hard color transitions. The pre-dither
  * labels are kept as `cleanIndexMap` so printability judges honest geometry.
  */
+/** Rec.709 luma (0..1) of a palette color. */
+function lumaOf(c: RGB): number {
+  return (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255
+}
+
+/**
+ * Palette sizing from the picture's own COLORS (median cut), instead of from
+ * its brightness bands.
+ *
+ * The luminance model answers «how tall is this pixel?» with the picture's
+ * brightness, and the filament follows from that height — which is what makes
+ * it the HueForge Standard / Filapaint model, and what costs it its color
+ * fidelity on photographs. A band's color is the *mean* of a brightness slice,
+ * so a red sky and a pale stone in the same slice average into brown mud, and
+ * two details that differ in hue but share a brightness (a face in shadow next
+ * to the cloak around it) land in the same filament no matter how many colors
+ * the print has.
+ *
+ * This mode turns the order around — colors first, then the picture built out
+ * of them: the palette is a median cut of the image's RGB, each pixel takes the
+ * nearest colour, and every color owns one equal slice of the printed height.
+ * The result is a poster-like relief whose terraces are the picture's real
+ * colors; the shading *inside* a terrace still follows the local brightness, so
+ * a region keeps its modelling instead of flattening into a plateau.
+ *
+ * Physical consistency is preserved: a pixel's relief always lands inside the
+ * slice of the color it was assigned (brightness within a band is normalized
+ * onto that band's own slice), so the topmost layer at any point is the
+ * filament the preview shows.
+ *
+ * `colorSource` is the image the palette is cut from when it should be smoother
+ * than the pixels the labels are read from — the same split the luminance path
+ * uses to keep band colors clean without eating the picture's shapes.
+ */
+export function mapToImageColors(
+  rgba: Uint8ClampedArray,
+  numColors: number,
+  width: number,
+  height: number,
+  darkIsTall: boolean,
+  dither = 0,
+  colorSource?: Uint8ClampedArray,
+): QuantizedImage {
+  const total = width * height
+  const n = Math.max(1, numColors)
+  const paletteSource = colorSource && colorSource.length === rgba.length ? colorSource : rgba
+
+  // 1. Palette: median cut of the picture's RGB, ordered dark → light the way
+  //    every other palette in the app is ordered (slot order = print order).
+  const palette = quantize(paletteSource, n)
+    .slice()
+    .sort((a, b) => lumaOf(a) - lumaOf(b))
+
+  // 2. Labels: nearest palette color (redmean), read from the image that keeps
+  //    the picture's shapes — colors decide *which* filament, detail decides
+  //    *where* the boundary runs.
+  const labels = new Uint8Array(total)
+  for (let i = 0; i < total; i++) {
+    const p = i * 4
+    const r = rgba[p]
+    const g = rgba[p + 1]
+    const b = rgba[p + 2]
+    let best = 0
+    let bestD = Infinity
+    for (let s = 0; s < palette.length; s++) {
+      const c = palette[s]
+      const dr = r - c.r
+      const dg = g - c.g
+      const db = b - c.b
+      const rm = (r + c.r) / 2
+      const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db
+      if (d < bestD) {
+        bestD = d
+        best = s
+      }
+    }
+    labels[i] = best
+  }
+
+  const clean = cleanupSmallRegions(labels, width, height)
+  const clampedDither = Math.min(1, Math.max(0, dither))
+  const finalLabels = clampedDither > 0 ? ditherColors(rgba, clean, palette, width, height, clampedDither) : clean
+
+  // 3. Heights: every color owns one equal slice of the relief; a pixel sits
+  //    inside its own slice, positioned by its brightness *relative to its
+  //    band* — so the band keeps its local modelling and never leaves its
+  //    filament's range.
+  const relief = reliefFromColorBands(rgba, finalLabels, palette.length, darkIsTall, width * height)
+  const bandTops = Array.from({ length: palette.length }, (_, b) => (b + 1) / palette.length)
+
+  const result: QuantizedImage = {
+    palette: palette.map((c) => ({ ...c })),
+    indexMap: finalLabels,
+    luminance: relief,
+    bandTops,
+    width,
+    height,
+  }
+  if (finalLabels !== clean) result.cleanIndexMap = clean
+  return result
+}
+
+/**
+ * Turn vertical cliffs into printable slopes.
+ *
+ * In the color-first model a color boundary IS a height step: neighbours that
+ * print in different filaments must sit in different height slices, so every
+ * boundary is a wall at least one slice tall. That is physical — the top layer
+ * has to be the filament the picture asks for — but unmodified it prints as a
+ * picket fence of vertical fins wherever colours interleave (a detailed photo
+ * has hundreds of small regions, each of them a terrace one slice high).
+ *
+ * This pass caps how much higher a pixel may stand than its 4-neighbours: one
+ * layer of height per cell, i.e. a ~27° face, which any FDM printer makes
+ * without support. Repeated passes spread a step into a ramp a few cells wide,
+ * so boundaries read as slopes and the surface stays a relief instead of a
+ * comb. Flat areas are untouched (equal neighbours never move anything), and
+ * the picture's colours do not change — the top surface near a boundary simply
+ * lands in one of the two filaments a cell earlier or later.
+ *
+ * Returns a new array; the input is never mutated.
+ */
+export function relaxCliffs(
+  field: Float32Array,
+  width: number,
+  height: number,
+  maxStep: number,
+  passes = 12,
+): Float32Array {
+  if (!(maxStep > 0) || width < 2 || height < 2 || field.length !== width * height) return field
+  let current = Float32Array.from(field)
+  let next = new Float32Array(current.length)
+  for (let pass = 0; pass < passes; pass++) {
+    let moved = false
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x
+        const v = current[i]!
+        let lo = -Infinity
+        let hi = Infinity
+        if (x > 0) { lo = Math.max(lo, current[i - 1]! - maxStep); hi = Math.min(hi, current[i - 1]! + maxStep) }
+        if (x < width - 1) { lo = Math.max(lo, current[i + 1]! - maxStep); hi = Math.min(hi, current[i + 1]! + maxStep) }
+        if (y > 0) { lo = Math.max(lo, current[i - width]! - maxStep); hi = Math.min(hi, current[i - width]! + maxStep) }
+        if (y < height - 1) { lo = Math.max(lo, current[i + width]! - maxStep); hi = Math.min(hi, current[i + width]! + maxStep) }
+        const clamped = Math.min(Math.max(v, lo), hi)
+        next[i] = clamped
+        if (clamped !== v) moved = true
+      }
+    }
+    const swap = current
+    current = next
+    next = swap
+    if (!moved) break
+  }
+  return current
+}
+
+/**
+ * Build the relief for a color-first palette: each band's pixels are stretched
+ * over that band's own slice of the height, using the pixel's brightness
+ * normalized onto the band's brightness range (2 %..98 % percentiles, so a
+ * handful of stray pixels cannot collapse the modelling to a flat plateau).
+ *
+ * The orientation matches the rest of the pipeline: slice 0 is the bottom of
+ * the stack, and with `darkIsTall` the darker half of a band sits nearer its
+ * top — the same direction the luminance path orients its relief.
+ */
+function reliefFromColorBands(
+  rgba: Uint8ClampedArray,
+  labels: Uint8Array,
+  n: number,
+  darkIsTall: boolean,
+  total: number,
+): Float32Array {
+  const relief = new Float32Array(total)
+  if (n <= 0) return relief
+
+  const bands: number[][] = Array.from({ length: n }, () => [])
+  for (let i = 0; i < total; i++) bands[labels[i]!]!.push(i)
+
+  for (let b = 0; b < n; b++) {
+    const cells = bands[b]!
+    if (cells.length === 0) continue
+    const lumas = cells.map((i) => pixelLuma(rgba, i)).sort((a, c) => a - c)
+    const at = (fraction: number) => lumas[Math.min(lumas.length - 1, Math.floor((lumas.length - 1) * fraction))]!
+    const lo = at(0.02)
+    const hi = at(0.98)
+    const span = hi - lo
+    // Palette slot b is dark → light; its slice in the stack follows the depth
+    // mode, exactly as the preview and the swap schedule read it.
+    const slice = darkIsTall ? n - 1 - b : b
+    const base = slice / n
+    for (const i of cells) {
+      // A band with no brightness variation of its own (a flat colour patch)
+      // prints as a full plate of that colour: every pixel is the band's
+      // brightest, so the surface sits at the slice top. That keeps the model
+      // reaching the configured height even when the picture is flat inside
+      // every colour.
+      const local = span < 1e-6
+        ? 1
+        : (() => {
+            const v = Math.min(1, Math.max(0, (pixelLuma(rgba, i) - lo) / span))
+            return darkIsTall ? 1 - v : v
+          })()
+      relief[i] = base + local / n
+    }
+  }
+  return relief
+}
+
 export function quantizeToPalette(
   rgba: Uint8ClampedArray,
   spools: RGB[],

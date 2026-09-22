@@ -1,4 +1,5 @@
-import { mapToLuminanceBands, quantizeToPalette } from './quantize'
+import { mapToImageColors, mapToLuminanceBands, quantizeToPalette, relaxCliffs, withBandFloor } from './quantize'
+import { maxReliefStep, minBandFraction } from './printConsts'
 import { bilateralSmoothRGBA, colorDetailStrength, reliefLowPassField } from './smooth'
 import { applyMerge, mergeMap } from './bandMerge'
 import { finishPipeline, type PaletteEntry, type PipelineOptions } from './pipeline'
@@ -216,6 +217,16 @@ function quantizeOnce(
   let q: QuantizedImage
   if (overrides?.nearest && overrides.palette && overrides.palette.length > 1) {
     q = quantizeToPalette(shapes, overrides.palette, width, height, opts.dither ?? 0)
+  } else if (opts.colorMode === 'image') {
+    // Colors first: the picture's own hues become the filaments, and every
+    // color gets one equal slice of the height (see `mapToImageColors`). The
+    // palette is cut from the smoother source so noise cannot invent colors,
+    // while the labels keep reading the detailed one so shapes survive.
+    q = mapToImageColors(shapes, opts.numColors, width, height, opts.darkIsTall, opts.dither ?? 0, colors)
+    if (overrides?.palette && overrides.palette.length === q.palette.length) {
+      q.palette = overrides.palette.map((c) => ({ ...c }))
+    }
+    if (overrides?.bandTops) q.bandTops = [...overrides.bandTops]
   } else {
     q = mapToLuminanceBands(
       shapes,
@@ -238,8 +249,31 @@ function quantizeOnce(
   // preserving): every photographic edge kept in the height map prints as a
   // cliff — detail belongs to the color bands, the relief follows the large
   // forms. The color assignment above stays untouched.
-  if (smooth > 0 && q.luminance.length === width * height) {
+  // The relief low-pass belongs to the brightness model, where heights follow
+  // brightness and a photographic edge would print as a cliff. In the
+  // color-first model the height map *is* the color map: blurring it would move
+  // surfaces out of the slice they print in and turn the terraces into a blob,
+  // so the geometry there gets the slope limiter below instead, and the slider
+  // keeps acting on the color passes only.
+  if (smooth > 0 && opts.colorMode !== 'image' && q.luminance.length === width * height) {
     q.luminance = reliefLowPassField(q.luminance, width, height, smooth)
+  }
+  // The tone curve moves relief and band tops together, so a strong preset can
+  // squeeze a color band down to one layer — invisible in print, and the muddy
+  // shadows the print preview then shows are the preset's fault, not the
+  // picture's. Raise every band to the nozzle-width floor (the same threshold
+  // the printability check uses) before the merge pass, so merging can only add
+  // thickness on top of a printable schedule.
+  if (q.luminance.length === width * height) {
+    const usableMm = Math.max(0, opts.maxHeightMm - opts.baseMm)
+    q = withBandFloor(q, minBandFraction(q.palette.length, usableMm, opts.layerMm ?? 0.2))
+    if (opts.colorMode === 'image') {
+      // Every colour boundary is a height step by construction, so a detailed
+      // picture would print as a comb of vertical fins. Spread those steps into
+      // printable slopes (see `relaxCliffs`); the colour map is untouched.
+      const relaxed = relaxCliffs(q.luminance, width, height, maxReliefStep(usableMm, opts.layerMm ?? 0.2))
+      if (relaxed !== q.luminance) q = { ...q, luminance: relaxed }
+    }
   }
   // Seed custom per-band thicknesses so the merge pass can carry them
   // through (finishPipeline re-applies them to the merged lengths).
