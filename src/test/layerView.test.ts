@@ -12,7 +12,7 @@ const PALETTE_4: RGB[] = [
   { r: 255, g: 255, b: 255 },
 ]
 
-function makeResult(): PipelineResult {
+function makeResult(tauMm?: number): PipelineResult {
   const quantized: QuantizedImage = {
     palette: PALETTE_4,
     indexMap: Uint8Array.from([0, 1, 2, 3]),
@@ -20,6 +20,9 @@ function makeResult(): PipelineResult {
     bandTops: [0.25, 0.5, 0.75, 1],
     width: 2,
     height: 2,
+    // Omitted → the app default (typical opaque PLA); a spool that really is
+    // translucent passes its own τ.
+    ...(tauMm === undefined ? {} : { tauMm: PALETTE_4.map(() => tauMm) }),
   }
   const image: LoadedImage = { width: 2, height: 2, rgba: new Uint8ClampedArray(2 * 2 * 4) }
   return finishPipeline(image, quantized, {
@@ -57,11 +60,15 @@ describe('layerView', () => {
       expect(view.rgba[i * 4 + 2]).toBe(Math.round(expected.b))
     }
     // Physics spot-check (darkIsTall): pixel 0 is black (slice 3, tallest,
-    // full 4-sheet stack). The white sheets beneath shine through the black
-    // top sheet, lifting it well above 0 — the signature HueForge effect.
-    const tallestBlack = view.rgba[0]
-    expect(tallestBlack).toBeGreaterThan(0)
-    expect(tallestBlack).toBeLessThan(85)
+    // full 4-sheet stack). With the default filament — a typical opaque PLA —
+    // the 1.8 mm black sheet is solid, so the column reads as black.
+    expect(view.rgba[0]).toBe(0)
+    // A translucent spool is the case that lets the sheets below shine
+    // through, lifting the black column well above 0 — the signature HueForge
+    // effect that opaque filament simply does not produce.
+    const translucent = layerView(makeResult(1.2), 8)
+    expect(translucent.rgba[0]).toBeGreaterThan(0)
+    expect(translucent.rgba[0]).toBeLessThan(85)
     // Pixel 3 is white (slice 0 = bottom band): one white sheet directly on
     // the opaque base → no lower color to show through → stays pure white.
     const shortestWhite = view.rgba[3 * 4]

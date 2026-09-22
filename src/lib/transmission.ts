@@ -27,8 +27,19 @@ import { snappedBandTops } from './heightmap'
  * lib/calibration.ts. Unknown/invalid values fall back to the default.
  */
 
-/** Default per-filament opacity length τ (mm): thickness at which T(z) ≈ 63%. */
-export const DEFAULT_TAU_MM = 1.2
+/**
+ * Default per-filament opacity length τ (mm): thickness at which T(z) ≈ 63 %.
+ *
+ * Calibrated against a typical opaque PLA spool, not against clear/natural
+ * filament: at 0.3 mm a normal colored PLA hides ~96 % of the layer below, so
+ * a two-millimeter color sheet renders as its own color and the preview
+ * predicts the print instead of looking muddier than it. The old 1.2 mm
+ * default modelled an unusually translucent filament, which made every mid
+ * band blend with the darker stack beneath it — the «washed-out» preview that
+ * made distinct palette colors read as one muddy brown. Users who really do
+ * print translucent spools set τ per filament (or calibrate it from a swatch).
+ */
+export const DEFAULT_TAU_MM = 0.3
 
 /**
  * Sheet thicknesses from each filament's τ, HueForge-TD-style.

@@ -47,8 +47,14 @@ describe('tauBandHeights', () => {
 describe('transmission model', () => {
   it('T(z) is 0 for zero thickness and saturates toward 1', () => {
     expect(transmission(0)).toBe(0)
-    expect(transmission(0.1)).toBeLessThan(0.2)
-    expect(transmission(1.2)).toBeCloseTo(1 - Math.exp(-1), 5) // τ thickness → 63%
+    // The default τ models a typical opaque PLA: one 0.2 mm layer already
+    // hides about half of what is below it, and a millimetre reads as solid —
+    // which is what keeps a healthy color band from washing into the stack
+    // under it. Translucent spools set their own τ.
+    expect(transmission(0.2, DEFAULT_TAU_MM)).toBeGreaterThan(0.45)
+    expect(transmission(0.2, DEFAULT_TAU_MM)).toBeLessThan(0.55)
+    expect(transmission(1, DEFAULT_TAU_MM)).toBeGreaterThan(0.95)
+    expect(transmission(1.2, 1.2)).toBeCloseTo(1 - Math.exp(-1), 5) // τ thickness → 63%
     expect(transmission(12)).toBeGreaterThan(0.99)
   })
 
