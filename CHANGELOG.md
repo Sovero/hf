@@ -32,8 +32,8 @@ GitHub, но внутри репозитория — ноты версий чи�
 
 | Версия | Дата | Канал |
 | --- | --- | --- |
-| v0.8.7 · [в файле](#v-0-8-7) | 2026-09-22 | Ожидает тега |
-| [v0.8.6](https://github.com/Sovero/hf/releases/tag/v0.8.6) · [в файле](#v-0-8-6) | 2026-09-22 | Latest |
+| [v0.8.7](https://github.com/Sovero/hf/releases/tag/v0.8.7) · [в файле](#v-0-8-7) | 2026-09-22 | Latest |
+| [v0.8.6](https://github.com/Sovero/hf/releases/tag/v0.8.6) · [в файле](#v-0-8-6) | 2026-09-22 | Стабильный |
 | [v0.8.5](https://github.com/Sovero/hf/releases/tag/v0.8.5) · [в файле](#v-0-8-5) | 2026-09-22 | Стабильный |
 | [v0.8.4](https://github.com/Sovero/hf/releases/tag/v0.8.4) · [в файле](#v-0-8-4) | 2026-09-21 | Стабильный |
 | [v0.8.4-rc.1](https://github.com/Sovero/hf/releases/tag/v0.8.4-rc.1) · [в файле](#v-0-8-4-rc-1) | 2026-09-21 | Pre-release |
@@ -69,7 +69,7 @@ GitHub, но внутри репозитория — ноты версий чи�
 
 <a id="v-0-8-7"></a>
 
-## v0.8.7 — 2026-09-22 · Ожидает тега
+## v0.8.7 — 2026-09-22 · Latest
 
 _Реальные катушки, честные цвета и пологие террасы_
 
@@ -95,13 +95,13 @@ _Реальные катушки, честные цвета и пологие т
 
 **Полный changelog**: https://github.com/Sovero/hf/compare/v0.8.6...v0.8.7
 
-Страница релиза появится после публикации тега `v0.8.7`; заметки — в [release-notes/v0.8.7.md](https://github.com/Sovero/hf/blob/HEAD/release-notes/v0.8.7.md).
+Страница релиза: https://github.com/Sovero/hf/releases/tag/v0.8.7
 
 ---
 
 <a id="v-0-8-6"></a>
 
-## v0.8.6 — 2026-09-22 · Latest
+## v0.8.6 — 2026-09-22 · Стабильный
 
 _Сглаживание, которое лечит, а не портит_
 
