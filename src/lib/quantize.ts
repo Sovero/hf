@@ -486,6 +486,14 @@ export function mapToLuminanceBands(
   dither = 0,
   /** Relief tone curve (contrast + power); omitted = the picture's own tones. */
   tone?: ToneCurve,
+  /**
+   * Pixels the band COLORS are averaged from, when they should not be the ones
+   * that decided the boundaries. The boundaries must follow the picture's
+   * detail, while an average color should not be dragged by the noise sitting
+   * around it — so the caller may pass a more smoothed image here. Omitted (or
+   * identical) = average the same pixels, the historical behaviour.
+   */
+  colorSource?: Uint8ClampedArray,
 ): QuantizedImage {
   const pixelCount = width * height
   const n = Math.max(1, numColors)
@@ -534,15 +542,19 @@ export function mapToLuminanceBands(
   const indexMap = bandLabels(relief, n, darkIsTall, pixelCount)
   const bandTops = bandTopsFrom(relief, n, pixelCount)
 
-  // Band colors = mean color of the pixels in each slice (dark → light).
+  // Band colors = mean color of the pixels in each slice (dark → light). The
+  // slice membership is the boundary map above; the pixels that get averaged
+  // may come from a cleaner image (`colorSource`), so a noisy boundary does
+  // not smear mud into the filament colors.
+  const colors = colorSource && colorSource.length === rgba.length ? colorSource : rgba
   const bandSums = Array.from({ length: n }, () => [0, 0, 0] as [number, number, number])
   const bandCounts = new Uint32Array(n)
   for (let i = 0; i < pixelCount; i++) {
     const slice = darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
     const p = i * 4
-    bandSums[slice][0] += rgba[p]
-    bandSums[slice][1] += rgba[p + 1]
-    bandSums[slice][2] += rgba[p + 2]
+    bandSums[slice][0] += colors[p]
+    bandSums[slice][1] += colors[p + 1]
+    bandSums[slice][2] += colors[p + 2]
     bandCounts[slice]++
   }
 

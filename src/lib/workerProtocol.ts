@@ -1,5 +1,5 @@
 import { mapToLuminanceBands, quantizeToPalette } from './quantize'
-import { bilateralSmoothRGBA, reliefLowPassField } from './smooth'
+import { bilateralSmoothRGBA, colorDetailStrength, reliefLowPassField } from './smooth'
 import { applyMerge, mergeMap } from './bandMerge'
 import { finishPipeline, type PaletteEntry, type PipelineOptions } from './pipeline'
 import { measureRelief, type ReliefMetrics } from './reliefCompare'
@@ -195,24 +195,37 @@ function quantizeOnce(
   opts: PipelineOptions,
   overrides: { palette?: RGB[] | null; bandTops?: number[] | null; nearest?: boolean } | null,
   mergeDeltaE: number | undefined,
+  /** Pre-smoothed pixel source for the band COLORS (see the split below). */
+  paletteSource?: Uint8ClampedArray,
 ): QuantizedImage {
-  // Edge-preserving smoothing of the SOURCE image (clean fills): the palette
-  // and the color assignment are built from already-flat surfaces, while
-  // sharp edges survive. Strength 0 skips the copy entirely.
+  // Two smoothing strengths, deliberately different — the slider is shared
+  // with the relief pass, but these two want opposite kernels:
+  //
+  //   shapes (band boundaries) — the picture's detail has to survive, so only
+  //   a one-cell kernel may touch it. A wide one is what turns a face into a
+  //   blob, and the boundaries are read from exactly this field;
+  //   colors (band averages) — averaged from the fully smoothed image, so the
+  //   filament colors come out as clean fills rather than noise-muddied mixes.
+  //
+  // Strength 0 skips both copies entirely.
   const smooth = Number.isFinite(opts.smooth) ? Math.min(1, Math.max(0, opts.smooth!)) : 0
-  const source = smooth > 0 && width > 1 && height > 1 ? bilateralSmoothRGBA(rgba, width, height, smooth) : rgba
+  const usable = width > 1 && height > 1
+  const detail = colorDetailStrength(smooth)
+  const shapes = usable && detail > 0 ? bilateralSmoothRGBA(rgba, width, height, detail) : rgba
+  const colors = paletteSource ?? (usable && smooth > 0 ? bilateralSmoothRGBA(rgba, width, height, smooth) : shapes)
   let q: QuantizedImage
   if (overrides?.nearest && overrides.palette && overrides.palette.length > 1) {
-    q = quantizeToPalette(source, overrides.palette, width, height, opts.dither ?? 0)
+    q = quantizeToPalette(shapes, overrides.palette, width, height, opts.dither ?? 0)
   } else {
     q = mapToLuminanceBands(
-      source,
+      shapes,
       opts.numColors,
       width,
       height,
       opts.darkIsTall,
       opts.dither ?? 0,
       { contrast: opts.contrast, power: opts.power },
+      colors,
     )
     if (overrides?.palette && overrides.palette.length === q.palette.length) {
       q.palette = overrides.palette.map((c) => ({ ...c }))
@@ -263,8 +276,12 @@ export function runFitToneTask(
   // quantizeOnce skips the per-candidate repeat). The scalar relief smoothing
   // stays per-candidate — it is part of the measured relief.
   const smooth = Number.isFinite(task.opts.smooth) ? Math.min(1, Math.max(0, task.opts.smooth!)) : 0
-  const source =
-    smooth > 0 && task.width > 1 && task.height > 1 ? bilateralSmoothRGBA(task.rgba, task.width, task.height, smooth) : task.rgba
+  const usable = task.width > 1 && task.height > 1
+  const detail = colorDetailStrength(smooth)
+  // Same split as quantizeOnce: candidates read their band boundaries from the
+  // gently smoothed image and their band colors from the fully smoothed one.
+  const source = usable && detail > 0 ? bilateralSmoothRGBA(task.rgba, task.width, task.height, detail) : task.rgba
+  const colors = usable && smooth > 0 ? bilateralSmoothRGBA(task.rgba, task.width, task.height, smooth) : source
   // Every candidate runs the ΔE merge, which updates the module-level
   // kept-slot report. That report belongs to the quantize task: leaving a
   // candidate's report behind would make the next finish request remap the
@@ -277,7 +294,7 @@ export function runFitToneTask(
         // A fresh options object per candidate: the ΔE merge rewrites
         // `bandHeightsMm` on it, and one candidate must not poison the next.
         const opts: PipelineOptions = { ...task.opts, contrast: candidate.contrast, power: candidate.power }
-        const q = quantizeOnce(source, task.width, task.height, { ...opts, smooth: 0 }, null, opts.mergeDeltaE)
+        const q = quantizeOnce(source, task.width, task.height, { ...opts, smooth: 0 }, null, opts.mergeDeltaE, colors)
         const dummyImage = { width: task.width, height: task.height, rgba: new Uint8ClampedArray(0) }
         const result = finishPipeline(dummyImage, q, opts)
         return measureRelief(result.mesh.positions, result.mesh.triangleCount, known)

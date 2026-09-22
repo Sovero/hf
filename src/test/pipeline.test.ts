@@ -1016,3 +1016,36 @@ describe('relief smoothing (smoothScalarField → buildHeightField)', () => {
     expect(energy(build(smoothScalarField(noisy, w, h, 0.7)))).toBeLessThan(energy(build(noisy)))
   })
 })
+
+describe('mapToLuminanceBands color source', () => {
+  it('averages band colors from the color source, keeping the boundaries of the shape source', () => {
+    // The boundaries follow the picture's detail, the average colors come from
+    // a cleaner image — the two halves are allowed to come from different
+    // pixels, and here they deliberately do.
+    const w = 8
+    const h = 8
+    const shapes = new Uint8ClampedArray(w * h * 4)
+    const clean = new Uint8ClampedArray(w * h * 4)
+    for (let i = 0; i < w * h; i++) {
+      const left = i % w < w / 2
+      const v = left ? 30 : 220
+      shapes.set([v, v, v, 255], i * 4)
+      clean.set(left ? [10, 20, 30, 255] : [200, 210, 220, 255], i * 4)
+    }
+
+    const q = mapToLuminanceBands(shapes, 2, w, h, false, 0, undefined, clean)
+    expect(q.palette).toEqual([
+      { r: 10, g: 20, b: 30 },
+      { r: 200, g: 210, b: 220 },
+    ])
+
+    // Without a color source the same boundaries average the shape pixels.
+    const plain = mapToLuminanceBands(shapes, 2, w, h, false, 0)
+    expect(plain.palette).toEqual([
+      { r: 30, g: 30, b: 30 },
+      { r: 220, g: 220, b: 220 },
+    ])
+    // Same band map either way: only the averaged pixels changed.
+    expect(Array.from(q.indexMap)).toEqual(Array.from(plain.indexMap))
+  })
+})

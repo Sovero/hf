@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { runWorkerTask, resetWorkerState, type FinishTask, type QuantizeTask } from '../lib/workerProtocol'
 import { quantizeToPalette } from '../lib/quantize'
+import { bilateralSmoothRGBA, colorDetailStrength } from '../lib/smooth'
 import type { PipelineOptions } from '../lib/pipeline'
 
 /** 8×8 horizontal gray ramp: column x has brightness x/7. */
@@ -272,5 +273,51 @@ describe('relief smoothing (opts.smooth)', () => {
     // The RGBA pass flattened the noise before quantization, so the palette
     // the noisy picture gets differs from the raw run's palette.
     expect(smoothed.quantized.palette).not.toEqual(raw.quantized.palette)
+  })
+
+  it('band colors are averaged from the smoothed image, so a flat noisy photo stays flat', () => {
+    resetWorkerState()
+    const rgba = noisyImage(32, 32)
+    const raw = runWorkerTask(quantizeTask({ id: 21, rgba: rgba.slice(), width: 32, height: 32, opts: opts({}) }))
+    resetWorkerState()
+    const smoothed = runWorkerTask(quantizeTask({ id: 22, rgba: rgba.slice(), width: 32, height: 32, opts: opts({ smooth: 1 }) }))
+    const distance = (c: { r: number; g: number; b: number }) =>
+      Math.abs(c.r - 128) + Math.abs(c.g - 128) + Math.abs(c.b - 128)
+    const worst = (q: typeof raw) => Math.max(...q.quantized.palette.map(distance))
+    // Averaging from the fully smoothed image keeps every filament color close
+    // to the picture's real tone (128 with ±40 of noise).
+    for (const c of smoothed.quantized.palette) expect(distance(c)).toBeLessThan(18)
+    // The raw run's palette is dragged by the noise it averaged over.
+    expect(worst(smoothed)).toBeLessThan(worst(raw))
+  })
+
+  it('band boundaries never follow a kernel wider than one cell, however strong the slider', () => {
+    // The picture's shapes live in the boundaries: a 3-cell kernel is what
+    // turned a face into a blob. Whatever the slider says, the boundary map
+    // must be the one a one-cell pass produces.
+    const w = 32
+    const h = 32
+    const rgba = new Uint8ClampedArray(w * h * 4)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let v = 40 + Math.round((x / (w - 1)) * 200)
+        if (x >= 12 && x < 20 && y >= 10 && y < 22) v = 20
+        if (x >= 22 && x < 25 && y >= 6 && y < 9) v = 245
+        rgba.set([v, v, v, 255], (y * w + x) * 4)
+      }
+    }
+    resetWorkerState()
+    const strong = runWorkerTask(quantizeTask({ id: 31, rgba: rgba.slice(), width: w, height: h, opts: opts({ smooth: 1 }) }))
+    resetWorkerState()
+    const capped = runWorkerTask(
+      quantizeTask({
+        id: 32,
+        rgba: bilateralSmoothRGBA(rgba.slice(), w, h, colorDetailStrength(1)),
+        width: w,
+        height: h,
+        opts: opts({ smooth: 0 }),
+      }),
+    )
+    expect(Array.from(strong.quantized.indexMap)).toEqual(Array.from(capped.quantized.indexMap))
   })
 })

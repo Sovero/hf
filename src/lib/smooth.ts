@@ -11,12 +11,40 @@
  * zero cost), higher values grow the kernel radius (1..3 cells) and blend the
  * filtered result with the original. The edge threshold (what counts as a
  * "border") differs per domain and is fixed inside — callers only see one knob.
+ *
+ * The knob is shared, but the callers are not equivalent: the COLOR pass must
+ * not follow it into wide kernels (the band boundaries are read from its
+ * luminance, and a wide kernel erases the picture's shapes), which is what
+ * `colorDetailStrength` caps. The relief pass is the opposite — it wants tens
+ * of pixels (see `reliefLowPassField`).
  */
 
 /** Kernel radius in cells for a strength value (0 → 0, 1 → 3). */
 function radiusOf(strength: number): number {
   if (!(strength > 0)) return 0
   return Math.min(3, Math.max(1, Math.round(strength * 3)))
+}
+
+/**
+ * Ceiling of the color/detail pass — one cell, plus a partial blend.
+ *
+ * The slider is shared with the relief pass, but the two passes want opposite
+ * kernels. The relief pass must reach tens of pixels: that is what turns
+ * cliffs into slopes. The color pass decides the picture's SHAPES — the band
+ * boundaries are read from its luminance — so a wide kernel turns a face into
+ * a blob. Capped at one cell: enough to take sensor noise off the palette,
+ * never enough to eat structure.
+ */
+const COLOR_DETAIL_MAX = 0.34
+
+/**
+ * Strength the COLOR pass actually uses for a slider value. Cheap by design:
+ * the knob keeps meaning "how much smoothing", but the color pass refuses to
+ * follow it into structure-destroying kernels (see `COLOR_DETAIL_MAX`).
+ */
+export function colorDetailStrength(strength: number): number {
+  const k = Number.isFinite(strength) ? Math.min(1, Math.max(0, strength)) : 0
+  return Math.min(COLOR_DETAIL_MAX, k)
 }
 
 /** Cached exp weights for a window: spatial part (same for every pixel). */
@@ -129,9 +157,7 @@ export function smoothScalarField(
  * for a printed bas-relief every photographic edge that survives into the
  * height map becomes a cliff ("himalayas") exactly where the picture has
  * detail. Detail belongs to the COLOR bands; the height should follow only
- * the large forms. So this pass blurs everything within a large radius and
- * then renormalizes to the original 0..1 envelope, keeping the tone curve
- * and the band alignment intact.
+ * the large forms.
  *
  * Radius scales with the picture: ~1/18 of the larger side at strength 1
  * (a 150 mm print at 0.4 mm nozzle is ~375 px → radius ≈ 21 px ≈ 8 mm),
@@ -149,12 +175,42 @@ export function reliefLowPassField(
   if (k === 0 || width < 3 || height < 3) return t
   const large = Math.max(width, height)
   const radius = Math.max(2, Math.round((large / 36) * (0.5 + k)))
-  // No renormalization on purpose: stretching the blurred field back to the
-  // original envelope would hand the extremes right back to the small
-  // details, and the cliffs would return. The blur simply compresses the
-  // relief range (cliffs become slopes) while the large-form ordering —
-  // what the tone curve and the band alignment actually read — survives.
-  return boxBlur2D(t, width, height, radius)
+  const blurred = boxBlur2D(t, width, height, radius)
+
+  // The blur alone would print a plate: `luminance` is read as a 0..1 relief
+  // position, so a field squeezed into the middle of the range keeps its
+  // shapes but loses its depth (a photo of a figure reads as flat terrain).
+  // Restore the envelope the picture had — from robust percentiles, NOT from
+  // min/max: min/max hands the scale back to the handful of residual pixel
+  // outliers, which is exactly what used to bring the cliffs back. The
+  // percentiles measure the large forms, so their span is the depth to keep.
+  const [sourceLow, sourceHigh] = robustRange(t)
+  const [blurredLow, blurredHigh] = robustRange(blurred)
+  const blurredSpan = blurredHigh - blurredLow
+  if (!(blurredSpan > 1e-6)) return blurred
+
+  const scale = (sourceHigh - sourceLow) / blurredSpan
+  const out = new Float32Array(blurred.length)
+  for (let i = 0; i < out.length; i++) {
+    const value = sourceLow + (blurred[i] - blurredLow) * scale
+    out[i] = value < 0 ? 0 : value > 1 ? 1 : value
+  }
+  return out
+}
+
+/**
+ * Robust `[low, high]` of a field: quantiles of a sampled copy, so the value
+ * does not depend on the extremes. 2%..98% by default — wide enough to cover
+ * the picture's real range, tight enough to ignore residual outliers.
+ */
+function robustRange(values: Float32Array, low = 0.02, high = 0.98): [number, number] {
+  const step = Math.max(1, Math.floor(values.length / 100_000))
+  const sample: number[] = []
+  for (let i = 0; i < values.length; i += step) sample.push(values[i])
+  sample.sort((a, b) => a - b)
+  const at = (q: number) =>
+    sample[Math.min(sample.length - 1, Math.max(0, Math.round(q * (sample.length - 1))))]
+  return [at(low), at(high)]
 }
 
 /** Two separable box passes ≈ Gaussian; clamped edges, one O(n) sweep per axis. */
