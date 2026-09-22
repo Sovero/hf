@@ -1,3 +1,14 @@
+/*
+ * Radii speak one language, by ROLE — not by element:
+ *   6px   every control the user clicks, types into or picks (buttons, chips,
+ *         inputs, swatches, style presets) — see .mode-options label,
+ *         .sidebar-tab, .export-buttons button, .preset-btn, .palette-*;
+ *   999px status badges only (.app-version, .check-color-badge, .ref-badge),
+ *         which are read, not clicked;
+ *   8px/12px containers and cards (.panel, .viewer-card, popovers);
+ *   1px..4px inner details fully nested inside a control (swatch inside its
+ *         picker, tick lines, drop indicator, scrollbars).
+ */
 :root {
   color-scheme: dark; /* native widgets (spinners, dropdowns, scrollbars) follow the theme */
   --bg: #101418;
@@ -660,7 +671,7 @@ body {
 .preset-btn {
   padding: 0.3rem 0.55rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--panel-2);
   color: var(--muted);
   font: inherit;
@@ -686,7 +697,7 @@ body {
   justify-self: start;
   padding: 0.3rem 0.55rem;
   border: 1px dashed var(--border);
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.78rem;
   color: var(--muted);
 }
@@ -712,7 +723,7 @@ body {
   flex: 0 0 auto;
   width: 1.6rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--panel-2);
   color: var(--muted);
   font: inherit;
@@ -974,7 +985,7 @@ body {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 0.3rem;
   width: 100%;
   font-family: inherit;
@@ -1079,7 +1090,7 @@ body {
   height: 1.5rem;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: none;
   cursor: pointer;
   flex-shrink: 0;
@@ -1091,12 +1102,12 @@ body {
 
 .palette-picker::-webkit-color-swatch {
   border: none;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 .palette-picker::-moz-color-swatch {
   border: none;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 /* ---- Palette row reordering ---------------------------------------------- */
@@ -1107,7 +1118,7 @@ body {
   width: 1.1rem;
   height: 1.5rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: none;
   color: var(--muted);
   opacity: 0.55;
@@ -1160,7 +1171,7 @@ body {
   width: 1.35rem;
   height: 1.5rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--panel-2);
   color: var(--muted);
   cursor: pointer;
@@ -1216,7 +1227,7 @@ body {
   color: var(--text);
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .palette-tau:focus {
@@ -1341,7 +1352,7 @@ body {
 .palette-reset {
   background: none;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--muted);
   cursor: pointer;
   font-size: 0.8rem;
@@ -1482,7 +1493,7 @@ body {
   max-width: 100%;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--panel-2);
   color: var(--text);
   font-size: 0.75rem;
@@ -1547,7 +1558,7 @@ body {
   border: 1px solid var(--accent);
   background: transparent;
   color: var(--accent);
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 0.2rem 0.7rem;
   font-size: 0.75rem;
   cursor: pointer;
@@ -1585,7 +1596,7 @@ body {
   background: transparent;
   color: var(--muted);
   padding: 0.28rem 0.4rem;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   display: inline-flex;
   transition: color 0.12s, background 0.12s;
