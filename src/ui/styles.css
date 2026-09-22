@@ -2296,7 +2296,7 @@ body {
 /* ---- Sidebar section headers (always visible, no collapsing) ---- */
 .panel-head {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   grid-template-rows: auto auto;
   align-items: center;
   gap: 0.2rem 0.5rem;
@@ -2304,11 +2304,11 @@ body {
   margin: 0 0 0.5rem;
 }
 
-/* Uniform head format on every panel: line 1 = icon, title, '?' pinned right;
-   line 2 = badges/status spanning under the title. Badges live in a wrapper
-   (or flow via negative order) so the help button always owns the corner. */
+/* One head line on every panel: icon, title, status circle, actions. The
+   trailing buttons are NOT pinned to a column — they flow left to right after
+   the status cell, so a head with two of them (perf: reset + help) keeps two
+   separate columns instead of stacking in one and drawing on top of itself. */
 .panel-head .hint-btn {
-  grid-column: 3;
   grid-row: 1;
   margin-left: 0; /* grid places it; the old flex auto-margin is gone */
   align-self: center;
@@ -2327,13 +2327,18 @@ body {
   align-items: center;
 }
 
-/* Everything between the title and the '?' (badges, status notes) drops to
-   line 2 under the title. When there is none, row 2 is empty and collapses. */
-.panel-head > .ref-badge,
-.panel-head > #pb-badge {
-  grid-column: 2 / -1;
-  grid-row: 2;
-  margin-left: 0;
+/* The status circle belongs to the heading line, right before the '?' — under
+   the title it read as an orphan with no owner. Row 2 stays available for a
+   stretched note and collapses to zero height when nothing lands in it. */
+.panel-head > .status-ico-btn {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.panel-head > .ref-badge {
+  grid-column: 3 / -1;
+  grid-row: 1;
   justify-self: start;
 }
 
