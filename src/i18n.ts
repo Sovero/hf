@@ -831,10 +831,6 @@ export const dict: Dict = {
     en: 'Analyzing…',
     ru: 'Анализ…',
   },
-  refEmpty: {
-    en: 'Analyze a reference 3MF (HueForge, Bambu Studio, or this app’s export) to compare its size, colors, and swap schedule. A reference STL (HueForge or any mesh) is measured and compared with our relief instead.',
-    ru: 'Проанализируйте эталонный 3MF (HueForge, Bambu Studio или экспорт этого приложения), чтобы сравнить размер, цвета и расписание смен. Эталонный STL (HueForge или любой меш) измеряется и сравнивается с нашим рельефом.',
-  },
   refAnalyzing: { en: 'Analyzing…', ru: 'Анализ…' },
   refComplete: { en: 'Complete report', ru: 'Полный отчёт' },
   refPartial: { en: 'Partial report', ru: 'Неполный отчёт' },

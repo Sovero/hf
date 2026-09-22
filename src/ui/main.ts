@@ -173,7 +173,6 @@ const refWarningsSection = $<HTMLDivElement>('#ref-warnings-section')
 const refWarningsEl = $<HTMLDivElement>('#ref-warnings')
 const refApplyBtn = $<HTMLButtonElement>('#ref-apply')
 const refApplyNote = $<HTMLParagraphElement>('#ref-apply-note')
-const refEmpty = $<HTMLParagraphElement>('#ref-empty')
 const refError = $<HTMLParagraphElement>('#ref-error')
 const refBadge = $<HTMLButtonElement>('#ref-badge')
 const refPaletteSection = $<HTMLDivElement>('#ref-palette-section')
@@ -3810,7 +3809,6 @@ async function runToneFit(): Promise<void> {
 function renderStlReport() {
   const a = referenceStl
   if (!a) return
-  refEmpty.hidden = true
   refReport.hidden = false
   refError.hidden = true
 
@@ -3859,7 +3857,6 @@ function showStlError(err: unknown) {
 function renderReferenceReport() {
   if (!referenceAnalysis) return
   const a = referenceAnalysis
-  refEmpty.hidden = true
   refReport.hidden = false
   refError.hidden = true
   // A 3MF carries the palette and swap schedule the STL path has to hide.
