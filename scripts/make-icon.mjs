@@ -1,20 +1,31 @@
 #!/usr/bin/env node
 /**
- * Генератор иконки приложения: build/icon.ico (+ build/icon.png 512px для
- * Linux-бандлов). Рисует программно (без внешних ассетов): тёплый градиент —
- * отсылка к слоям филамента, ступенчатый рельеф — суть HueForge. Запускается
- * один раз вручную: `node scripts/make-icon.mjs`.
+ * Генератор иконки приложения: build/icon.ico (иконка exe и установщика),
+ * build/icon.png 512px (Linux-бандлы) и public/favicon.png 64px (значок
+ * вкладки веб-версии — Vite копирует public/ в dist как есть).
+ * Рисуется программно, без внешних ассетов: изометрическая
+ * ступенчатая стопка — слои филамента, из которых HueForge собирает рельеф
+ * (нижний слой самый широкий, верхний — самая светлая площадка). Палитра
+ * ведёт от сливы к кремовому, как градиент смены филаментов в печати.
+ * Запускается вручную: `node scripts/make-icon.mjs`.
  *
  * ICO собирается вручную (простой бинарный формат: PNG-записи внутри ICO
  * контейнера), чтобы не тянуть зависимости в скрипт.
  */
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(fileURLToPath(import.meta.url)) + '/..'
 const buildDir = join(root, 'build')
+const publicDir = join(root, 'public')
 mkdirSync(buildDir, { recursive: true })
+mkdirSync(publicDir, { recursive: true })
+
+/** Канал в 0..255: без зажима Buffer заворачивает пересвет по модулю 256. */
+function clamp255(v) {
+  return v < 0 ? 0 : v > 255 ? 255 : v
+}
 
 /** RGBA-холст с попиксельным доступом. */
 function canvas(size) {
@@ -24,63 +35,186 @@ function canvas(size) {
     data,
     set(x, y, [r, g, b, a]) {
       const i = (y * size + x) * 4
-      data[i] = r
-      data[i + 1] = g
-      data[i + 2] = b
-      data[i + 3] = a
+      data[i] = clamp255(Math.round(r))
+      data[i + 1] = clamp255(Math.round(g))
+      data[i + 2] = clamp255(Math.round(b))
+      data[i + 3] = clamp255(Math.round(a))
     },
   }
 }
 
-/** Закруглённый квадрат: >0 внутри, с мягким антиалиасингом по краю. */
-function roundedSdf(x, y, size, radius) {
-  const half = size / 2 - 0.5
-  const qx = Math.abs(x - half) - (half - radius)
-  const qy = Math.abs(y - half) - (half - radius)
-  const ax = Math.max(qx, 0)
-  const ay = Math.max(qy, 0)
-  return Math.hypot(ax, ay) + Math.min(Math.max(qx, qy), 0) - radius
+/* ── Геометрия и палитра знака ───────────────────────────────────────────
+ * Координаты — доли стороны иконки (0..1), поэтому один и тот же чертёж
+ * масштабируется в любой размер.
+ */
+const TILE_RADIUS = 0.235 // скругление плитки
+const ISO_W = 0.305       // половина ширины опорного ромба
+const ISO_H = 0.1525      // половина высоты ромба (изометрия 2:1)
+const STACK_H = 0.33      // высота всей стопки на экране
+const TOP_SCALE = 0.35    // во сколько раз верхняя площадка уже нижней
+
+/** Палитра слоёв снизу вверх: слива → киноварь → оранжевый → янтарь → крем. */
+const RAMP = [
+  [0x9b, 0x2d, 0x60],
+  [0xc0, 0x37, 0x36],
+  [0xe8, 0x76, 0x2c],
+  [0xf2, 0xb0, 0x40],
+  [0xf7, 0xe4, 0xba],
+]
+
+/** Смешать две RGB-тройки. */
+function mix(a, b, t) {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 }
 
-/** Ступенчатый «рельеф» из трёх полос, поднимающихся слева направо. */
-function reliefHeight(x, y, size) {
-  const u = x / size
-  const v = y / size
-  // три ступени; чем ниже ступень, тем выше яркость
-  const step = v < 0.45 ? 0.85 : v < 0.7 ? 0.55 : 0.3
-  // диагональный наклон добавляет объём
-  return step + (1 - u) * 0.15
+/** Цвет слоя layer из n по общей палитре. */
+function layerColor(layer, n) {
+  const pos = (n === 1 ? 0 : layer / (n - 1)) * (RAMP.length - 1)
+  const i = Math.min(RAMP.length - 2, Math.floor(pos))
+  return mix(RAMP[i], RAMP[i + 1], pos - i)
 }
 
 /**
- * Нарисовать иконку на холсте size×size: закруглённый квадрат с тёплым
- * градиентом (закат) и тремя ступенями рельефа с мягкой тенью.
+ * Знак как ступенчатая пирамида из n плит: плита i занимает модельную высоту
+ * [i, i+1] и опорный квадрат со стороной halfSize[i]; верхняя — самая узкая.
+ * Проекция изометрии 2:1: sx = OX + (x - z)·ISO_W, sy = OY + (x + z)·ISO_H - y·V.
+ */
+function pyramid(n) {
+  const v = STACK_H / n // высота одной плиты на экране
+  const top = TOP_SCALE
+  const steps = Math.max(1, n - 1)
+  const halfSize = Array.from({ length: n }, (_, i) => 1 - (i * (1 - top)) / steps)
+  // Вертикальный размах фигуры: от заднего угла верхней площадки до переднего
+  // угла нижней плиты; сдвигаем начало координат так, чтобы фигура встала по
+  // центру плитки.
+  const back = -2 * top * ISO_H - STACK_H
+  const front = 2 * ISO_H
+  const ox = 0.5
+  const oy = 0.5 - (back + front) / 2
+  return { n, v, halfSize, ox, oy }
+}
+
+/** Фон плитки: холодный верх → тёплый низ и «на просвет» свечение за знаком. */
+function background(u, v) {
+  const t = Math.min(1, Math.max(0, u * 0.3 + v * 0.7))
+  const base = mix([0x0e, 0x14, 0x1c], [0x22, 0x1f, 0x25], t)
+  const d = Math.hypot(u - 0.5, v - 0.6)
+  const glow = Math.max(0, 1 - d / 0.62) ** 2
+  return mix(base, [0xff, 0x8a, 0x3a], glow * 0.22)
+}
+
+/**
+ * Какая грань плиты i накрывает точку экрана (u, v): 0 — верхняя площадка,
+ * 1 — правая грань (x = a), 2 — левая грань (z = a). Грани выпуклой плиты на
+ * экране не пересекаются, поэтому достаточно первой подошедшей.
+ */
+function faceAt(pyr, u, v, i) {
+  const { v: V, halfSize, ox, oy } = pyr
+  const a = halfSize[i]
+  const y0 = i
+  const y1 = i + 1
+  // верхняя площадка лежит на высоте y1
+  const dx = (u - ox) / ISO_W
+  const dz = (v - oy + y1 * V) / ISO_H
+  const tx = (dx + dz) / 2
+  const tz = (dz - dx) / 2
+  if (tx >= -a && tx <= a && tz >= -a && tz <= a) {
+    return { face: 0, x: tx, z: tz, y: y1, t: (tx + tz + 2 * a) / (4 * a), i }
+  }
+  // правая грань — вдоль фиксированного x = a
+  const rz = a - (u - ox) / ISO_W
+  if (rz >= -a && rz <= a) {
+    const ry = (oy + (a + rz) * ISO_H - v) / V
+    if (ry >= y0 && ry <= y1) return { face: 1, x: a, z: rz, y: ry, t: (rz + a) / (2 * a), i }
+  }
+  // левая грань — вдоль фиксированного z = a
+  const lx = (u - ox) / ISO_W + a
+  if (lx >= -a && lx <= a) {
+    const ly = (oy + (lx + a) * ISO_H - v) / V
+    if (ly >= y0 && ly <= y1) return { face: 2, x: lx, z: a, y: ly, t: (lx + a) / (2 * a), i }
+  }
+  return null
+}
+
+/** Освещение: сверху ярче всего, левая грань темнее, правая — самая тёмная. */
+function shade(hit, n) {
+  const base = layerColor(hit.i, n)
+  let k
+  if (hit.face === 0) {
+    k = 0.84 + 0.16 * hit.t // площадка светлее к переднему краю (и не в пересвет)
+  } else {
+    // у боковых граней свет падает сверху: низ плиты темнее её верха —
+    // так на стопке читается граница между слоями
+    const up = hit.y - hit.i
+    k = (hit.face === 1 ? 0.62 * (0.94 + 0.12 * hit.t) : 0.82 * (0.92 + 0.12 * hit.t))
+    k *= 0.94 + 0.06 * up
+  }
+  return [base[0] * k, base[1] * k, base[2] * k]
+}
+
+/** Сэмплер цвета плитки: (u, v) в долях стороны → RGBA 0..255, a — покрытие. */
+function makeSampler(size, n) {
+  const pyr = pyramid(n)
+  const edge = 0.5 / size // ширина сглаживания плитки в долях стороны
+  return (u, v) => {
+    // закруглённый квадрат: SDF в долях стороны
+    const qx = Math.abs(u - 0.5) - (0.5 - TILE_RADIUS)
+    const qy = Math.abs(v - 0.5) - (0.5 - TILE_RADIUS)
+    const d = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - TILE_RADIUS
+    const cover = Math.min(1, Math.max(0, 0.5 - d / edge))
+    if (cover <= 0) return [0, 0, 0, 0]
+
+    let [r, g, b] = background(u, v)
+    // Стопка снизу вверх, без раннего выхода: каждая следующая плита
+    // перекрывает ту, что под ней (это и есть painter's algorithm — верхние
+    // плиты ближе к зрителю, потому что стоят на нижних).
+    for (let i = 0; i < n; i++) {
+      const hit = faceAt(pyr, u, v, i)
+      if (hit) [r, g, b] = shade(hit, n)
+    }
+    // мягкий блик по верхней кромке плитки
+    const inner = Math.min(1, Math.max(0, (d + 0.02) / 0.02))
+    const lit = inner * Math.max(0, 1 - v / 0.45) * 0.14
+    ;[r, g, b] = mix([r, g, b], [0xff, 0xff, 0xff], lit)
+    return [r, g, b, cover]
+  }
+}
+
+/**
+ * Нарисовать иконку size×size. Мелкие размеры получают меньше ступеней:
+ * на 16–20 px плита шириной в пиксель слилась бы в грязь, поэтому стопка
+ * нарисована тремя крупными слоями вместо пяти (силуэт тот же).
  */
 function drawIcon(size) {
+  const n = size <= 20 ? 3 : size <= 40 ? 4 : 5
+  const ss = size >= 192 ? 2 : size >= 64 ? 3 : 4 // суперсэмплинг
+  const sample = makeSampler(size, n)
   const cv = canvas(size)
-  const radius = size * 0.22
+  const step = 1 / ss
+  const inv = 1 / (ss * ss)
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const d = roundedSdf(x, y, size, radius)
-      // антиалиасинг: 1px вокруг границы
-      const alpha = Math.max(0, Math.min(1, 0.5 - d))
-      if (alpha <= 0) {
+      let ar = 0
+      let ag = 0
+      let ab = 0
+      let aa = 0
+      for (let sy = 0; sy < ss; sy++) {
+        for (let sx = 0; sx < ss; sx++) {
+          const u = (x + (sx + 0.5) * step) / size
+          const v = (y + (sy + 0.5) * step) / size
+          const [r, g, b, a] = sample(u, v)
+          ar += r * a
+          ag += g * a
+          ab += b * a
+          aa += a
+        }
+      }
+      if (aa <= 0) {
         cv.set(x, y, [0, 0, 0, 0])
         continue
       }
-      const u = x / size
-      const v = y / size
-      // фон: тёмно-синий -> тёплый закатный низ
-      const bgR = Math.round(16 + u * 30 + (1 - v) * 10)
-      const bgG = Math.round(20 + u * 18 + (1 - v) * 12)
-      const bgB = Math.round(24 + u * 22)
-      const h = reliefHeight(x, y, size)
-      // рельеф: чем выше ступень, тем светлее и теплее
-      const layerT = Math.max(0, Math.min(1, (h - 0.25) / 0.75))
-      const r = Math.round(bgR * (1 - layerT * 0.35) + 255 * layerT * 0.85)
-      const g = Math.round(bgG * (1 - layerT * 0.35) + 150 * layerT * 0.8)
-      const b = Math.round(bgB * (1 - layerT * 0.35) + 60 * layerT * 0.7)
-      cv.set(x, y, [r, g, b, Math.round(alpha * 255)])
+      // премультиплицированное усреднение: без тёмного ореола по краю плитки
+      cv.set(x, y, [ar / aa, ag / aa, ab / aa, aa * inv * 255])
     }
   }
   return cv
@@ -183,7 +317,19 @@ function buildIco(pngs) {
 }
 
 const sizes = [16, 24, 32, 48, 64, 128, 256]
-const ico = buildIco(sizes.map((s) => drawIcon(s)))
-writeFileSync(join(buildDir, 'icon.ico'), ico)
-writeFileSync(join(buildDir, 'icon.png'), encodePng(drawIcon(512)))
-console.log(`icon.ico (${sizes.join(', ')}) и icon.png (512) записаны в build/`)
+const FAVICON_SIZE = 64 // хватает и на вкладке (16/32px), и на HiDPI
+
+// Файлы пишутся только при запуске скрипта напрямую: при импорте (превью
+// размеров в .freebuff) нужны лишь сами функции отрисовки.
+const isMain = Boolean(process.argv[1]) && pathToFileURL(process.argv[1]).href === import.meta.url
+if (isMain) {
+  const ico = buildIco(sizes.map((s) => drawIcon(s)))
+  writeFileSync(join(buildDir, 'icon.ico'), ico)
+  writeFileSync(join(buildDir, 'icon.png'), encodePng(drawIcon(512)))
+  writeFileSync(join(publicDir, 'favicon.png'), encodePng(drawIcon(FAVICON_SIZE)))
+  console.log(
+    `icon.ico (${sizes.join(', ')}), icon.png (512) — build/, favicon.png (${FAVICON_SIZE}) — public/`,
+  )
+}
+
+export { drawIcon, encodePng, buildIco, canvas, sizes }
