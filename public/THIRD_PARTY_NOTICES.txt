@@ -20,6 +20,12 @@ HueForge Web — уведомления о сторонних компонент
 Файлы:      ort-wasm-simd-threaded-*.wasm и код воркера глубины (assets)
 Источник:   https://github.com/microsoft/onnxruntime
 Лицензия:   MIT
+Сторонний код внутри рантайма: .wasm статически включает библиотеки других
+            авторов (protobuf, ONNX, Eigen, flatbuffers и др.). Их уведомления
+            и лицензии — в файле THIRD_PARTY_NOTICES_ONNXRUNTIME.txt рядом с этим
+            (дословная копия ThirdPartyNotices.txt из репозитория ONNX Runtime,
+            тег v1.30.0; список охватывает всё, что ORT может содержать, в том
+            числе больше, чем использует веб-сборка).
 
 MIT License
 

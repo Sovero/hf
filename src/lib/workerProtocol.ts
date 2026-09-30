@@ -242,7 +242,10 @@ function quantizeOnce(
   const smooth = Number.isFinite(opts.smooth) ? Math.min(1, Math.max(0, opts.smooth!)) : 0
   const usable = width > 1 && height > 1
   const detail = colorDetailStrength(smooth)
-  const shapes = usable && detail > 0 ? bilateralSmoothRGBA(rgba, width, height, detail) : rgba
+  // `shapes` is what the boundaries are read from — the picture's brightness or
+  // colors. A depth relief reads its boundaries from the field, so that pass
+  // would be computed and thrown away on every slider tick.
+  const shapes = usable && detail > 0 && !reliefField ? bilateralSmoothRGBA(rgba, width, height, detail) : rgba
   const colors = paletteSource ?? (usable && smooth > 0 ? bilateralSmoothRGBA(rgba, width, height, smooth) : shapes)
   let q: QuantizedImage
   if (overrides?.nearest && overrides.palette && overrides.palette.length > 1) {
@@ -345,8 +348,12 @@ export function runFitToneTask(
   const usable = task.width > 1 && task.height > 1
   const detail = colorDetailStrength(smooth)
   // Same split as quantizeOnce: candidates read their band boundaries from the
-  // gently smoothed image and their band colors from the fully smoothed one.
-  const source = usable && detail > 0 ? bilateralSmoothRGBA(task.rgba, task.width, task.height, detail) : task.rgba
+  // gently smoothed image and their band colors from the fully smoothed one (a
+  // depth relief reads its boundaries from the field, so it skips the first).
+  const source =
+    usable && detail > 0 && !task.reliefField
+      ? bilateralSmoothRGBA(task.rgba, task.width, task.height, detail)
+      : task.rgba
   const colors = usable && smooth > 0 ? bilateralSmoothRGBA(task.rgba, task.width, task.height, smooth) : source
   // Every candidate runs the ΔE merge, which updates the module-level
   // kept-slot report. That report belongs to the quantize task: leaving a

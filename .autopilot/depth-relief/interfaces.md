@@ -55,3 +55,15 @@
 - `src/ui/depthRelief.ts`: `importDepthFile(file)`, `getImportedDepth()`, `clearImportedDepth()`, `depthFileErrorKey`.
 - `main.ts`: третий источник `file`; карта живёт только в памяти сессии (в проект не входит — при сохранении об этом сообщается), новая картинка сбрасывает её; отмена диалога возвращает на яркость; статус строится функцией и переводится при смене языка.
 - Тесты: `depthPng` (28).
+
+## Правки после ревью PR #1
+
+- `bandLabels(..., tieAware)`: при внешнем поле все пиксели одной корзины получают полосу первого ранга корзины — плоский фон вырезки остаётся одним слоем на основании. Яркостный путь не менялся (золотой тест).
+- `depthToRelief(map, w, h, invert, background?)`: инверсия не задевает фон; `ImportedDepth.background` — отдельная карта покрытия (1 = нет глубины), ресемплируется вместе с глубиной.
+- Импорт: лимиты `PNG_MAX_PIXELS` = 16 Мпикс, `PNG_MAX_RAW_BYTES` = 128 МБ; в памяти карта ≤ `IMPORT_KEEP_SIDE` = 2048 px; `RangeError` → «слишком большой».
+- `resampleDepth`: усреднение блоков по целой части коэффициента уменьшения (≥ 2), а не по половине.
+- Проект: `ProjectFile.depthMap?` (PNG data URL, ≤ 64 МБ в base64); `reliefSource: 'file'` без `depthMap` — ошибка разбора. При открытии карта импортируется до применения настроек; если рельеф не восстановился, палитра не накладывается.
+- `reliefFieldFor(file, image, { token, preview })`: устаревший прогон ничего не трогает в интерфейсе, а вызывающий код не отправляет его `quantize` в воркер (иначе устаревший прогон перезаписал бы состояние воркера). Плоская карта → яркость. Превью исходника переиспользуется, кэш глубины сбрасывается при новой картинке.
+- `PipelineResult.relief?: { source, invert }` → `Describe.txt` и метаданные 3MF (`ReliefSource`, `InvertDepth`).
+- Лицензии: `public/THIRD_PARTY_NOTICES_ONNXRUNTIME.txt` (ThirdPartyNotices.txt из ORT v1.30.0).
+- `package-lock.json`: только добавления onnxruntime-web (без чужого churn `libc`).

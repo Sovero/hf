@@ -58,13 +58,14 @@
   ],
   "completedTickets": 5,
   "totalTickets": 5,
-  "lastGreenCommit": "28935c8",
+  "lastGreenCommit": "6e6c2c7",
   "blind": {
     "brief": "https://github.com/img2threejs/img2threejs используй → Встроить в HueForge → Нейросеть, вшитая в сборку → model_quantized.onnx; + Unique3D: что можно использовать?",
     "verdict": "self-checked",
     "drift": []
   },
   "concerns": [
+    "Ревью PR #1 (skill code-review, 15 замечаний): проверено на деле, исправлено — [hidden] у строк глубины, инверсия фона карты, круговорот проекта с картой, откат палитры, гонка устаревшего прогона, ничьи в bandLabels, усреднение блоков, сброс карты и каталога при открытии проекта, лишний bilateral, двойной декод, лимиты памяти, Describe/3MF, уведомления ORT, churn package-lock.",
     "Навык /autopilot недоступен в облачной сессии: артефакты .autopilot/depth-relief и этот state.json оформлены вручную по формату прошлой фичи, слепая сверка с брифом выполнена самим агентом, а не навыком.",
     "Проверено на Linux (Chromium, Electron из каталога и app.asar). Не проверены: установщик .exe и запуск на Windows.",
     "Pre-existing: Vite предупреждает о чанке > 500 kB (не связано с фичей); Electron пишет ERR_FILE_NOT_FOUND для /api/slicer/status (существующая проверка слайсера).",

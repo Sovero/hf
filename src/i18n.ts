@@ -299,8 +299,8 @@ export const dict: Dict = {
   },
   reliefSourceFile: { en: 'Depth map from a file (PNG)', ru: 'Карта глубины из файла (PNG)' },
   helpReliefSourceFile: {
-    en: 'Use a depth or height map you made elsewhere — a depth tool, Blender, a sculpting program, or a 3D reconstruction. PNG, 8 or 16 bit; 16-bit keeps every level, so a smooth ramp prints as a smooth slope. Brighter is nearer (taller) by default; tick “Invert depth” for the opposite convention. Fully transparent pixels stay at the base. The map is stretched to the picture, and each filament color is still the average picture color inside its depth layer. The file is not stored in a saved project.',
-    ru: 'Своя карта глубины или высот, сделанная в другом месте: программа глубины, Blender, скульптор, 3D-реконструкция. PNG, 8 или 16 бит; 16 бит сохраняют все уровни, поэтому плавный градиент печатается плавным склоном. По умолчанию светлее — ближе (выше); для обратного соглашения включите «Инвертировать глубину». Полностью прозрачные пиксели остаются на уровне основания. Карта растягивается под картинку, а цвет каждого филамента по-прежнему — средний цвет картинки внутри слоя глубины. Файл карты в сохранённый проект не входит.',
+    en: 'Use a depth or height map you made elsewhere — a depth tool, Blender, a sculpting program, or a 3D reconstruction. PNG, 8 or 16 bit, up to 16 megapixels; 16-bit keeps every level, so a smooth ramp prints as a smooth slope. Brighter is nearer (taller) by default; tick “Invert depth” for the opposite convention. Fully transparent pixels stay at the base. The map is stretched to the picture, and each filament color is still the average picture color inside its depth layer. A saved project carries a copy of the file.',
+    ru: 'Своя карта глубины или высот, сделанная в другом месте: программа глубины, Blender, скульптор, 3D-реконструкция. PNG, 8 или 16 бит, до 16 мегапикселей; 16 бит сохраняют все уровни, поэтому плавный градиент печатается плавным склоном. По умолчанию светлее — ближе (выше); для обратного соглашения включите «Инвертировать глубину». Полностью прозрачные пиксели остаются на уровне основания. Карта растягивается под картинку, а цвет каждого филамента по-прежнему — средний цвет картинки внутри слоя глубины. Сохранённый проект несёт копию файла.',
   },
   depthFilePick: { en: 'Choose a depth map…', ru: 'Выбрать карту глубины…' },
   depthFileNone: {
@@ -317,8 +317,8 @@ export const dict: Dict = {
     ru: 'Её пропорции отличаются от пропорций картинки, поэтому она растянута под неё.',
   },
   depthFileFlat: {
-    en: 'The map has no range of values, so the relief will be flat.',
-    ru: 'В карте нет перепада значений, поэтому рельеф получится плоским.',
+    en: 'The map has no range of values, so picture brightness is used for the relief.',
+    ru: 'В карте нет перепада значений, поэтому рельеф строится по яркости картинки.',
   },
   depthFileErrTooBig: { en: 'The file is larger than 64 MB.', ru: 'Файл больше 64 МБ.' },
   depthFileErrNotPng: { en: 'This is not a PNG file.', ru: 'Это не PNG-файл.' },
@@ -332,10 +332,6 @@ export const dict: Dict = {
     ru: 'Поддерживаются только серые, RGB и RGBA PNG с 8 или 16 битами.',
   },
   depthFileErrTooLarge: { en: 'The image is too large to open.', ru: 'Изображение слишком большое.' },
-  depthFileNotSaved: {
-    en: 'The depth map file itself is not stored in the project.',
-    ru: 'Сам файл карты глубины в проект не входит.',
-  },
   depthInvert: { en: 'Invert depth (farther = taller)', ru: 'Инвертировать глубину (дальше = выше)' },
   helpDepthInvert: {
     en: 'Flips the depth relief: the farthest parts stand tallest and the nearest are lowest. Useful for a picture the network read the wrong way round, or for a sunken, engraved look.',
@@ -348,8 +344,8 @@ export const dict: Dict = {
     ru: 'Глубина оценена за {s} с — ближнее выше.',
   },
   depthFlat: {
-    en: 'The picture has almost no depth range, so the relief will be flat.',
-    ru: 'На картинке почти нет перепада глубины, поэтому рельеф получится плоским.',
+    en: 'The picture has almost no depth range, so its brightness is used for the relief this time.',
+    ru: 'На картинке почти нет перепада глубины, поэтому в этот раз рельеф строится по яркости.',
   },
   depthErrorLoad: {
     en: 'The depth model could not be loaded ({detail}). Using picture brightness instead.',
@@ -363,9 +359,13 @@ export const dict: Dict = {
     en: 'Not used while the relief comes from depth',
     ru: 'Не используется, пока рельеф строится по глубине',
   },
-  depthCatalogOff: {
-    en: 'Catalog mode was turned off: depth relief takes its colors from the picture.',
-    ru: 'Режим каталога выключен: рельеф по глубине берёт цвета из картинки.',
+  depthOffForCatalog: {
+    en: 'Depth relief was switched off: catalog mode assigns colors by the nearest spool.',
+    ru: 'Рельеф по глубине выключен: режим каталога назначает цвета по ближайшей катушке.',
+  },
+  projectReliefFallback: {
+    en: 'This project’s depth relief could not be restored, so it opened on picture brightness with automatic colors.',
+    ru: 'Рельеф по глубине из этого проекта восстановить не удалось, поэтому он открыт по яркости картинки с автоматическими цветами.',
   },
   coverageSegTitle: {
     en: 'Color {order} ({hex}) covers {pct} of the print area',

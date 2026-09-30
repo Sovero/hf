@@ -42,7 +42,15 @@ export function describeExport(result: PipelineResult, name: string): string {
   lines.push(`Base: ${fmt(baseMm)} mm · max height: ${fmt(maxHeightMm)} mm`)
   lines.push(`Layer height: ${fmt(layerMm)} mm (${totalLayers} layers)`)
   lines.push(
-    `Depth mode: ${darkIsTall ? 'dark image areas stand tallest' : 'bright image areas stand tallest'}`,
+    `Depth mode: ${
+      result.relief
+        ? result.relief.invert
+          ? `relief from a depth map (${result.relief.source === 'depth' ? 'neural network' : 'file'}) — the farthest areas stand tallest`
+          : `relief from a depth map (${result.relief.source === 'depth' ? 'neural network' : 'file'}) — the nearest areas stand tallest`
+        : darkIsTall
+          ? 'dark image areas stand tallest'
+          : 'bright image areas stand tallest'
+    }`,
   )
   lines.push('')
   lines.push('Filaments, bottom → top:')

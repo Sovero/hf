@@ -24,9 +24,15 @@ export class PngError extends Error {
   }
 }
 
-/** Largest side, and largest raw (unfiltered) sample buffer, the decoder accepts. */
+/**
+ * Largest side, pixel count and raw (unfiltered) sample buffer the decoder
+ * accepts. The pixel cap is what keeps memory honest: decoding runs on the main
+ * thread and holds the raw data, the unfiltered rows and two Float32 planes at
+ * once, so 16 megapixels (4096 × 4096) is already a few hundred MB in flight.
+ */
 export const PNG_MAX_SIDE = 16384
-export const PNG_MAX_RAW_BYTES = 256 * 1024 * 1024
+export const PNG_MAX_PIXELS = 16 * 1024 * 1024
+export const PNG_MAX_RAW_BYTES = 128 * 1024 * 1024
 
 export interface DecodedPng {
   width: number
@@ -136,7 +142,9 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
   if (colorType < 0) throw new PngError('corrupt', 'missing header')
   if (!sawEnd || idat.length === 0) throw new PngError('corrupt', 'the file is truncated')
   if (width < 1 || height < 1) throw new PngError('corrupt', 'empty image')
-  if (width > PNG_MAX_SIDE || height > PNG_MAX_SIDE) throw new PngError('too-large', 'image is too large')
+  if (width > PNG_MAX_SIDE || height > PNG_MAX_SIDE || width * height > PNG_MAX_PIXELS) {
+    throw new PngError('too-large', 'image is too large')
+  }
   const channels = CHANNELS[colorType]
   if (!channels || (bitDepth !== 8 && bitDepth !== 16)) {
     throw new PngError('unsupported', `color type ${colorType} at ${bitDepth} bits is not supported`)

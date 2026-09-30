@@ -1,4 +1,4 @@
-import { normalizeMinMax, type DepthMap } from './depthMap'
+import { fitDepthWithin, normalizeMinMax, type DepthMap } from './depthMap'
 import { decodePng } from './png'
 
 /**
@@ -10,8 +10,13 @@ import { decodePng } from './png'
 /** Refuse files past this size before reading them into memory. */
 export const MAX_DEPTH_FILE_BYTES = 64 * 1024 * 1024
 
+/** A kept map never needs more than this many pixels on a side: the print grid is ≤ ~1024. */
+export const IMPORT_KEEP_SIDE = 2048
+
 export interface ImportedDepth {
   map: DepthMap
+  /** 1 where the file had no depth (fully transparent), else 0; absent when nothing was transparent. */
+  background?: DepthMap
   /** Precision of the file: 16-bit maps keep all their levels. */
   bitDepth: 8 | 16
   /** Some pixels were fully transparent and were treated as background (base level). */
@@ -38,8 +43,12 @@ export function importDepthFromPng(bytes: Uint8Array): ImportedDepth {
     if (any) background = mask
   }
   const { data, flat } = normalizeMinMax(png.luma, background)
+  const full: DepthMap = { width: png.width, height: png.height, data }
   return {
-    map: { width: png.width, height: png.height, data },
+    map: fitDepthWithin(full, IMPORT_KEEP_SIDE),
+    background: background
+      ? fitDepthWithin({ width: png.width, height: png.height, data: Float32Array.from(background) }, IMPORT_KEEP_SIDE)
+      : undefined,
     bitDepth: png.bitDepth,
     hadBackground: !!background,
     flat,

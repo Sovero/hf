@@ -57,8 +57,7 @@ export interface ProjectSettings {
   colorMode?: ColorMode
   /**
    * What decides the height: absent = the picture's brightness (every older
-   * project). A `file` depth map is not stored in the project, so a project that
-   * needs one reopens on brightness.
+   * project). `file` needs the map itself, which travels in `ProjectFile.depthMap`.
    */
   reliefSource?: ReliefSource
   /** Depth relief flipped so the farther surface stands tallest; absent = false. */
@@ -78,6 +77,11 @@ export interface ProjectFile {
   app: 'hueforge-web'
   version: 1
   image: { name: string; dataUrl: string }
+  /**
+   * The depth-map PNG behind `settings.reliefSource === 'file'`, embedded like
+   * the picture so the project stays one portable file. Absent otherwise.
+   */
+  depthMap?: { name: string; dataUrl: string }
   settings: ProjectSettings
   palette: ProjectPaletteSlot[]
 }
@@ -86,6 +90,8 @@ export const PROJECT_APP = 'hueforge-web'
 export const PROJECT_VERSION = 1
 export const PROJECT_EXTENSION = '.hueforge.json'
 const HEX_RE = /^#[0-9a-f]{6}$/i
+/** A 64 MB PNG as base64 (4/3) plus the data-URL prefix — the importer's own file limit. */
+const MAX_DEPTH_DATA_URL_CHARS = Math.ceil((64 * 1024 * 1024 * 4) / 3) + 64
 
 /** Raised when a file is not a valid HueForge project; `message` is technical. */
 export class ProjectFileError extends Error {
@@ -98,6 +104,8 @@ export class ProjectFileError extends Error {
 export function buildProjectFile(input: {
   imageName: string
   dataUrl: string
+  /** The imported depth-map PNG, when the relief comes from a file. */
+  depthMap?: { name: string; dataUrl: string }
   settings: ProjectSettings
   palette: ProjectPaletteSlot[]
 }): ProjectFile {
@@ -105,6 +113,7 @@ export function buildProjectFile(input: {
     app: PROJECT_APP,
     version: PROJECT_VERSION,
     image: { name: input.imageName, dataUrl: input.dataUrl },
+    ...(input.depthMap ? { depthMap: { name: input.depthMap.name, dataUrl: input.depthMap.dataUrl } } : {}),
     settings: { ...input.settings },
     palette: input.palette.map((s) => ({
       hex: s.hex,
@@ -278,10 +287,27 @@ export function parseProjectFile(text: string): ProjectFile {
     }
     settings[key] = value as number
   }
+  // Optional embedded depth map: a PNG data URL, bounded like the file it came from.
+  let depthMap: ProjectFile['depthMap']
+  if (raw.depthMap !== undefined) {
+    if (!isRecord(raw.depthMap)) throw new ProjectFileError('depthMap must be an object')
+    const name = str(raw.depthMap.name)
+    const mapUrl = str(raw.depthMap.dataUrl)
+    if (!name || !mapUrl || !mapUrl.startsWith('data:image/png')) {
+      throw new ProjectFileError('depthMap must carry a name and a data:image/png URL')
+    }
+    if (mapUrl.length > MAX_DEPTH_DATA_URL_CHARS) throw new ProjectFileError('depthMap is too large')
+    depthMap = { name, dataUrl: mapUrl }
+  }
+  if (settings.reliefSource === 'file' && !depthMap) {
+    // Nothing to build the relief from: say so instead of guessing.
+    throw new ProjectFileError("settings.reliefSource 'file' needs a depthMap")
+  }
   return {
     app: PROJECT_APP,
     version: PROJECT_VERSION,
     image: { name: imageName, dataUrl },
+    ...(depthMap ? { depthMap } : {}),
     settings,
     palette: parsePalette(raw.palette),
   }

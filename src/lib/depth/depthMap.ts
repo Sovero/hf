@@ -113,7 +113,7 @@ export function normalizeMinMax(values: Float32Array, background?: Uint8Array): 
 }
 
 /** Average `factor × factor` blocks (integer shrink) — the cheap, alias-free way down. */
-function shrinkByBlocks(map: DepthMap, factor: number): DepthMap {
+export function shrinkByBlocks(map: DepthMap, factor: number): DepthMap {
   const w = Math.floor(map.width / factor)
   const h = Math.floor(map.height / factor)
   const out = new Float32Array(w * h)
@@ -133,14 +133,17 @@ function shrinkByBlocks(map: DepthMap, factor: number): DepthMap {
 
 /**
  * Resample a depth map to `width × height` (returns the input when the size
- * matches). Shrinking a lot averages blocks first: a supplied 4000-px map read at
- * a 300-px print grid by bilinear alone would sample one pixel in thirteen and
- * turn fine texture into noise.
+ * matches). Shrinking by 2× or more averages blocks first: a supplied 1000-px
+ * map read at a 375-px print grid by bilinear alone would sample about one pixel
+ * in three and turn fine texture into aliased noise.
  */
 export function resampleDepth(input: DepthMap, width: number, height: number): DepthMap {
   if (input.width === width && input.height === height) return input
   let map = input
-  const factor = Math.floor(Math.min(map.width / width, map.height / height) / 2)
+  // Average whole blocks by the integer part of the shrink ratio, then let the
+  // bilinear pass cover the remainder (< 2×, where it samples every pixel it
+  // needs). Halving the ratio first would leave a 2.7× shrink unfiltered.
+  const factor = Math.floor(Math.min(map.width / width, map.height / height))
   if (factor >= 2) map = shrinkByBlocks(map, factor)
   const out = new Float32Array(width * height)
   const sw = map.width
@@ -168,14 +171,40 @@ export function resampleDepth(input: DepthMap, width: number, height: number): D
 }
 
 /**
+ * Shrink a map by whole blocks until neither side exceeds `maxSide` (returned
+ * as is when it already fits). Keeps a supplied map from holding megapixels the
+ * print grid can never use.
+ */
+export function fitDepthWithin(map: DepthMap, maxSide: number): DepthMap {
+  const factor = Math.ceil(Math.max(map.width, map.height) / maxSide)
+  return factor >= 2 ? shrinkByBlocks(map, factor) : map
+}
+
+/**
  * The relief field a print needs: the depth map at the working resolution,
  * optionally flipped so the farther surface stands tallest ("invert depth").
+ *
+ * `background` (1 = no depth here, e.g. transparent) is a map of its own because
+ * the flip must not reach it: a cut-out's background is the base whichever way
+ * the depth runs. It is resampled like the depth, so an edge pixel that is half
+ * background is pulled half way to the base.
+ *
  * Always a fresh array — the cached map must survive the pipeline's transfers.
  */
-export function depthToRelief(map: DepthMap, width: number, height: number, invert = false): Float32Array {
+export function depthToRelief(
+  map: DepthMap,
+  width: number,
+  height: number,
+  invert = false,
+  background?: DepthMap,
+): Float32Array {
   const resized = resampleDepth(map, width, height)
   const out = new Float32Array(resized.data.length)
   if (invert) for (let i = 0; i < out.length; i++) out[i] = 1 - resized.data[i]!
   else out.set(resized.data)
+  if (background) {
+    const cover = resampleDepth(background, width, height).data
+    for (let i = 0; i < out.length; i++) out[i] = out[i]! * (1 - cover[i]!)
+  }
   return out
 }

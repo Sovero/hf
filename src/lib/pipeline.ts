@@ -31,6 +31,19 @@ export interface PipelineResult {
   darkIsTall: boolean
   /** The resolved print settings (incl. chosen layer height). */
   settings: PrintSettings
+  /**
+   * Set when the height came from a depth map instead of the picture's
+   * brightness (absent = brightness). Then `darkIsTall` no longer says which
+   * areas stand tall, so exports describe the relief by this instead.
+   */
+  relief?: ReliefInfo
+}
+
+/** Where a non-brightness relief came from, and which way it runs. */
+export interface ReliefInfo {
+  source: 'depth' | 'file'
+  /** Farther stands tallest (the depth flipped). */
+  invert: boolean
 }
 
 export interface PipelineOptions {
@@ -232,6 +245,7 @@ export function export3mfFile(result: PipelineResult, name: string): Uint8Array 
     BaseMm: String(result.settings.baseMm),
     MaxHeightMm: String(result.settings.maxHeightMm),
     LayerMm: String(result.settings.layerMm),
+    ...(result.relief ? { ReliefSource: result.relief.source, InvertDepth: String(result.relief.invert) } : {}),
     ...(result.settings.contrastPct !== undefined ? { ContrastPct: String(result.settings.contrastPct) } : {}),
     ...(result.settings.powerPct !== undefined ? { PowerPct: String(result.settings.powerPct) } : {}),
     BandTops: result.palette

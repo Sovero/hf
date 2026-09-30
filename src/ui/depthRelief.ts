@@ -36,11 +36,6 @@ export function clearDepthCache(): void {
   cached = null
 }
 
-/** True when this file's depth is already known (no network run, no wait). */
-export function hasDepthFor(file: File): boolean {
-  return cached?.file === file
-}
-
 /**
  * Depth for `file`. `pixels` is a thunk so a cache hit costs no decode at all;
  * overlapping calls for the same file share one run.
@@ -75,6 +70,8 @@ export function depthFor(
 
 export interface ImportedMap extends ImportedDepth {
   name: string
+  /** The file itself, kept so a saved project can embed the original PNG. */
+  file: File
 }
 
 let imported: ImportedMap | null = null
@@ -102,9 +99,11 @@ export async function importDepthFile(file: File): Promise<ImportedMap> {
   if (file.size > MAX_DEPTH_FILE_BYTES) throw new DepthFileError('too-big', 'file is too large')
   const bytes = new Uint8Array(await file.arrayBuffer())
   try {
-    imported = { ...importDepthFromPng(bytes), name: file.name }
+    imported = { ...importDepthFromPng(bytes), name: file.name, file }
   } catch (err) {
     if (err instanceof PngError) throw new DepthFileError(err.code, err.message)
+    // Running out of memory on a huge map is a size problem, not a damaged file.
+    if (err instanceof RangeError) throw new DepthFileError('too-large', 'not enough memory for this image')
     throw err
   }
   return imported
@@ -125,9 +124,18 @@ export function depthFileErrorKey(err: unknown): string {
   )[code] ?? 'depthFileErrCorrupt'
 }
 
-/** The relief field for the print grid: the depth map at that size, optionally flipped. */
-export function reliefFieldFromDepth(depth: DepthMap, width: number, height: number, invert: boolean): Float32Array {
-  return depthToRelief(depth, width, height, invert)
+/**
+ * The relief field for the print grid: the depth map at that size, optionally
+ * flipped. `background` (imported maps only) is kept at the base either way.
+ */
+export function reliefFieldFromDepth(
+  depth: DepthMap,
+  width: number,
+  height: number,
+  invert: boolean,
+  background?: DepthMap,
+): Float32Array {
+  return depthToRelief(depth, width, height, invert, background)
 }
 
 /** Which localized message explains a depth failure. */

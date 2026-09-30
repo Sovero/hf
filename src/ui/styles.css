@@ -976,6 +976,13 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* An author `display` beats the UA `[hidden]` rule, so these rows need their own
+   (the same reason `.calib[hidden]` and `.palette-coverage[hidden]` exist). */
+.depth-file-row[hidden],
+#depth-extra[hidden] {
+  display: none;
+}
+
 /* Options the chosen relief source makes moot (brightness polarity, colors-first
    model while the relief comes from depth): dimmed and inert, not hidden, so the
    saved choice stays visible. */
@@ -2950,7 +2957,8 @@ body {
 }.viewer-3d input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
-  /* UA default horizontal margin shifts the slider 2px right of the ticks row     (the colors slider resets it via .slider-main); align them. */
+  /* UA default horizontal margin shifts the slider 2px right of the ticks row
+     (the colors slider resets it via .slider-main); align them. */
   margin: 0;
 }
 
