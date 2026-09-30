@@ -58,7 +58,7 @@
   ],
   "completedTickets": 5,
   "totalTickets": 5,
-  "lastGreenCommit": "6e6c2c7",
+  "lastGreenCommit": "74c259a",
   "blind": {
     "brief": "https://github.com/img2threejs/img2threejs используй → Встроить в HueForge → Нейросеть, вшитая в сборку → model_quantized.onnx; + Unique3D: что можно использовать?",
     "verdict": "self-checked",
@@ -69,7 +69,8 @@
     "Навык /autopilot недоступен в облачной сессии: артефакты .autopilot/depth-relief и этот state.json оформлены вручную по формату прошлой фичи, слепая сверка с брифом выполнена самим агентом, а не навыком.",
     "Проверено на Linux (Chromium, Electron из каталога и app.asar). Не проверены: установщик .exe и запуск на Windows.",
     "Pre-existing: Vite предупреждает о чанке > 500 kB (не связано с фичей); Electron пишет ERR_FILE_NOT_FOUND для /api/slicer/status (существующая проверка слайсера).",
-    "Версия не поднималась, CHANGELOG и release-notes не трогались: это решение о релизе."
+    "Версия не поднималась, CHANGELOG и release-notes не трогались: это решение о релизе.",
+    "У репозитория CI запускается только на push в main (ci.yml), поэтому у PR автоматических проверок нет; проверка — локальная (typecheck, 523 теста, сборка, npm ci на итоговом lock-файле, Chromium, Electron)."
   ],
   "next": "Idle. Фича готова и проверена; ждёт ревью PR."
 }
