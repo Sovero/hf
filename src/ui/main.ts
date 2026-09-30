@@ -38,7 +38,16 @@ import { dropSparseColors, dropTargets } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 import { isDesktop, desktopSaveFile, initDesktopShell, setDesktopLang } from './desktop'
-import { depthFor, depthErrorDetail, depthErrorKey, reliefFieldFromDepth } from './depthRelief'
+import {
+  clearImportedDepth,
+  depthErrorDetail,
+  depthErrorKey,
+  depthFileErrorKey,
+  depthFor,
+  getImportedDepth,
+  importDepthFile,
+  reliefFieldFromDepth,
+} from './depthRelief'
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector(sel)
@@ -135,6 +144,10 @@ const mergeThreshWrap = $<HTMLElement>('#merge-thresh-wrap')
 const depthExtra = $<HTMLDivElement>('#depth-extra')
 const depthInvert = $<HTMLInputElement>('#depth-invert')
 const depthStatus = $<HTMLParagraphElement>('#depth-status')
+const depthFileRow = $<HTMLDivElement>('#depth-file-row')
+const depthFileBtn = $<HTMLButtonElement>('#depth-file-btn')
+const depthFileInput = $<HTMLInputElement>('#depth-file-input')
+const depthFileName = $<HTMLSpanElement>('#depth-file-name')
 const polarityOptions = $<HTMLDivElement>('#polarity-options')
 const colorModeOptions = $<HTMLDivElement>('#color-mode-options')
 
@@ -274,7 +287,8 @@ function saveSettings() {
       mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
       dropThreshold: clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1),
       colorMode: readColorMode(),
-      reliefSource: readReliefSource(),
+      // A supplied depth map is not persisted, so "from a file" cannot be restored.
+      reliefSource: readReliefSource() === 'file' ? 'luma' : readReliefSource(),
       invertDepth: depthInvert.checked,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
@@ -389,39 +403,77 @@ function showStatus(msg: string, isError = false) {
   exportStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'
 }
 
-// ---- relief source: picture brightness or depth from the bundled network ----
+// ---- relief source: picture brightness, depth from the bundled network, or a depth map file ----
 
-/** What decides the height now (the third source, a depth map file, arrives with the importer). */
+/** What decides the height now. */
 function readReliefSource(): ReliefSource {
-  return document.querySelector<HTMLInputElement>('input[name="relief-source"]:checked')?.value === 'depth'
-    ? 'depth'
-    : 'luma'
+  const value = document.querySelector<HTMLInputElement>('input[name="relief-source"]:checked')?.value
+  return value === 'depth' || value === 'file' ? value : 'luma'
 }
 
-/** The depth-only controls, and the brightness controls the depth relief makes moot. */
+/** The depth-only controls, and the brightness controls a depth relief makes moot. */
 function syncReliefUi() {
-  const depth = readReliefSource() === 'depth'
-  depthExtra.hidden = !depth
-  if (!depth) setDepthStatus('')
+  const source = readReliefSource()
+  const depthLike = source !== 'luma'
+  depthExtra.hidden = !depthLike
+  depthFileRow.hidden = source !== 'file'
+  if (!depthLike) setDepthStatus('')
   // Polarity (light/dark = tall) and the colors-first model both read the
   // picture's brightness or colors as the height; a depth relief replaces that,
   // so leaving them live would promise a change that never happens.
   for (const box of [polarityOptions, colorModeOptions]) {
-    box.classList.toggle('is-inactive', depth)
-    box.title = depth ? tr('depthControlsNote') : ''
-    for (const input of box.querySelectorAll<HTMLInputElement>('input')) input.disabled = depth
+    box.classList.toggle('is-inactive', depthLike)
+    box.title = depthLike ? tr('depthControlsNote') : ''
+    for (const input of box.querySelectorAll<HTMLInputElement>('input')) input.disabled = depthLike
   }
 }
 
 function setReliefSource(source: ReliefSource) {
-  const input = document.querySelector<HTMLInputElement>(
-    `input[name="relief-source"][value="${source === 'depth' ? 'depth' : 'luma'}"]`,
-  )
+  const input = document.querySelector<HTMLInputElement>(`input[name="relief-source"][value="${source}"]`)
   if (input) input.checked = true
   syncReliefUi()
 }
 
-function setDepthStatus(text: string) {
+/** One line about the imported map: what it is, and anything about it worth knowing. */
+function describeImportedMap(imp: NonNullable<ReturnType<typeof getImportedDepth>>, image: { width: number; height: number }) {
+  const parts = [tr('depthFileLoaded', { name: imp.name, w: imp.map.width, h: imp.map.height, bits: imp.bitDepth })]
+  if (imp.flat) parts.push(tr('depthFileFlat'))
+  if (imp.hadBackground) parts.push(tr('depthFileBackground'))
+  const mapRatio = imp.map.width / imp.map.height
+  const imageRatio = image.width / image.height
+  if (Math.abs(mapRatio - imageRatio) / imageRatio > 0.02) parts.push(tr('depthFileStretched'))
+  return parts.join(' ')
+}
+
+/** Read a chosen depth-map PNG and rebuild the print from it. */
+async function loadDepthFile(file: File) {
+  try {
+    const imp = await importDepthFile(file)
+    depthFileName.textContent = imp.name
+    setReliefSource('file')
+    saveSettings()
+    if (currentFile) void readFile(currentFile)
+    else setDepthStatus(() => tr('depthFileLoaded', { name: imp.name, w: imp.map.width, h: imp.map.height, bits: imp.bitDepth }))
+  } catch (err) {
+    // A bad file must not cost the user a working print: keep what was there.
+    setDepthStatus(() => tr(depthFileErrorKey(err)))
+  }
+}
+
+/**
+ * The status line under the relief source. It is given as a function, not a
+ * string, so a language switch can build the same message again in the new
+ * language instead of leaving the old one on screen.
+ */
+let depthStatusText: (() => string) | null = null
+
+function setDepthStatus(text: string | (() => string)) {
+  depthStatusText = typeof text === 'function' ? text : text === '' ? null : () => text
+  renderDepthStatus()
+}
+
+function renderDepthStatus() {
+  const text = depthStatusText ? depthStatusText() : ''
   depthStatus.textContent = text
   depthStatus.hidden = text === ''
 }
@@ -436,7 +488,18 @@ function setDepthStatus(text: string) {
  * nearest spool, which has no use for a relief field.
  */
 async function reliefFieldFor(file: File, image: { width: number; height: number }): Promise<Float32Array | undefined> {
-  if (readReliefSource() !== 'depth' || catalogActive) return undefined
+  const source = readReliefSource()
+  if (source === 'luma' || catalogActive) return undefined
+  if (source === 'file') {
+    const imp = getImportedDepth()
+    if (!imp) {
+      // Chosen but not picked yet: the picture still prints, on brightness.
+      setDepthStatus(() => tr('depthFileNone'))
+      return undefined
+    }
+    setDepthStatus(() => describeImportedMap(imp, image))
+    return reliefFieldFromDepth(imp.map, image.width, image.height, depthInvert.checked)
+  }
   try {
     const result = await depthFor(
       file,
@@ -444,9 +507,9 @@ async function reliefFieldFor(file: File, image: { width: number; height: number
         const o = readOptions()
         return (await loadImageForPrint(file, o.widthMm, o.heightMm, lang)).sourcePreview
       },
-      (phase) => setDepthStatus(tr(phase === 'loading' ? 'depthLoading' : 'depthEstimating')),
+      (phase) => setDepthStatus(() => tr(phase === 'loading' ? 'depthLoading' : 'depthEstimating')),
     )
-    setDepthStatus(
+    setDepthStatus(() =>
       result.flat ? tr('depthFlat') : result.seconds === null ? '' : tr('depthReady', { s: result.seconds.toFixed(1) }),
     )
     return reliefFieldFromDepth(result.depth, image.width, image.height, depthInvert.checked)
@@ -460,6 +523,15 @@ async function reliefFieldFor(file: File, image: { width: number; height: number
 
 async function readFile(file: File, fresh = false): Promise<boolean> {
   currentFile = file
+  if (fresh && (getImportedDepth() || readReliefSource() === 'file')) {
+    // A depth map belongs to one picture: a new picture starts without it.
+    clearImportedDepth()
+    depthFileName.textContent = ''
+    if (readReliefSource() === 'file') {
+      setReliefSource('luma')
+      saveSettings()
+    }
+  }
   const token = ++runToken
   showStatus(tr('processing'))
   setProcessing(true)
@@ -648,6 +720,7 @@ function setLang(next: Lang, persist = true) {
   applyStaticText()
   syncReliefSplit()
   syncReliefUi() // the "not used" tooltips on the brightness controls follow the language
+  renderDepthStatus()
   renderCustomToneChips() // chip names are the user's, but their tooltips follow the language
   syncToneReadouts()
   renderToneResult()
@@ -3479,19 +3552,37 @@ function bindInputs() {
   // other (see `reliefFieldFor`), so choosing depth switches the catalog off.
   for (const el of document.querySelectorAll<HTMLInputElement>('input[name="relief-source"]')) {
     el.addEventListener('change', () => {
-      if (readReliefSource() === 'depth' && catalogActive) {
+      const source = readReliefSource()
+      if (source !== 'luma' && catalogActive) {
         catalogActive = false
         updateCatalogBtn()
       }
       syncReliefUi()
       saveSettings()
       syncReliefSplit()
+      // "From a file" with no file yet: ask for one straight away.
+      if (source === 'file' && !getImportedDepth()) depthFileInput.click()
       if (currentFile) void readFile(currentFile)
     })
   }
   depthInvert.addEventListener('change', () => {
     saveSettings()
     if (currentFile) void readFile(currentFile)
+  })
+  depthFileBtn.addEventListener('click', () => depthFileInput.click())
+  depthFileInput.addEventListener('change', () => {
+    const f = depthFileInput.files?.[0]
+    depthFileInput.value = '' // the same file can be chosen again later
+    if (f) void loadDepthFile(f)
+  })
+  // Closing the picker without a file leaves "from a file" with nothing behind
+  // it, so step back to the brightness relief instead of stranding the user.
+  depthFileInput.addEventListener('cancel', () => {
+    if (readReliefSource() === 'file' && !getImportedDepth()) {
+      setReliefSource('luma')
+      saveSettings()
+      if (currentFile) void readFile(currentFile)
+    }
   })
 
   // Live reprocessing while dragging: debounced on input, flushed on release.
@@ -4304,16 +4395,19 @@ function saveProject() {
         darkIsTall,
         backlight: lightBackBtn.classList.contains('is-active'),
         ...(readColorMode() === 'image' ? { colorMode: 'image' as const } : {}),
-        ...(readReliefSource() !== 'luma' ? { reliefSource: readReliefSource() } : {}),
-        ...(depthInvert.checked ? { invertDepth: true } : {}),
+        // A supplied depth map is not part of the project file, so only the
+        // network's depth is recorded; the save message says so for a map.
+        ...(readReliefSource() === 'depth' ? { reliefSource: 'depth' as const } : {}),
+        ...(depthInvert.checked && readReliefSource() !== 'luma' ? { invertDepth: true } : {}),
         ...(bandHeights ? { bandHeightsMm: [...bandHeights] } : {}),
         ...(customTones().length ? { customTones: customTones() } : {}),
       },
       palette,
     })
     const filename = `${exportFilename(current!, '3mf').slice(0, -4)}${PROJECT_EXTENSION}`
+    const mapNote = readReliefSource() === 'file' ? ` ${tr('depthFileNotSaved')}` : ''
     void triggerDownload(JSON.stringify(project, null, 2), filename, 'application/json').then((outcome) =>
-      reportDownload(outcome, tr('projectSaved', { name: filename })),
+      reportDownload(outcome, tr('projectSaved', { name: filename }) + mapNote),
     )
   }
   reader.readAsDataURL(currentFile)
@@ -4363,10 +4457,13 @@ function applyProjectSettings(s: ProjectFile['settings']) {
     `input[name="color-mode"][value="${s.colorMode === 'image' ? 'image' : 'luma'}"]`,
   )
   if (colorMode) colorMode.checked = true
-  // The depth map of a `file` source is not stored in a project, so it (like an
-  // absent field in an older project) reopens on the picture's brightness.
+  // A supplied depth map is not stored in a project file, so a project only ever
+  // reopens on the network's depth or the brightness (like an older project with
+  // no field). An undo step inside the session can still return to the map.
   depthInvert.checked = s.invertDepth === true
-  setReliefSource(s.reliefSource === 'depth' ? 'depth' : 'luma')
+  setReliefSource(
+    s.reliefSource === 'depth' ? 'depth' : s.reliefSource === 'file' && getImportedDepth() ? 'file' : 'luma',
+  )
   setLightMode(s.backlight ? 'back' : 'front')
   renderTicks()
   saveSettings()

@@ -46,3 +46,12 @@
 - `src/ui/depthRelief.ts`: кэш глубины по `File`, общий запрос для одного файла, `depthErrorKey/Detail`.
 - `src/ui/main.ts`: `readReliefSource` / `setReliefSource` / `syncReliefUi` / `reliefFieldFor` (при сбое — откат на яркость + сообщение); поле передаётся во все `quantizeInWorker` и в подгонку тона; каталог и глубина взаимоисключают друг друга; сохранение в настройках, проекте и снимках отмены.
 - `i18n.ts`: `reliefSource*`, `depth*` (RU/EN).
+
+## Тикет 04 — Импорт карты глубины
+
+- `src/lib/depth/png.ts`: `decodePng(bytes)` → `{ width, height, bitDepth, colorType, luma, alpha? }`; `PngError.code`: `not-png | corrupt | interlaced | unsupported | too-large`. Проверяет CRC; распаковка ограничена размером из заголовка (+1 байт для обнаружения избытка).
+- `src/lib/depth/importMap.ts`: `importDepthFromPng(bytes)` → `{ map, bitDepth, hadBackground, flat }`; min–max без отсечения хвостов, прозрачные пиксели (α < 0.01) — фон на уровне основания. `MAX_DEPTH_FILE_BYTES` = 64 МБ.
+- `depthMap.ts`: `normalizeMinMax`; `resampleDepth` при сильном уменьшении сначала усредняет блоки.
+- `src/ui/depthRelief.ts`: `importDepthFile(file)`, `getImportedDepth()`, `clearImportedDepth()`, `depthFileErrorKey`.
+- `main.ts`: третий источник `file`; карта живёт только в памяти сессии (в проект не входит — при сохранении об этом сообщается), новая картинка сбрасывает её; отмена диалога возвращает на яркость; статус строится функцией и переводится при смене языка.
+- Тесты: `depthPng` (28).

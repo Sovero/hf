@@ -183,6 +183,12 @@
             <div id="relief-source-options" class="mode-options" role="radiogroup" aria-labelledby="relief-source-label">
               <label><input type="radio" name="relief-source" value="luma" checked data-help="helpReliefSource" /><span data-i18n="reliefSourceLuma">Picture brightness</span></label>
               <label><input type="radio" name="relief-source" value="depth" data-help="helpReliefSourceDepth" /><span data-i18n="reliefSourceDepth">Depth (neural network, offline)</span></label>
+              <label><input type="radio" name="relief-source" value="file" data-help="helpReliefSourceFile" /><span data-i18n="reliefSourceFile">Depth map from a file (PNG)</span></label>
+            </div>
+            <div id="depth-file-row" class="depth-file-row" hidden>
+              <button id="depth-file-btn" type="button" class="btn ghost" data-i18n="depthFilePick">Choose a depth map…</button>
+              <span id="depth-file-name" class="muted small"></span>
+              <input id="depth-file-input" type="file" accept="image/png" hidden />
             </div>
             <div id="depth-extra" class="merge-row" hidden>
               <label class="merge-label"><input id="depth-invert" type="checkbox" data-help="helpDepthInvert" /> <span data-i18n="depthInvert">Invert depth (farther = taller)</span></label>

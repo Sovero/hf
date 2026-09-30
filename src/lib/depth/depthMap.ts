@@ -84,9 +84,64 @@ export function normalizeDepth(raw: Float32Array): NormalizedDepth {
   return { data: out, flat: false }
 }
 
-/** Bilinear resample of a depth map to `width × height` (returns the input when the size matches). */
-export function resampleDepth(map: DepthMap, width: number, height: number): DepthMap {
-  if (map.width === width && map.height === height) return map
+/**
+ * Stretch a supplied map to 0..1 between its own minimum and maximum.
+ *
+ * Unlike `normalizeDepth` this does not clip the tails: a map somebody made on
+ * purpose (a depth tool's output, a sculpted height map) has levels that mean
+ * something, and its extremes are not outliers. `background` marks pixels that
+ * carry no depth (fully transparent) — they are left out of the range and set to
+ * the base.
+ */
+export function normalizeMinMax(values: Float32Array, background?: Uint8Array): NormalizedDepth {
+  const out = new Float32Array(values.length)
+  let min = Infinity
+  let max = -Infinity
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i]!
+    if ((background && background[i]) || !Number.isFinite(v)) continue
+    if (v < min) min = v
+    if (v > max) max = v
+  }
+  if (!(max - min > 1e-9)) return { data: out, flat: true }
+  const span = max - min
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i]!
+    out[i] = (background && background[i]) || !Number.isFinite(v) ? 0 : (v - min) / span
+  }
+  return { data: out, flat: false }
+}
+
+/** Average `factor × factor` blocks (integer shrink) — the cheap, alias-free way down. */
+function shrinkByBlocks(map: DepthMap, factor: number): DepthMap {
+  const w = Math.floor(map.width / factor)
+  const h = Math.floor(map.height / factor)
+  const out = new Float32Array(w * h)
+  const area = factor * factor
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let sum = 0
+      for (let dy = 0; dy < factor; dy++) {
+        const row = (y * factor + dy) * map.width + x * factor
+        for (let dx = 0; dx < factor; dx++) sum += map.data[row + dx]!
+      }
+      out[y * w + x] = sum / area
+    }
+  }
+  return { width: w, height: h, data: out }
+}
+
+/**
+ * Resample a depth map to `width × height` (returns the input when the size
+ * matches). Shrinking a lot averages blocks first: a supplied 4000-px map read at
+ * a 300-px print grid by bilinear alone would sample one pixel in thirteen and
+ * turn fine texture into noise.
+ */
+export function resampleDepth(input: DepthMap, width: number, height: number): DepthMap {
+  if (input.width === width && input.height === height) return input
+  let map = input
+  const factor = Math.floor(Math.min(map.width / width, map.height / height) / 2)
+  if (factor >= 2) map = shrinkByBlocks(map, factor)
   const out = new Float32Array(width * height)
   const sw = map.width
   const sh = map.height

@@ -1,4 +1,6 @@
 import { depthToRelief, type DepthMap } from '../lib/depth/depthMap'
+import { importDepthFromPng, MAX_DEPTH_FILE_BYTES, type ImportedDepth } from '../lib/depth/importMap'
+import { PngError, type PngErrorCode } from '../lib/depth/png'
 import { estimateDepth, DepthError, type DepthPhase } from './depthClient'
 
 /**
@@ -67,6 +69,60 @@ export function depthFor(
   }
   promise.then(clear, clear)
   return promise
+}
+
+// ---- a depth map the user supplies (source "from a file") ----
+
+export interface ImportedMap extends ImportedDepth {
+  name: string
+}
+
+let imported: ImportedMap | null = null
+
+export function getImportedDepth(): ImportedMap | null {
+  return imported
+}
+
+export function clearImportedDepth(): void {
+  imported = null
+}
+
+/** Why a file could not be used — mapped to a localized message by the caller. */
+export class DepthFileError extends Error {
+  readonly code: PngErrorCode | 'too-big'
+  constructor(code: PngErrorCode | 'too-big', message: string) {
+    super(message)
+    this.name = 'DepthFileError'
+    this.code = code
+  }
+}
+
+/** Read and decode a depth-map PNG, and keep it as the imported map on success. */
+export async function importDepthFile(file: File): Promise<ImportedMap> {
+  if (file.size > MAX_DEPTH_FILE_BYTES) throw new DepthFileError('too-big', 'file is too large')
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  try {
+    imported = { ...importDepthFromPng(bytes), name: file.name }
+  } catch (err) {
+    if (err instanceof PngError) throw new DepthFileError(err.code, err.message)
+    throw err
+  }
+  return imported
+}
+
+/** The i18n key that explains an import failure. */
+export function depthFileErrorKey(err: unknown): string {
+  const code = err instanceof DepthFileError ? err.code : 'corrupt'
+  return (
+    {
+      'too-big': 'depthFileErrTooBig',
+      'not-png': 'depthFileErrNotPng',
+      interlaced: 'depthFileErrInterlaced',
+      unsupported: 'depthFileErrUnsupported',
+      'too-large': 'depthFileErrTooLarge',
+      corrupt: 'depthFileErrCorrupt',
+    } as Record<string, string>
+  )[code] ?? 'depthFileErrCorrupt'
 }
 
 /** The relief field for the print grid: the depth map at that size, optionally flipped. */

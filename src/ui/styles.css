@@ -963,6 +963,19 @@ body {
   border-color: var(--border);
 }
 
+/* "Depth map from a file": the picker button and the name of the chosen file. */
+.depth-file-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+}
+
+.depth-file-row .muted {
+  overflow-wrap: anywhere;
+}
+
 /* Options the chosen relief source makes moot (brightness polarity, colors-first
    model while the relief comes from depth): dimmed and inert, not hidden, so the
    saved choice stays visible. */

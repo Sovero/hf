@@ -297,6 +297,45 @@ export const dict: Dict = {
     en: 'Depth relief: Depth Anything V2 (small) runs on this computer — the picture never leaves it and no internet is needed. It gives an order, nearer or farther, not real distances; your base and maximum height set the scale. The filament colors are the average picture colors inside each depth layer. The first estimate takes a few seconds; later changes reuse it.',
     ru: 'Рельеф по глубине: Depth Anything V2 (small) работает на этом компьютере — картинка никуда не уходит, интернет не нужен. Это порядок «ближе или дальше», а не настоящие расстояния; масштаб задают основание и максимальная высота. Цвета филаментов — средние цвета картинки внутри каждого слоя глубины. Первая оценка занимает несколько секунд, дальше она переиспользуется.',
   },
+  reliefSourceFile: { en: 'Depth map from a file (PNG)', ru: 'Карта глубины из файла (PNG)' },
+  helpReliefSourceFile: {
+    en: 'Use a depth or height map you made elsewhere — a depth tool, Blender, a sculpting program, or a 3D reconstruction. PNG, 8 or 16 bit; 16-bit keeps every level, so a smooth ramp prints as a smooth slope. Brighter is nearer (taller) by default; tick “Invert depth” for the opposite convention. Fully transparent pixels stay at the base. The map is stretched to the picture, and each filament color is still the average picture color inside its depth layer. The file is not stored in a saved project.',
+    ru: 'Своя карта глубины или высот, сделанная в другом месте: программа глубины, Blender, скульптор, 3D-реконструкция. PNG, 8 или 16 бит; 16 бит сохраняют все уровни, поэтому плавный градиент печатается плавным склоном. По умолчанию светлее — ближе (выше); для обратного соглашения включите «Инвертировать глубину». Полностью прозрачные пиксели остаются на уровне основания. Карта растягивается под картинку, а цвет каждого филамента по-прежнему — средний цвет картинки внутри слоя глубины. Файл карты в сохранённый проект не входит.',
+  },
+  depthFilePick: { en: 'Choose a depth map…', ru: 'Выбрать карту глубины…' },
+  depthFileNone: {
+    en: 'No depth map chosen yet — picture brightness is used until you pick one.',
+    ru: 'Карта глубины ещё не выбрана — пока используется яркость картинки.',
+  },
+  depthFileLoaded: {
+    en: 'Depth map “{name}”: {w}×{h}, {bits}-bit.',
+    ru: 'Карта глубины «{name}»: {w}×{h}, {bits} бит.',
+  },
+  depthFileBackground: { en: 'Transparent areas stay at the base.', ru: 'Прозрачные области остаются на уровне основания.' },
+  depthFileStretched: {
+    en: 'Its proportions differ from the picture’s, so it is stretched to fit.',
+    ru: 'Её пропорции отличаются от пропорций картинки, поэтому она растянута под неё.',
+  },
+  depthFileFlat: {
+    en: 'The map has no range of values, so the relief will be flat.',
+    ru: 'В карте нет перепада значений, поэтому рельеф получится плоским.',
+  },
+  depthFileErrTooBig: { en: 'The file is larger than 64 MB.', ru: 'Файл больше 64 МБ.' },
+  depthFileErrNotPng: { en: 'This is not a PNG file.', ru: 'Это не PNG-файл.' },
+  depthFileErrCorrupt: { en: 'The PNG is damaged or incomplete.', ru: 'PNG повреждён или неполный.' },
+  depthFileErrInterlaced: {
+    en: 'Interlaced PNG is not supported — save it without interlacing.',
+    ru: 'PNG с чересстрочной развёрткой не поддерживается — сохраните без неё.',
+  },
+  depthFileErrUnsupported: {
+    en: 'Only gray, RGB and RGBA PNG at 8 or 16 bits are supported.',
+    ru: 'Поддерживаются только серые, RGB и RGBA PNG с 8 или 16 битами.',
+  },
+  depthFileErrTooLarge: { en: 'The image is too large to open.', ru: 'Изображение слишком большое.' },
+  depthFileNotSaved: {
+    en: 'The depth map file itself is not stored in the project.',
+    ru: 'Сам файл карты глубины в проект не входит.',
+  },
   depthInvert: { en: 'Invert depth (farther = taller)', ru: 'Инвертировать глубину (дальше = выше)' },
   helpDepthInvert: {
     en: 'Flips the depth relief: the farthest parts stand tallest and the nearest are lowest. Useful for a picture the network read the wrong way round, or for a sunken, engraved look.',
