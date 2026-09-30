@@ -11,7 +11,7 @@ import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
 import { DEFAULT_TAU_MM, backlitBandColors, tauBandHeights, transmittedBandColors } from '../lib/transmission'
-import type { ColorCount, ColorMode, QuantizedImage, SourcePreview } from '../lib/types'
+import type { ColorCount, ColorMode, QuantizedImage, ReliefSource, SourcePreview } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
 import { fitPrintSizeToAspect } from '../lib/printConsts'
@@ -38,6 +38,7 @@ import { dropSparseColors, dropTargets } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
 import { isDesktop, desktopSaveFile, initDesktopShell, setDesktopLang } from './desktop'
+import { depthFor, depthErrorDetail, depthErrorKey, reliefFieldFromDepth } from './depthRelief'
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector(sel)
@@ -131,6 +132,11 @@ const reliefSplit = $<HTMLParagraphElement>('#relief-split')
 const mergeCheck = $<HTMLInputElement>('#merge-deltae-check')
 const mergeInput = $<HTMLInputElement>('#merge-deltae')
 const mergeThreshWrap = $<HTMLElement>('#merge-thresh-wrap')
+const depthExtra = $<HTMLDivElement>('#depth-extra')
+const depthInvert = $<HTMLInputElement>('#depth-invert')
+const depthStatus = $<HTMLParagraphElement>('#depth-status')
+const polarityOptions = $<HTMLDivElement>('#polarity-options')
+const colorModeOptions = $<HTMLDivElement>('#color-mode-options')
 
 const SLIDER_MIN = 2
 const SLIDER_MAX = 8
@@ -226,6 +232,10 @@ type Settings = {
   dropThreshold: number
   /** 'image' = palette from the picture's own colors; absent = brightness bands. */
   colorMode?: ColorMode
+  /** What decides the height; absent = the picture's brightness. */
+  reliefSource?: ReliefSource
+  /** Depth relief flipped (farther = taller); absent = false. */
+  invertDepth?: boolean
 }
 
 /** Depth-of-colors choice from the Colors panel (absent control = brightness bands). */
@@ -264,6 +274,8 @@ function saveSettings() {
       mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
       dropThreshold: clampNum(Number(dropSparseThreshold.value), 0.1, 10, 1),
       colorMode: readColorMode(),
+      reliefSource: readReliefSource(),
+      invertDepth: depthInvert.checked,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   } catch {
@@ -307,6 +319,8 @@ function restoreSettings() {
       `input[name="color-mode"][value="${s.colorMode === 'image' ? 'image' : 'luma'}"]`,
     )
     if (colorModeInput) colorModeInput.checked = true
+    depthInvert.checked = s.invertDepth === true
+    setReliefSource(s.reliefSource === 'depth' ? 'depth' : 'luma')
     if (s.dropThreshold !== undefined) {
       dropSparseThreshold.value = String(clampNum(Number(s.dropThreshold), 0.1, 10, 1))
     }
@@ -375,6 +389,75 @@ function showStatus(msg: string, isError = false) {
   exportStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'
 }
 
+// ---- relief source: picture brightness or depth from the bundled network ----
+
+/** What decides the height now (the third source, a depth map file, arrives with the importer). */
+function readReliefSource(): ReliefSource {
+  return document.querySelector<HTMLInputElement>('input[name="relief-source"]:checked')?.value === 'depth'
+    ? 'depth'
+    : 'luma'
+}
+
+/** The depth-only controls, and the brightness controls the depth relief makes moot. */
+function syncReliefUi() {
+  const depth = readReliefSource() === 'depth'
+  depthExtra.hidden = !depth
+  if (!depth) setDepthStatus('')
+  // Polarity (light/dark = tall) and the colors-first model both read the
+  // picture's brightness or colors as the height; a depth relief replaces that,
+  // so leaving them live would promise a change that never happens.
+  for (const box of [polarityOptions, colorModeOptions]) {
+    box.classList.toggle('is-inactive', depth)
+    box.title = depth ? tr('depthControlsNote') : ''
+    for (const input of box.querySelectorAll<HTMLInputElement>('input')) input.disabled = depth
+  }
+}
+
+function setReliefSource(source: ReliefSource) {
+  const input = document.querySelector<HTMLInputElement>(
+    `input[name="relief-source"][value="${source === 'depth' ? 'depth' : 'luma'}"]`,
+  )
+  if (input) input.checked = true
+  syncReliefUi()
+}
+
+function setDepthStatus(text: string) {
+  depthStatus.textContent = text
+  depthStatus.hidden = text === ''
+}
+
+/**
+ * The relief field for the chosen source at the picture's working resolution,
+ * or `undefined` for the brightness relief.
+ *
+ * Also `undefined` when depth cannot be produced: the picture must still print,
+ * so the source falls back to brightness and the reason is shown rather than the
+ * whole run failing. Catalog mode takes precedence — it assigns colors by
+ * nearest spool, which has no use for a relief field.
+ */
+async function reliefFieldFor(file: File, image: { width: number; height: number }): Promise<Float32Array | undefined> {
+  if (readReliefSource() !== 'depth' || catalogActive) return undefined
+  try {
+    const result = await depthFor(
+      file,
+      async () => {
+        const o = readOptions()
+        return (await loadImageForPrint(file, o.widthMm, o.heightMm, lang)).sourcePreview
+      },
+      (phase) => setDepthStatus(tr(phase === 'loading' ? 'depthLoading' : 'depthEstimating')),
+    )
+    setDepthStatus(
+      result.flat ? tr('depthFlat') : result.seconds === null ? '' : tr('depthReady', { s: result.seconds.toFixed(1) }),
+    )
+    return reliefFieldFromDepth(result.depth, image.width, image.height, depthInvert.checked)
+  } catch (err) {
+    setReliefSource('luma')
+    saveSettings()
+    showStatus(tr(depthErrorKey(err), { detail: depthErrorDetail(err) }), true)
+    return undefined
+  }
+}
+
 async function readFile(file: File, fresh = false): Promise<boolean> {
   currentFile = file
   const token = ++runToken
@@ -411,8 +494,9 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
         saveSettings()
       }
     }
+    const reliefField = await reliefFieldFor(file, image)
     const t0 = performance.now()
-    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, overrides)
+    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, overrides, reliefField)
     perf.recordQuantize(performance.now() - t0)
     perf.recordBuffers({
       rgbaBytes: image.rgba.length,
@@ -563,6 +647,7 @@ function setLang(next: Lang, persist = true) {
   langCode.textContent = lang.toUpperCase()
   applyStaticText()
   syncReliefSplit()
+  syncReliefUi() // the "not used" tooltips on the brightness controls follow the language
   renderCustomToneChips() // chip names are the user's, but their tooltips follow the language
   syncToneReadouts()
   renderToneResult()
@@ -1693,6 +1778,8 @@ function captureSnapshot(): EditorSnapshot | null {
         backlight: lightBackBtn.classList.contains('is-active'),
         ...(opts.mergeDeltaE ? { mergeDeltaE: opts.mergeDeltaE } : {}),
         ...(opts.colorMode === 'image' ? { colorMode: 'image' as const } : {}),
+        ...(readReliefSource() !== 'luma' ? { reliefSource: readReliefSource() } : {}),
+        ...(depthInvert.checked ? { invertDepth: true } : {}),
         ...(bandHeights && bandHeights.length ? { bandHeightsMm: [...bandHeights] } : {}),
       }
   return {
@@ -2037,6 +2124,13 @@ function renderCoverage(
 /** Re-quantize the image against the chosen spool colors (nearest-color). */
 async function quantizeCatalog(spools: RGB[]) {
   if (!current || !currentFile) return
+  // Nearest-spool assignment has no use for a relief field, so catalog mode
+  // takes over from depth relief; the note goes with the result below.
+  const leftDepth = readReliefSource() !== 'luma'
+  if (leftDepth) {
+    setReliefSource('luma')
+    saveSettings()
+  }
   const token = ++runToken
   showStatus(tr('processing'))
   setProcessing(true)
@@ -2071,7 +2165,9 @@ async function quantizeCatalog(spools: RGB[]) {
     autoPalette = result.quantized.palette.map((c) => ({ ...c }))
     updateUI()
     setProcessing(false)
-    showStatus(tr('catalogDone', { colors: word(lang, spools.length, 'colors') }))
+    showStatus(
+      tr('catalogDone', { colors: word(lang, spools.length, 'colors') }) + (leftDepth ? ` ${tr('depthCatalogOff')}` : ''),
+    )
     noteSettled()
   } catch (err) {
     if (token !== runToken) return false
@@ -3379,6 +3475,25 @@ function bindInputs() {
     })
   }
 
+  // Relief source: brightness or depth. Catalog mode and depth exclude each
+  // other (see `reliefFieldFor`), so choosing depth switches the catalog off.
+  for (const el of document.querySelectorAll<HTMLInputElement>('input[name="relief-source"]')) {
+    el.addEventListener('change', () => {
+      if (readReliefSource() === 'depth' && catalogActive) {
+        catalogActive = false
+        updateCatalogBtn()
+      }
+      syncReliefUi()
+      saveSettings()
+      syncReliefSplit()
+      if (currentFile) void readFile(currentFile)
+    })
+  }
+  depthInvert.addEventListener('change', () => {
+    saveSettings()
+    if (currentFile) void readFile(currentFile)
+  })
+
   // Live reprocessing while dragging: debounced on input, flushed on release.
   let debounceTimer: number | undefined
   const scheduleReprocess = () => {
@@ -3771,6 +3886,7 @@ async function runToneFit(): Promise<void> {
   refFitBtn.disabled = true
   setFitNote(tr('refFitWorking'))
   try {
+    const reliefField = await reliefFieldFor(currentFile, image)
     const fit = await fitToneInWorker(
       image.rgba,
       image.width,
@@ -3781,6 +3897,7 @@ async function runToneFit(): Promise<void> {
         setFitNote(tr('refFitRunning', { done, total }))
       },
       currentTone,
+      reliefField,
     )
     if (!fit.improved) {
       setFitNote(tr('refFitNeutral', { from: fitPercent(before) }), true)
@@ -4046,6 +4163,7 @@ async function applyReference() {
     const rgbaBytes = current.image.rgba.length
     const imgW = current.image.width
     const imgH = current.image.height
+    const reliefField = await reliefFieldFor(currentFile, current.image)
     const t0 = performance.now()
     const result = await quantizeInWorker(
       current.image.rgba.slice(),
@@ -4056,6 +4174,7 @@ async function applyReference() {
         palette: plan.paletteOverride ?? undefined,
         bandTops: plan.bandTopsOverride ?? undefined,
       },
+      reliefField,
     )
     perf.recordQuantize(performance.now() - t0)
     perf.recordBuffers({
@@ -4185,6 +4304,8 @@ function saveProject() {
         darkIsTall,
         backlight: lightBackBtn.classList.contains('is-active'),
         ...(readColorMode() === 'image' ? { colorMode: 'image' as const } : {}),
+        ...(readReliefSource() !== 'luma' ? { reliefSource: readReliefSource() } : {}),
+        ...(depthInvert.checked ? { invertDepth: true } : {}),
         ...(bandHeights ? { bandHeightsMm: [...bandHeights] } : {}),
         ...(customTones().length ? { customTones: customTones() } : {}),
       },
@@ -4242,6 +4363,10 @@ function applyProjectSettings(s: ProjectFile['settings']) {
     `input[name="color-mode"][value="${s.colorMode === 'image' ? 'image' : 'luma'}"]`,
   )
   if (colorMode) colorMode.checked = true
+  // The depth map of a `file` source is not stored in a project, so it (like an
+  // absent field in an older project) reopens on the picture's brightness.
+  depthInvert.checked = s.invertDepth === true
+  setReliefSource(s.reliefSource === 'depth' ? 'depth' : 'luma')
   setLightMode(s.backlight ? 'back' : 'front')
   renderTicks()
   saveSettings()
@@ -4290,8 +4415,9 @@ async function openProjectFile(file: File) {
   try {
     const opts = readOptions()
     const { image } = await loadImageForPrint(imageFile, opts.widthMm, opts.heightMm, lang)
+    const reliefField = await reliefFieldFor(imageFile, image)
     const t0 = performance.now()
-    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts)
+    const result = await quantizeInWorker(image.rgba.slice(), image.width, image.height, opts, undefined, reliefField)
     perf.recordQuantize(performance.now() - t0)
     perf.recordBuffers({
       rgbaBytes: image.rgba.length,

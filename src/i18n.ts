@@ -286,6 +286,48 @@ export const dict: Dict = {
     en: 'Colors from the picture: the palette is cut from the image’s own RGB (median cut), each pixel takes the nearest color, and every color owns one equal slice of the height. Details that share a brightness but differ in hue — a face in shadow next to its cloak — keep their own filaments instead of averaging into one muddy color, and the palette no longer mixes a red sky with pale stone into brown. Inside each terrace the shading still follows the local brightness. It no longer follows the documented «height follows brightness» model, so a HueForge reference model will not line up — use it for photographs.',
     ru: 'По цветам изображения: палитра берётся из собственных цветов картинки (median cut), пиксель берёт ближайший цвет, и каждый цвет владеет одной равной долей высоты. Детали, которые совпадают по яркости, но различаются оттенком — лицо в тени рядом с плащом, — получают свои филаменты вместо усреднения в один грязный цвет, а палитра больше не смешивает красное небо со светлым камнем в коричневый. Внутри каждой террасы светотень по-прежнему следует локальной яркости. Документированная модель «высота следует яркости» здесь больше не действует, поэтому эталонная модель HueForge не совпадёт — режим для фотографий.',
   },
+  reliefSourceLabel: { en: 'Relief source', ru: 'Источник рельефа' },
+  reliefSourceLuma: { en: 'Picture brightness', ru: 'Яркость картинки' },
+  reliefSourceDepth: { en: 'Depth (neural network, offline)', ru: 'Глубина (нейросеть, офлайн)' },
+  helpReliefSource: {
+    en: 'What decides how tall each pixel stands. Picture brightness is the classic HueForge model. Depth asks a neural network how far each part of the picture is, so a face stands out of its background and a foreground object rises above what is behind it — whatever their brightness.',
+    ru: 'Что определяет высоту каждого пикселя. Яркость картинки — классическая модель HueForge. Глубина: нейросеть оценивает, насколько далеко каждая часть картинки, поэтому лицо выступает из фона, а предмет переднего плана поднимается над тем, что за ним, — независимо от яркости.',
+  },
+  helpReliefSourceDepth: {
+    en: 'Depth relief: Depth Anything V2 (small) runs on this computer — the picture never leaves it and no internet is needed. It gives an order, nearer or farther, not real distances; your base and maximum height set the scale. The filament colors are the average picture colors inside each depth layer. The first estimate takes a few seconds; later changes reuse it.',
+    ru: 'Рельеф по глубине: Depth Anything V2 (small) работает на этом компьютере — картинка никуда не уходит, интернет не нужен. Это порядок «ближе или дальше», а не настоящие расстояния; масштаб задают основание и максимальная высота. Цвета филаментов — средние цвета картинки внутри каждого слоя глубины. Первая оценка занимает несколько секунд, дальше она переиспользуется.',
+  },
+  depthInvert: { en: 'Invert depth (farther = taller)', ru: 'Инвертировать глубину (дальше = выше)' },
+  helpDepthInvert: {
+    en: 'Flips the depth relief: the farthest parts stand tallest and the nearest are lowest. Useful for a picture the network read the wrong way round, or for a sunken, engraved look.',
+    ru: 'Переворачивает рельеф глубины: самое дальнее становится самым высоким, ближнее — самым низким. Полезно, если нейросеть прочитала картинку наоборот, или для эффекта врезанного, гравированного изображения.',
+  },
+  depthLoading: { en: 'Loading the depth model…', ru: 'Загружаю модель глубины…' },
+  depthEstimating: { en: 'Estimating depth…', ru: 'Оцениваю глубину…' },
+  depthReady: {
+    en: 'Depth estimated in {s} s — nearer stands taller.',
+    ru: 'Глубина оценена за {s} с — ближнее выше.',
+  },
+  depthFlat: {
+    en: 'The picture has almost no depth range, so the relief will be flat.',
+    ru: 'На картинке почти нет перепада глубины, поэтому рельеф получится плоским.',
+  },
+  depthErrorLoad: {
+    en: 'The depth model could not be loaded ({detail}). Using picture brightness instead.',
+    ru: 'Не удалось загрузить модель глубины ({detail}). Использую яркость картинки.',
+  },
+  depthErrorRun: {
+    en: 'Depth estimation failed ({detail}). Using picture brightness instead.',
+    ru: 'Не удалось оценить глубину ({detail}). Использую яркость картинки.',
+  },
+  depthControlsNote: {
+    en: 'Not used while the relief comes from depth',
+    ru: 'Не используется, пока рельеф строится по глубине',
+  },
+  depthCatalogOff: {
+    en: 'Catalog mode was turned off: depth relief takes its colors from the picture.',
+    ru: 'Режим каталога выключен: рельеф по глубине берёт цвета из картинки.',
+  },
   coverageSegTitle: {
     en: 'Color {order} ({hex}) covers {pct} of the print area',
     ru: 'Цвет {order} ({hex}) занимает {pct} площади печати',

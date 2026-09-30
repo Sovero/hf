@@ -19,6 +19,18 @@ export type ColorCount = 2 | 3 | 4 | 5 | 6 | 7 | 8
  */
 export type ColorMode = 'luma' | 'image'
 
+/**
+ * What decides how tall each pixel stands.
+ *
+ * - `luma` (default) — the picture's brightness (see `ColorMode` for how the
+ *   filament follows).
+ * - `depth` — a relative depth map estimated by the bundled neural network:
+ *   nearer stands taller, and each band's color is the mean picture color inside
+ *   that depth slice.
+ * - `file` — a depth / height map the user supplies (PNG).
+ */
+export type ReliefSource = 'luma' | 'depth' | 'file'
+
 /** A decoded, downscaled image ready for processing. */
 export interface LoadedImage {
   width: number

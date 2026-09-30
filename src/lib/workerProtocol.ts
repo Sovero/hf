@@ -45,6 +45,13 @@ export interface QuantizeTask {
    * remap to the survivor. 0 (default) disables the pass.
    */
   mergeDeltaE?: number
+  /**
+   * Relief from a depth map instead of the picture's brightness:
+   * `width × height` values 0..1, 1 = tallest. Slices follow the field and each
+   * band's color is the mean picture color inside it (see `mapToLuminanceBands`).
+   * Cannot be combined with `nearestPalette`.
+   */
+  reliefField?: Float32Array
 }
 
 /** Second half: rebuild geometry from the stored quantized image. */
@@ -74,6 +81,8 @@ export interface FitToneTask {
    * neutral 1/1 is assumed, which is what an untouched project holds.
    */
   current?: ToneCandidate
+  /** Depth relief in use (see `QuantizeTask.reliefField`); the fit must measure the same relief. */
+  reliefField?: Float32Array
 }
 
 export type WorkerTask = QuantizeTask | FinishTask | FitToneTask
@@ -96,6 +105,19 @@ export interface WorkerResult {
 
 /** Worker-side state: the quantized image of the most recent quantize. */
 let quantized: QuantizedImage | null = null
+
+/** True while the stored image was built from a depth relief (see `QuantizeTask.reliefField`). */
+let reliefActive = false
+
+/**
+ * A depth relief has no "dark" end: its palette index is the height slice, so
+ * the print order must follow the index whatever the brightness toggle says.
+ * The same options serve the quantize and every later finish, or the two would
+ * disagree on which end of the palette prints first.
+ */
+function withDepthOrder(opts: PipelineOptions, depth: boolean): PipelineOptions {
+  return depth && opts.darkIsTall ? { ...opts, darkIsTall: false } : opts
+}
 
 /**
  * Post-quantize cleanup: collapse adjacent near-duplicate bands (ΔE below
@@ -198,7 +220,15 @@ function quantizeOnce(
   mergeDeltaE: number | undefined,
   /** Pre-smoothed pixel source for the band COLORS (see the split below). */
   paletteSource?: Uint8ClampedArray,
+  /** Depth relief replacing the brightness relief (see `QuantizeTask.reliefField`). */
+  reliefField?: Float32Array,
 ): QuantizedImage {
+  if (reliefField && overrides?.nearest) {
+    throw new Error('Depth relief cannot be combined with catalog (nearest-color) mode')
+  }
+  // Depth relief takes the place of the colour-first model too: that model reads
+  // the height from the colours, which is exactly what a depth map replaces.
+  const colorsFirst = opts.colorMode === 'image' && !reliefField
   // Two smoothing strengths, deliberately different — the slider is shared
   // with the relief pass, but these two want opposite kernels:
   //
@@ -217,7 +247,7 @@ function quantizeOnce(
   let q: QuantizedImage
   if (overrides?.nearest && overrides.palette && overrides.palette.length > 1) {
     q = quantizeToPalette(shapes, overrides.palette, width, height, opts.dither ?? 0)
-  } else if (opts.colorMode === 'image') {
+  } else if (colorsFirst) {
     // Colors first: the picture's own hues become the filaments, and every
     // color gets one equal slice of the height (see `mapToImageColors`). The
     // palette is cut from the smoother source so noise cannot invent colors,
@@ -237,6 +267,8 @@ function quantizeOnce(
       opts.dither ?? 0,
       { contrast: opts.contrast, power: opts.power },
       colors,
+      0,
+      reliefField,
     )
     if (overrides?.palette && overrides.palette.length === q.palette.length) {
       q.palette = overrides.palette.map((c) => ({ ...c }))
@@ -255,7 +287,7 @@ function quantizeOnce(
   // surfaces out of the slice they print in and turn the terraces into a blob,
   // so the geometry there gets the slope limiter below instead, and the slider
   // keeps acting on the color passes only.
-  if (smooth > 0 && opts.colorMode !== 'image' && q.luminance.length === width * height) {
+  if (smooth > 0 && !colorsFirst && q.luminance.length === width * height) {
     q.luminance = reliefLowPassField(q.luminance, width, height, smooth)
   }
   // The tone curve moves relief and band tops together, so a strong preset can
@@ -267,7 +299,7 @@ function quantizeOnce(
   if (q.luminance.length === width * height) {
     const usableMm = Math.max(0, opts.maxHeightMm - opts.baseMm)
     q = withBandFloor(q, minBandFraction(q.palette.length, usableMm, opts.layerMm ?? 0.2))
-    if (opts.colorMode === 'image') {
+    if (colorsFirst) {
       // Every colour boundary is a height step by construction, so a detailed
       // picture would print as a comb of vertical fins. Spread those steps into
       // printable slopes (see `relaxCliffs`); the colour map is untouched.
@@ -327,8 +359,20 @@ export function runFitToneTask(
       (candidate) => {
         // A fresh options object per candidate: the ΔE merge rewrites
         // `bandHeightsMm` on it, and one candidate must not poison the next.
-        const opts: PipelineOptions = { ...task.opts, contrast: candidate.contrast, power: candidate.power }
-        const q = quantizeOnce(source, task.width, task.height, { ...opts, smooth: 0 }, null, opts.mergeDeltaE, colors)
+        const opts: PipelineOptions = withDepthOrder(
+          { ...task.opts, contrast: candidate.contrast, power: candidate.power },
+          !!task.reliefField,
+        )
+        const q = quantizeOnce(
+          source,
+          task.width,
+          task.height,
+          { ...opts, smooth: 0 },
+          null,
+          opts.mergeDeltaE,
+          colors,
+          task.reliefField,
+        )
         const dummyImage = { width: task.width, height: task.height, rgba: new Uint8ClampedArray(0) }
         const result = finishPipeline(dummyImage, q, opts)
         return measureRelief(result.mesh.positions, result.mesh.triangleCount, known)
@@ -348,26 +392,32 @@ export function runWorkerTask(task: WorkerTask): WorkerResult {
   }
   if (task.type === 'quantize') {
     lastMergeKept = null
+    const depth = !!task.reliefField
+    const opts = withDepthOrder(task.opts, depth)
     const q = quantizeOnce(
       task.rgba,
       task.width,
       task.height,
-      task.opts,
+      opts,
       { palette: task.paletteOverride, bandTops: task.bandTopsOverride, nearest: task.nearestPalette },
       task.mergeDeltaE,
+      undefined,
+      task.reliefField,
     )
     quantized = q
-    return runFinish(q, task.opts)
+    reliefActive = depth
+    return runFinish(q, opts)
   }
   if (!quantized) throw new Error('No image processed yet — load an image first.')
   if (task.palette.length === quantized.palette.length) {
     quantized.palette = task.palette.map((c) => ({ ...c }))
   }
   if (task.bandTopsOverride) quantized.bandTops = [...task.bandTopsOverride]
-  return runFinish(quantized, task.opts)
+  return runFinish(quantized, withDepthOrder(task.opts, reliefActive))
 }
 
 /** Reset worker-side state (used between test cases; harmless in prod). */
 export function resetWorkerState(): void {
   quantized = null
+  reliefActive = false
 }

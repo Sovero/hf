@@ -98,6 +98,11 @@ export function quantizeInWorker(
   height: number,
   opts: PipelineOptions,
   overrides?: { palette?: RGB[]; bandTops?: number[]; nearest?: boolean } | null,
+  /**
+   * Relief from a depth map instead of brightness (`width × height`, 0..1, 1 =
+   * tallest). Transferred: pass a fresh array, not one the caller still needs.
+   */
+  reliefField?: Float32Array,
 ): Promise<WorkerResult> {
   const id = nextId++
   const w = ensureWorker()
@@ -118,8 +123,9 @@ export function quantizeInWorker(
         bandTopsOverride: overrides?.bandTops,
         nearestPalette: overrides?.nearest,
         mergeDeltaE: opts.mergeDeltaE,
+        ...(reliefField ? { reliefField } : {}),
       },
-      [rgba.buffer],
+      reliefField ? [rgba.buffer, reliefField.buffer] : [rgba.buffer],
     )
   })
 }
@@ -141,6 +147,8 @@ export function fitToneInWorker(
   onProgress?: (done: number, total: number) => void,
   /** The tone in use now (slider values ÷ 100); the setting to beat. */
   current?: ToneCandidate,
+  /** Depth relief in use; copied, not transferred (the caller reuses it). */
+  reliefField?: Float32Array,
 ): Promise<ToneFitResult> {
   const id = nextId++
   const w = ensureWorker()
@@ -154,7 +162,17 @@ export function fitToneInWorker(
       },
     })
     // No transfer list: the caller's decoded image must survive the fit.
-    w.postMessage({ type: 'fit-tone', id, rgba, width, height, opts, target, current })
+    w.postMessage({
+      type: 'fit-tone',
+      id,
+      rgba,
+      width,
+      height,
+      opts,
+      target,
+      current,
+      ...(reliefField ? { reliefField } : {}),
+    })
   })
 }
 

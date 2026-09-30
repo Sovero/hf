@@ -963,6 +963,20 @@ body {
   border-color: var(--border);
 }
 
+/* Options the chosen relief source makes moot (brightness polarity, colors-first
+   model while the relief comes from depth): dimmed and inert, not hidden, so the
+   saved choice stays visible. */
+.mode-options.is-inactive {
+  opacity: 0.45;
+}
+
+.mode-options.is-inactive label,
+.mode-options.is-inactive label:hover {
+  cursor: default;
+  color: var(--muted);
+  background: transparent;
+}
+
 .mode-options label:has(input:checked) span {
   font-weight: 400;
 }

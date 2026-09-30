@@ -31,6 +31,7 @@
     "@types/three": "^0.185.4",
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
+    "onnxruntime-web": "1.30.0",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"

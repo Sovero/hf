@@ -500,12 +500,25 @@ export function mapToLuminanceBands(
    * curve produced them — the historical behaviour.
    */
   minBandFrac = 0,
+  /**
+   * Relief position per pixel from somewhere other than the picture's
+   * brightness (a depth map): `width × height` values in 0..1, 1 = tallest.
+   * The field already says which end stands tall, so `darkIsTall` is ignored
+   * and the palette index equals the height slice (base → top) — it is NOT
+   * sorted by brightness. Omitted = the brightness relief, byte-identical to
+   * before.
+   */
+  reliefField?: Float32Array,
 ): QuantizedImage {
   const pixelCount = width * height
   const n = Math.max(1, numColors)
+  if (reliefField) {
+    if (reliefField.length !== pixelCount) throw new Error('Relief field does not match the image size')
+    darkIsTall = false
+  }
   const raw = new Float32Array(pixelCount)
-  for (let i = 0; i < pixelCount; i++) raw[i] = pixelLuma(rgba, i)
-  const [lo, hi] = contrastRange(raw)
+  if (!reliefField) for (let i = 0; i < pixelCount; i++) raw[i] = pixelLuma(rgba, i)
+  const [lo, hi] = reliefField ? [0, 1] : contrastRange(raw)
   const span = Math.max(1e-6, hi - lo)
 
   // Per-pixel relief position x (0 = base, 1 = tallest). Deliberately *before*
@@ -514,10 +527,17 @@ export function mapToLuminanceBands(
   // boundary by even one pixel. The curve is applied to the heights and the
   // band tops together at the end (see `applyToneToRelief`).
   const x = new Float32Array(pixelCount)
-  for (let i = 0; i < pixelCount; i++) {
-    let v = Math.min(1, Math.max(0, (raw[i] - lo) / span))
-    if (darkIsTall) v = 1 - v
-    x[i] = v
+  if (reliefField) {
+    for (let i = 0; i < pixelCount; i++) {
+      const v = reliefField[i]!
+      x[i] = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0
+    }
+  } else {
+    for (let i = 0; i < pixelCount; i++) {
+      let v = Math.min(1, Math.max(0, (raw[i] - lo) / span))
+      if (darkIsTall) v = 1 - v
+      x[i] = v
+    }
   }
 
   // Automatically flatten fragile isolated regions (same-band specks under

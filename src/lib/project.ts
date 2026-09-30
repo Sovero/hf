@@ -10,7 +10,7 @@
 
 import { TONE_CONTRAST_MAX, TONE_CONTRAST_MIN, TONE_POWER_MAX, TONE_POWER_MIN } from './quantize'
 import { normalizeToneName, type CustomTone } from './customTones'
-import type { ColorMode } from './types'
+import type { ColorMode, ReliefSource } from './types'
 
 export interface EmbeddedFilament {
   /** Composite id, always starting with `my:` for user filaments. */
@@ -55,6 +55,14 @@ export interface ProjectSettings {
    * with.
    */
   colorMode?: ColorMode
+  /**
+   * What decides the height: absent = the picture's brightness (every older
+   * project). A `file` depth map is not stored in the project, so a project that
+   * needs one reopens on brightness.
+   */
+  reliefSource?: ReliefSource
+  /** Depth relief flipped so the farther surface stands tallest; absent = false. */
+  invertDepth?: boolean
   darkIsTall: boolean
   backlight: boolean
   /** Per-band sheet thickness in mm (palette order); absent = equal bands. */
@@ -209,6 +217,18 @@ export function parseProjectFile(text: string): ProjectFile {
       throw new ProjectFileError("settings.colorMode must be 'luma' or 'image'")
     }
     settings.colorMode = s.colorMode as ColorMode
+  }
+  // Optional relief source: absent = brightness, which is what every project
+  // written before depth relief existed was built with.
+  if (s.reliefSource !== undefined) {
+    if (s.reliefSource !== 'luma' && s.reliefSource !== 'depth' && s.reliefSource !== 'file') {
+      throw new ProjectFileError("settings.reliefSource must be 'luma', 'depth' or 'file'")
+    }
+    settings.reliefSource = s.reliefSource as ReliefSource
+  }
+  if (s.invertDepth !== undefined) {
+    if (typeof s.invertDepth !== 'boolean') throw new ProjectFileError('settings.invertDepth must be a boolean')
+    settings.invertDepth = s.invertDepth
   }
   // Optional per-band thicknesses: one positive finite number per color.
   if (s.bandHeightsMm !== undefined) {
