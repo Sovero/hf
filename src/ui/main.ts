@@ -417,7 +417,6 @@ function syncReliefUi() {
   const depthLike = source !== 'luma'
   depthExtra.hidden = !depthLike
   depthFileRow.hidden = source !== 'file'
-  if (!depthLike) setDepthStatus('')
   // Polarity (light/dark = tall) and the colors-first model both read the
   // picture's brightness or colors as the height; a depth relief replaces that,
   // so leaving them live would promise a change that never happens.
@@ -428,9 +427,14 @@ function syncReliefUi() {
   }
 }
 
-function setReliefSource(source: ReliefSource) {
+/**
+ * Select a relief source from code. Going to brightness clears the depth status
+ * line — except when the caller is explaining why it fell back (`keepStatus`).
+ */
+function setReliefSource(source: ReliefSource, keepStatus = false) {
   const input = document.querySelector<HTMLInputElement>(`input[name="relief-source"][value="${source}"]`)
   if (input) input.checked = true
+  if (source === 'luma' && !keepStatus) setDepthStatus('')
   syncReliefUi()
 }
 
@@ -514,9 +518,14 @@ async function reliefFieldFor(file: File, image: { width: number; height: number
     )
     return reliefFieldFromDepth(result.depth, image.width, image.height, depthInvert.checked)
   } catch (err) {
-    setReliefSource('luma')
+    // The picture still prints, on brightness. The general status line is
+    // rewritten with "Ready" a moment later, so the reason also stays in the
+    // depth line under the source until the user chooses something else.
+    setReliefSource('luma', true)
     saveSettings()
-    showStatus(tr(depthErrorKey(err), { detail: depthErrorDetail(err) }), true)
+    const explain = () => tr(depthErrorKey(err), { detail: depthErrorDetail(err) })
+    showStatus(explain(), true)
+    setDepthStatus(explain)
     return undefined
   }
 }
@@ -3558,6 +3567,7 @@ function bindInputs() {
         updateCatalogBtn()
       }
       syncReliefUi()
+      if (source === 'luma') setDepthStatus('')
       saveSettings()
       syncReliefSplit()
       // "From a file" with no file yet: ask for one straight away.
