@@ -49,6 +49,28 @@ describe('project save/load', () => {
     ).toThrow(ProjectFileError)
   })
 
+  it('roundtrips the relief source and leaves old files on brightness', () => {
+    const depth = parseProjectFile(
+      JSON.stringify({
+        ...sample(),
+        settings: { ...sample().settings, reliefSource: 'depth', invertDepth: true },
+      }),
+    )
+    expect(depth.settings.reliefSource).toBe('depth')
+    expect(depth.settings.invertDepth).toBe(true)
+    // Projects written before depth relief existed carry neither field.
+    expect(sample().settings.reliefSource).toBeUndefined()
+    expect(parseProjectFile(JSON.stringify(sample())).settings.reliefSource).toBeUndefined()
+    expect(parseProjectFile(JSON.stringify(sample())).settings.invertDepth).toBeUndefined()
+    // Anything but the three known sources, or a non-boolean flag, is rejected.
+    expect(() =>
+      parseProjectFile(JSON.stringify({ ...sample(), settings: { ...sample().settings, reliefSource: 'sonar' } })),
+    ).toThrow(ProjectFileError)
+    expect(() =>
+      parseProjectFile(JSON.stringify({ ...sample(), settings: { ...sample().settings, invertDepth: 'yes' } })),
+    ).toThrow(ProjectFileError)
+  })
+
   it('roundtrips smooth strength and leaves old files without the field', () => {
     const withSmooth = parseProjectFile(
       JSON.stringify({ ...sample(), settings: { ...sample().settings, smooth: 45 } }),

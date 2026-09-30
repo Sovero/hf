@@ -176,7 +176,25 @@
               <h2 data-i18n="panelDepth">Depth mode</h2>
               <button type="button" class="hint-btn" data-help="helpDepth" aria-label="Help">?</button>
             </div>
-            <div class="mode-options">
+            <div class="preset-head">
+              <span class="slider-label" id="relief-source-label" data-i18n="reliefSourceLabel">Relief source</span>
+              <button type="button" class="hint-btn" data-help="helpReliefSource" aria-label="Help">?</button>
+            </div>
+            <div id="relief-source-options" class="mode-options" role="radiogroup" aria-labelledby="relief-source-label">
+              <label><input type="radio" name="relief-source" value="luma" checked data-help="helpReliefSource" /><span data-i18n="reliefSourceLuma">Picture brightness</span></label>
+              <label><input type="radio" name="relief-source" value="depth" data-help="helpReliefSourceDepth" /><span data-i18n="reliefSourceDepth">Depth (neural network, offline)</span></label>
+              <label><input type="radio" name="relief-source" value="file" data-help="helpReliefSourceFile" /><span data-i18n="reliefSourceFile">Depth map from a file (PNG)</span></label>
+            </div>
+            <div id="depth-file-row" class="depth-file-row" hidden>
+              <button id="depth-file-btn" type="button" class="btn ghost" data-i18n="depthFilePick">Choose a depth map…</button>
+              <span id="depth-file-name" class="muted small"></span>
+              <input id="depth-file-input" type="file" accept="image/png" hidden />
+            </div>
+            <div id="depth-extra" class="merge-row" hidden>
+              <label class="merge-label"><input id="depth-invert" type="checkbox" data-help="helpDepthInvert" /> <span data-i18n="depthInvert">Invert depth (farther = taller)</span></label>
+            </div>
+            <p id="depth-status" class="muted small" role="status" aria-live="polite" hidden></p>
+            <div class="mode-options" id="polarity-options">
               <label><input type="radio" name="mode" value="light" checked data-help="helpDepthLight" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
               <label><input type="radio" name="mode" value="dark" data-help="helpDepthDark" /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
             </div>

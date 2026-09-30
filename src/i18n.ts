@@ -286,6 +286,87 @@ export const dict: Dict = {
     en: 'Colors from the picture: the palette is cut from the image’s own RGB (median cut), each pixel takes the nearest color, and every color owns one equal slice of the height. Details that share a brightness but differ in hue — a face in shadow next to its cloak — keep their own filaments instead of averaging into one muddy color, and the palette no longer mixes a red sky with pale stone into brown. Inside each terrace the shading still follows the local brightness. It no longer follows the documented «height follows brightness» model, so a HueForge reference model will not line up — use it for photographs.',
     ru: 'По цветам изображения: палитра берётся из собственных цветов картинки (median cut), пиксель берёт ближайший цвет, и каждый цвет владеет одной равной долей высоты. Детали, которые совпадают по яркости, но различаются оттенком — лицо в тени рядом с плащом, — получают свои филаменты вместо усреднения в один грязный цвет, а палитра больше не смешивает красное небо со светлым камнем в коричневый. Внутри каждой террасы светотень по-прежнему следует локальной яркости. Документированная модель «высота следует яркости» здесь больше не действует, поэтому эталонная модель HueForge не совпадёт — режим для фотографий.',
   },
+  reliefSourceLabel: { en: 'Relief source', ru: 'Источник рельефа' },
+  reliefSourceLuma: { en: 'Picture brightness', ru: 'Яркость картинки' },
+  reliefSourceDepth: { en: 'Depth (neural network, offline)', ru: 'Глубина (нейросеть, офлайн)' },
+  helpReliefSource: {
+    en: 'What decides how tall each pixel stands. Picture brightness is the classic HueForge model. Depth asks a neural network how far each part of the picture is, so a face stands out of its background and a foreground object rises above what is behind it — whatever their brightness.',
+    ru: 'Что определяет высоту каждого пикселя. Яркость картинки — классическая модель HueForge. Глубина: нейросеть оценивает, насколько далеко каждая часть картинки, поэтому лицо выступает из фона, а предмет переднего плана поднимается над тем, что за ним, — независимо от яркости.',
+  },
+  helpReliefSourceDepth: {
+    en: 'Depth relief: Depth Anything V2 (small) runs on this computer — the picture never leaves it and no internet is needed. It gives an order, nearer or farther, not real distances; your base and maximum height set the scale. The filament colors are the average picture colors inside each depth layer. The first estimate takes a few seconds; later changes reuse it.',
+    ru: 'Рельеф по глубине: Depth Anything V2 (small) работает на этом компьютере — картинка никуда не уходит, интернет не нужен. Это порядок «ближе или дальше», а не настоящие расстояния; масштаб задают основание и максимальная высота. Цвета филаментов — средние цвета картинки внутри каждого слоя глубины. Первая оценка занимает несколько секунд, дальше она переиспользуется.',
+  },
+  reliefSourceFile: { en: 'Depth map from a file (PNG)', ru: 'Карта глубины из файла (PNG)' },
+  helpReliefSourceFile: {
+    en: 'Use a depth or height map you made elsewhere — a depth tool, Blender, a sculpting program, or a 3D reconstruction. PNG, 8 or 16 bit, up to 16 megapixels; 16-bit keeps every level, so a smooth ramp prints as a smooth slope. Brighter is nearer (taller) by default; tick “Invert depth” for the opposite convention. Fully transparent pixels stay at the base. The map is stretched to the picture, and each filament color is still the average picture color inside its depth layer. A saved project carries a copy of the file.',
+    ru: 'Своя карта глубины или высот, сделанная в другом месте: программа глубины, Blender, скульптор, 3D-реконструкция. PNG, 8 или 16 бит, до 16 мегапикселей; 16 бит сохраняют все уровни, поэтому плавный градиент печатается плавным склоном. По умолчанию светлее — ближе (выше); для обратного соглашения включите «Инвертировать глубину». Полностью прозрачные пиксели остаются на уровне основания. Карта растягивается под картинку, а цвет каждого филамента по-прежнему — средний цвет картинки внутри слоя глубины. Сохранённый проект несёт копию файла.',
+  },
+  depthFilePick: { en: 'Choose a depth map…', ru: 'Выбрать карту глубины…' },
+  depthFileNone: {
+    en: 'No depth map chosen yet — picture brightness is used until you pick one.',
+    ru: 'Карта глубины ещё не выбрана — пока используется яркость картинки.',
+  },
+  depthFileLoaded: {
+    en: 'Depth map “{name}”: {w}×{h}, {bits}-bit.',
+    ru: 'Карта глубины «{name}»: {w}×{h}, {bits} бит.',
+  },
+  depthFileBackground: { en: 'Transparent areas stay at the base.', ru: 'Прозрачные области остаются на уровне основания.' },
+  depthFileStretched: {
+    en: 'Its proportions differ from the picture’s, so it is stretched to fit.',
+    ru: 'Её пропорции отличаются от пропорций картинки, поэтому она растянута под неё.',
+  },
+  depthFileFlat: {
+    en: 'The map has no range of values, so picture brightness is used for the relief.',
+    ru: 'В карте нет перепада значений, поэтому рельеф строится по яркости картинки.',
+  },
+  depthFileErrTooBig: { en: 'The file is larger than 64 MB.', ru: 'Файл больше 64 МБ.' },
+  depthFileErrNotPng: { en: 'This is not a PNG file.', ru: 'Это не PNG-файл.' },
+  depthFileErrCorrupt: { en: 'The PNG is damaged or incomplete.', ru: 'PNG повреждён или неполный.' },
+  depthFileErrInterlaced: {
+    en: 'Interlaced PNG is not supported — save it without interlacing.',
+    ru: 'PNG с чересстрочной развёрткой не поддерживается — сохраните без неё.',
+  },
+  depthFileErrUnsupported: {
+    en: 'Only gray, RGB and RGBA PNG at 8 or 16 bits are supported.',
+    ru: 'Поддерживаются только серые, RGB и RGBA PNG с 8 или 16 битами.',
+  },
+  depthFileErrTooLarge: { en: 'The image is too large to open.', ru: 'Изображение слишком большое.' },
+  depthInvert: { en: 'Invert depth (farther = taller)', ru: 'Инвертировать глубину (дальше = выше)' },
+  helpDepthInvert: {
+    en: 'Flips the depth relief: the farthest parts stand tallest and the nearest are lowest. Useful for a picture the network read the wrong way round, or for a sunken, engraved look.',
+    ru: 'Переворачивает рельеф глубины: самое дальнее становится самым высоким, ближнее — самым низким. Полезно, если нейросеть прочитала картинку наоборот, или для эффекта врезанного, гравированного изображения.',
+  },
+  depthLoading: { en: 'Loading the depth model…', ru: 'Загружаю модель глубины…' },
+  depthEstimating: { en: 'Estimating depth…', ru: 'Оцениваю глубину…' },
+  depthReady: {
+    en: 'Depth estimated in {s} s — nearer stands taller.',
+    ru: 'Глубина оценена за {s} с — ближнее выше.',
+  },
+  depthFlat: {
+    en: 'The picture has almost no depth range, so its brightness is used for the relief this time.',
+    ru: 'На картинке почти нет перепада глубины, поэтому в этот раз рельеф строится по яркости.',
+  },
+  depthErrorLoad: {
+    en: 'The depth model could not be loaded ({detail}). Using picture brightness instead.',
+    ru: 'Не удалось загрузить модель глубины ({detail}). Использую яркость картинки.',
+  },
+  depthErrorRun: {
+    en: 'Depth estimation failed ({detail}). Using picture brightness instead.',
+    ru: 'Не удалось оценить глубину ({detail}). Использую яркость картинки.',
+  },
+  depthControlsNote: {
+    en: 'Not used while the relief comes from depth',
+    ru: 'Не используется, пока рельеф строится по глубине',
+  },
+  depthOffForCatalog: {
+    en: 'Depth relief was switched off: catalog mode assigns colors by the nearest spool.',
+    ru: 'Рельеф по глубине выключен: режим каталога назначает цвета по ближайшей катушке.',
+  },
+  projectReliefFallback: {
+    en: 'This project’s depth relief could not be restored, so it opened on picture brightness with automatic colors.',
+    ru: 'Рельеф по глубине из этого проекта восстановить не удалось, поэтому он открыт по яркости картинки с автоматическими цветами.',
+  },
   coverageSegTitle: {
     en: 'Color {order} ({hex}) covers {pct} of the print area',
     ru: 'Цвет {order} ({hex}) занимает {pct} площади печати',

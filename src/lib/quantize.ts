@@ -216,8 +216,22 @@ export function components(labels: Uint8Array, width: number, height: number): C
   return out
 }
 
-/** Equal-population band labels for a relief array (0 = bottom band). */
-function bandLabels(x: Float32Array, n: number, darkIsTall: boolean, pixelCount: number): Uint8Array {
+/**
+ * Equal-population band labels for a relief array (0 = bottom band).
+ *
+ * Pixels that share a histogram bin are ranked in raster order, so a plateau
+ * that straddles a band boundary is cut into horizontal stripes. That is the
+ * historical behaviour of the brightness relief and stays byte-identical. With
+ * `tieAware` every pixel of a bin takes the band of the bin's first rank, so a
+ * plateau is one band — a depth map's flat background stays whole, at the base.
+ */
+function bandLabels(
+  x: Float32Array,
+  n: number,
+  darkIsTall: boolean,
+  pixelCount: number,
+  tieAware = false,
+): Uint8Array {
   const HIST = 256
   const hist = new Uint32Array(HIST)
   for (let i = 0; i < pixelCount; i++) {
@@ -229,7 +243,7 @@ function bandLabels(x: Float32Array, n: number, darkIsTall: boolean, pixelCount:
   const rankInBin = new Uint32Array(HIST)
   for (let i = 0; i < pixelCount; i++) {
     const bin = Math.min(HIST - 1, Math.round(x[i] * (HIST - 1)))
-    const rank = cum[bin] + rankInBin[bin]++
+    const rank = tieAware ? cum[bin] : cum[bin] + rankInBin[bin]++
     const band = Math.min(n - 1, Math.floor((rank * n) / pixelCount))
     indexMap[i] = darkIsTall ? n - 1 - band : band
   }
@@ -500,12 +514,28 @@ export function mapToLuminanceBands(
    * curve produced them — the historical behaviour.
    */
   minBandFrac = 0,
+  /**
+   * Relief position per pixel from somewhere other than the picture's
+   * brightness (a depth map): `width × height` values in 0..1, 1 = tallest.
+   * The field already says which end stands tall, so `darkIsTall` is ignored
+   * and the palette index equals the height slice (base → top) — it is NOT
+   * sorted by brightness. Omitted = the brightness relief, byte-identical to
+   * before.
+   */
+  reliefField?: Float32Array,
 ): QuantizedImage {
   const pixelCount = width * height
   const n = Math.max(1, numColors)
+  if (reliefField) {
+    if (reliefField.length !== pixelCount) throw new Error('Relief field does not match the image size')
+    darkIsTall = false
+  }
+  // A depth relief has real plateaus (a flat background, a flat foreground): keep
+  // each one in a single band instead of striping it (see `bandLabels`).
+  const tieAware = !!reliefField
   const raw = new Float32Array(pixelCount)
-  for (let i = 0; i < pixelCount; i++) raw[i] = pixelLuma(rgba, i)
-  const [lo, hi] = contrastRange(raw)
+  if (!reliefField) for (let i = 0; i < pixelCount; i++) raw[i] = pixelLuma(rgba, i)
+  const [lo, hi] = reliefField ? [0, 1] : contrastRange(raw)
   const span = Math.max(1e-6, hi - lo)
 
   // Per-pixel relief position x (0 = base, 1 = tallest). Deliberately *before*
@@ -514,10 +544,17 @@ export function mapToLuminanceBands(
   // boundary by even one pixel. The curve is applied to the heights and the
   // band tops together at the end (see `applyToneToRelief`).
   const x = new Float32Array(pixelCount)
-  for (let i = 0; i < pixelCount; i++) {
-    let v = Math.min(1, Math.max(0, (raw[i] - lo) / span))
-    if (darkIsTall) v = 1 - v
-    x[i] = v
+  if (reliefField) {
+    for (let i = 0; i < pixelCount; i++) {
+      const v = reliefField[i]!
+      x[i] = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0
+    }
+  } else {
+    for (let i = 0; i < pixelCount; i++) {
+      let v = Math.min(1, Math.max(0, (raw[i] - lo) / span))
+      if (darkIsTall) v = 1 - v
+      x[i] = v
+    }
   }
 
   // Automatically flatten fragile isolated regions (same-band specks under
@@ -533,9 +570,9 @@ export function mapToLuminanceBands(
   let relief: Float32Array = x
   if (canClean) {
     for (let pass = 0; pass < 8; pass++) {
-      const labels0 = bandLabels(relief, n, darkIsTall, pixelCount)
+      const labels0 = bandLabels(relief, n, darkIsTall, pixelCount, tieAware)
       const cleaned = removeIsolatedRegions(relief, labels0, width, height, MIN_REGION_CELLS)
-      const labels1 = bandLabels(cleaned, n, darkIsTall, pixelCount)
+      const labels1 = bandLabels(cleaned, n, darkIsTall, pixelCount, tieAware)
       const remaining = components(labels1, width, height).filter((c) => c.cells.length < MIN_REGION_CELLS).length
       relief = cleaned
       if (remaining === 0) break
@@ -545,7 +582,7 @@ export function mapToLuminanceBands(
   // Assign bands by rank on the cleaned relief: each band takes the next
   // slice of ⌊count/n⌋ or ⌈count/n⌉ pixels, so no color covers a
   // negligible area and no speck can survive.
-  const indexMap = bandLabels(relief, n, darkIsTall, pixelCount)
+  const indexMap = bandLabels(relief, n, darkIsTall, pixelCount, tieAware)
   const bandTops = bandTopsFrom(relief, n, pixelCount)
 
   // Band colors = mean color of the pixels in each slice (dark → light). The

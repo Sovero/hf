@@ -1,0 +1,69 @@
+# Что уже построено
+
+Читается каждым исполнителем до начала работы. Не изобретай заново то, что здесь есть.
+
+## Общие правила проекта
+
+- Стек: Vite + TypeScript + Vitest, клиентское приложение; настольная версия — Electron (`electron-main.cjs`, `file://`).
+- Команды: `npm run typecheck`, `npm test`, `npm run build`.
+- Документация и сообщения коммитов — на русском (см. `AGENTS.md`); тексты интерфейса — в `src/i18n.ts` (en + ru, паритет ключей проверяется тестом).
+- Импортированные данные не вставляются в `innerHTML` — только `textContent`.
+- Без сети: CSP `connect-src 'self'` не расширять.
+
+## Доменные контракты (существующие)
+
+- `QuantizedImage.luminance` — «позиция рельефа» 0..1 (0 = основание, 1 = самое высокое), на неё опираются `buildHeightField`, превью и печатаемость.
+- `mapToLuminanceBands(rgba, numColors, width, height, darkIsTall, dither, tone, colorSource, minBandFrac)` в `src/lib/quantize.ts` строит `x` (позиция рельефа) из яркости; дальше — чистка пятен, полосы по рангу, палитра = средний цвет полосы.
+- `QuantizeTask` (`src/lib/workerProtocol.ts`) — задача воркера пайплайна; `quantizeOnce` выбирает режим по `opts.colorMode`.
+- Палитра в яркостном режиме отсортирована тёмный → светлый и совпадает с индексом полосы; `PaletteEntry.printOrder` считается от `darkIsTall`.
+
+## Договорённости новой фичи
+
+- Тип `DepthMap` — `{ width, height, data: Float32Array }`, значения 0..1, **ближе = больше**.
+- Источник рельефа — `ReliefSource = 'luma' | 'depth' | 'file'`; по умолчанию `'luma'`.
+- Модель: `src/assets/depth-anything-v2-small/model_quantized.onnx` (Apache-2.0); вход `pixel_values` `[1,3,H,W]`, выход `predicted_depth` `[1,H,W]`.
+- Изменения коммитятся в ветку сессии (`claude/clever-goodall-526njx`) по указанию окружения; правило «не коммитить» прошлой фичи к этой сессии не относится.
+
+## Тикет 01 — Движок глубины
+
+- `src/lib/depth/depthMap.ts`: `DepthMap`, `normalizeDepth` (2–98 перцентили, `flat` при вырожденном диапазоне), `resampleDepth` (билинейно), `depthToRelief(map, w, h, invert)` (всегда новый массив).
+- `src/lib/depth/preprocess.ts`: `modelInputSize` (длинная сторона 518, кратно 14), `rgbaToModelInput` (CHW, ImageNet, площадное усреднение при уменьшении).
+- `src/lib/depth/estimator.ts`: `createDepthEstimator({ model, wasm })` → `DepthEstimator.estimate(rgba, w, h)`; ORT: один поток, `wasmBinary` из байтов, без обращений к сети.
+- `src/lib/depth/protocol.ts` + `src/worker/depth.worker.ts` + `src/ui/depthClient.ts`: `estimateDepth(rgba, w, h, onPhase)`, очередь запросов, `DepthError.code`.
+- `src/ui/depthResources.ts`: `fetch` модели и wasm (Vite `?url`).
+- Тесты: `depthMap`, `depthPreprocess`, `depthEngine` (реальная модель, ~8 с), `csp`.
+
+## Тикет 02 — Рельеф по глубине в пайплайне
+
+- `mapToLuminanceBands(..., minBandFrac, reliefField?)`: поле 0..1 вместо яркости; `darkIsTall` игнорируется; индекс палитры = слой высоты (не отсортирована по яркости); без поля результат побайтно прежний.
+- `QuantizeTask.reliefField` / `FitToneTask.reliefField`; воркер помнит `reliefActive` и принудительно ставит `darkIsTall=false` и для `quantize`, и для последующих `finish`. Вместе с каталогом (`nearestPalette`) — ошибка.
+- `ReliefSource = 'luma' | 'depth' | 'file'` (`types.ts`); `ProjectSettings.reliefSource?/invertDepth?` с валидацией.
+- Тесты: `depthRelief` (15), `project` (+1), `lumaGolden` (хеши яркостного пути, сверены с `HEAD` на 256 комбинациях).
+
+## Тикет 03 — Интерфейс
+
+- `index.html`: группа «Источник рельефа» (`input[name="relief-source"]`), `#depth-extra` / `#depth-invert`, `#depth-status`, ид `#polarity-options`.
+- `src/ui/depthRelief.ts`: кэш глубины по `File`, общий запрос для одного файла, `depthErrorKey/Detail`.
+- `src/ui/main.ts`: `readReliefSource` / `setReliefSource` / `syncReliefUi` / `reliefFieldFor` (при сбое — откат на яркость + сообщение); поле передаётся во все `quantizeInWorker` и в подгонку тона; каталог и глубина взаимоисключают друг друга; сохранение в настройках, проекте и снимках отмены.
+- `i18n.ts`: `reliefSource*`, `depth*` (RU/EN).
+
+## Тикет 04 — Импорт карты глубины
+
+- `src/lib/depth/png.ts`: `decodePng(bytes)` → `{ width, height, bitDepth, colorType, luma, alpha? }`; `PngError.code`: `not-png | corrupt | interlaced | unsupported | too-large`. Проверяет CRC; распаковка ограничена размером из заголовка (+1 байт для обнаружения избытка).
+- `src/lib/depth/importMap.ts`: `importDepthFromPng(bytes)` → `{ map, bitDepth, hadBackground, flat }`; min–max без отсечения хвостов, прозрачные пиксели (α < 0.01) — фон на уровне основания. `MAX_DEPTH_FILE_BYTES` = 64 МБ.
+- `depthMap.ts`: `normalizeMinMax`; `resampleDepth` при сильном уменьшении сначала усредняет блоки.
+- `src/ui/depthRelief.ts`: `importDepthFile(file)`, `getImportedDepth()`, `clearImportedDepth()`, `depthFileErrorKey`.
+- `main.ts`: третий источник `file`; карта живёт только в памяти сессии (в проект не входит — при сохранении об этом сообщается), новая картинка сбрасывает её; отмена диалога возвращает на яркость; статус строится функцией и переводится при смене языка.
+- Тесты: `depthPng` (28).
+
+## Правки после ревью PR #1
+
+- `bandLabels(..., tieAware)`: при внешнем поле все пиксели одной корзины получают полосу первого ранга корзины — плоский фон вырезки остаётся одним слоем на основании. Яркостный путь не менялся (золотой тест).
+- `depthToRelief(map, w, h, invert, background?)`: инверсия не задевает фон; `ImportedDepth.background` — отдельная карта покрытия (1 = нет глубины), ресемплируется вместе с глубиной.
+- Импорт: лимиты `PNG_MAX_PIXELS` = 16 Мпикс, `PNG_MAX_RAW_BYTES` = 128 МБ; в памяти карта ≤ `IMPORT_KEEP_SIDE` = 2048 px; `RangeError` → «слишком большой».
+- `resampleDepth`: усреднение блоков по целой части коэффициента уменьшения (≥ 2), а не по половине.
+- Проект: `ProjectFile.depthMap?` (PNG data URL, ≤ 64 МБ в base64); `reliefSource: 'file'` без `depthMap` — ошибка разбора. При открытии карта импортируется до применения настроек; если рельеф не восстановился, палитра не накладывается.
+- `reliefFieldFor(file, image, { token, preview })`: устаревший прогон ничего не трогает в интерфейсе, а вызывающий код не отправляет его `quantize` в воркер (иначе устаревший прогон перезаписал бы состояние воркера). Плоская карта → яркость. Превью исходника переиспользуется, кэш глубины сбрасывается при новой картинке.
+- `PipelineResult.relief?: { source, invert }` → `Describe.txt` и метаданные 3MF (`ReliefSource`, `InvertDepth`).
+- Лицензии: `public/THIRD_PARTY_NOTICES_ONNXRUNTIME.txt` (ThirdPartyNotices.txt из ORT v1.30.0).
+- `package-lock.json`: только добавления onnxruntime-web (без чужого churn `libc`).
