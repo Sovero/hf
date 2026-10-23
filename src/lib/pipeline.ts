@@ -111,10 +111,12 @@ export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang 
   // color). The band floor keeps a strong tone preset from squeezing a color
   // down to one unprintable layer (see `enforceBandFloor`); the worker applies
   // the same floor, so both entry points produce the same schedule.
+  const _layerMm = opts.layerMm ?? 0.2
+  const _baseMm = opts.baseMm < _layerMm ? _layerMm : opts.baseMm
   const floorFrac = minBandFraction(
     opts.numColors,
-    Math.max(0, opts.maxHeightMm - opts.baseMm),
-    opts.layerMm ?? 0.2,
+    Math.max(0, opts.maxHeightMm - _baseMm),
+    _layerMm,
   )
   let quantized: QuantizedImage
   if (opts.colorMode === 'image') {
@@ -130,7 +132,7 @@ export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang 
         banded.luminance,
         image.width,
         image.height,
-        maxReliefStep(Math.max(0, opts.maxHeightMm - opts.baseMm), opts.layerMm ?? 0.2),
+        maxReliefStep(Math.max(0, opts.maxHeightMm - _baseMm), _layerMm),
       ),
     }
   } else {
@@ -156,6 +158,12 @@ export function finishPipeline(
   opts: PipelineOptions,
 ): PipelineResult {
   const n = quantized.palette.length
+  // A zero base leaves the relief sitting on the bed, which produces
+  // degenerate triangles and non-manifold edges in the mesher. Lift it to at
+  // least one layer height so the solid always has positive thickness.
+  const layerMm = opts.layerMm ?? 0.2
+  let baseMm = opts.baseMm
+  if (baseMm < layerMm) baseMm = layerMm
   // Custom band heights make the sum authoritative: maxHeight = base + Σh,
   // clamped to the app-wide 40 mm ceiling by scaling the heights so the
   // geometry always stays consistent (the UI prevents this while dragging).
@@ -167,8 +175,9 @@ export function finishPipeline(
     custom.every((h) => h <= 10)
   let heights: number[] | undefined
   let maxHeightMm = opts.maxHeightMm
+  if (maxHeightMm < baseMm) maxHeightMm = baseMm + layerMm
   if (hasCustom) {
-    const usableMax = 40 - opts.baseMm
+    const usableMax = 40 - baseMm
     const total = custom!.reduce((a, c) => a + c, 0)
     const scale = total > usableMax ? usableMax / total : 1
     heights = custom!.map((h) => h * scale)
@@ -181,10 +190,10 @@ export function finishPipeline(
   const settings: PrintSettings = {
     widthMm: opts.widthMm,
     heightMm: opts.heightMm,
-    baseMm: opts.baseMm,
+    baseMm,
     maxHeightMm,
     darkIsTall: opts.darkIsTall,
-    layerMm: opts.layerMm ?? 0.2,
+    layerMm,
   }
   // Neutral tone is omitted on purpose: an absent field means "the picture's
   // own tones", which keeps older projects, undo snapshots and exports

@@ -93,7 +93,7 @@ export function generate3mf(opts: ExportOptions): Uint8Array {
 
   const modelXml = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
-  <metadata name="Application">hueforge-web</metadata>
+  <metadata name="Application">BambuStudio-01.09.05.51</metadata>
   <metadata name="Title">${esc(modelName)}</metadata>
 ${meta}
   <resources>
@@ -141,12 +141,65 @@ ${layerLines.join('\n')}
 </custom_gcodes_per_layer>
 `
 
-  // ---- Filament settings: one profile, base color = first band in print order ----
+  // ---- Filament settings: one profile per slot, color = that band's color ----
+  // (N files so a single preset cannot overwrite the other slots' colors.)
+  const layerMmStr = String(printSettings?.LayerMm ?? '0.2')
+  const filamentFiles: Record<string, string> = {}
+  const filamentSettingsIds: string[] = []
+  const filamentColours: string[] = []
+  const filamentDiameters: string[] = []
+  const filamentTypes: string[] = []
+  const filamentDensities: string[] = []
+  const filamentCosts: string[] = []
+  const filamentFlowRatios: string[] = []
+  const filamentIds: string[] = []
+  const filamentVendors: string[] = []
+  const filamentSolubles: string[] = []
+  const filamentIsSupports: string[] = []
+  const filamentMaxVolumetricSpeeds: string[] = []
+
+  for (let i = 0; i < byOrder.length; i++) {
+    const band = byOrder[i]
+    const colorHex = hex6(band.color.r, band.color.g, band.color.b)
+    filamentColours.push(colorHex)
+    filamentSettingsIds.push('HueForgeWeb')
+    filamentDiameters.push('1.75')
+    filamentTypes.push('PLA')
+    filamentDensities.push('1.24')
+    filamentCosts.push('24.99')
+    filamentFlowRatios.push('0.98')
+    filamentIds.push('GFL99')
+    filamentVendors.push('Generic')
+    filamentSolubles.push('0')
+    filamentIsSupports.push('0')
+    filamentMaxVolumetricSpeeds.push('15')
+
+    const perFilament = JSON.stringify(
+      {
+        default_filament_colour: [colorHex],
+        filament_flow_ratio: ['0.98'],
+        filament_settings_id: ['HueForgeWeb'],
+        filament_vendor: ['Generic'],
+        from: 'project',
+        hot_plate_temp: ['60'],
+        hot_plate_temp_initial_layer: ['60'],
+        inherits: 'Generic PLA',
+        name: 'HueForgeWeb',
+        temperature_vitrification: ['60'],
+        version: '1.8.4.50',
+      },
+      null,
+      4,
+    )
+    filamentFiles[`Metadata/filament_settings_${i + 1}.config`] = perFilament
+  }
+
+  // Keep a base-color filament_settings_1.config for back-compat (already above).
   const baseColor = byOrder[0]?.color ?? { r: 128, g: 128, b: 128 }
   const filamentSettings = JSON.stringify(
     {
       default_filament_colour: [hex6(baseColor.r, baseColor.g, baseColor.b)],
-      filament_flow_ratio: ['0.975'],
+      filament_flow_ratio: ['0.98'],
       filament_settings_id: ['HueForgeWeb'],
       filament_vendor: ['Generic'],
       from: 'project',
@@ -156,6 +209,39 @@ ${layerLines.join('\n')}
       name: 'HueForgeWeb',
       temperature_vitrification: ['60'],
       version: '1.8.4.50',
+    },
+    null,
+    4,
+  )
+  filamentFiles['Metadata/filament_settings_1.config'] = filamentSettings
+
+  // ---- Project settings: N filaments so Bambu Studio sees all colors ----
+  const n = byOrder.length
+  const flushMatrix: string[] = []
+  for (let i = 0; i < n * n; i++) flushMatrix.push('0')
+  const projectSettings = JSON.stringify(
+    {
+      name: 'project_settings',
+      from: 'project',
+      layer_height: layerMmStr,
+      initial_layer_print_height: layerMmStr,
+      sparse_infill_density: '100%',
+      enable_support: '0',
+      enable_prime_tower: '1',
+      filament_diameter: filamentDiameters,
+      filament_colour: filamentColours,
+      filament_settings_id: filamentSettingsIds,
+      filament_type: filamentTypes,
+      filament_density: filamentDensities,
+      filament_cost: filamentCosts,
+      filament_flow_ratio: filamentFlowRatios,
+      filament_ids: filamentIds,
+      filament_vendor: filamentVendors,
+      filament_soluble: filamentSolubles,
+      filament_is_support: filamentIsSupports,
+      filament_max_volumetric_speed: filamentMaxVolumetricSpeeds,
+      flush_volumes_matrix: flushMatrix,
+      version: '01.09.05.51',
     },
     null,
     4,
@@ -200,8 +286,11 @@ ${layerLines.join('\n')}
     '_rels/.rels': strToU8(ROOT_RELS),
     '3D/3dmodel.model': strToU8(modelXml),
     'Metadata/custom_gcode_per_layer.xml': strToU8(gcodePerLayer),
-    'Metadata/filament_settings_1.config': strToU8(filamentSettings),
+    'Metadata/project_settings.config': strToU8(projectSettings),
     'Metadata/model_settings.config': strToU8(modelSettings),
+  }
+  for (const [path, content] of Object.entries(filamentFiles)) {
+    files[path] = strToU8(content)
   }
   return zipSync(files)
 }

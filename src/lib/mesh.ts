@@ -76,7 +76,11 @@ export function buildMesh(
     }
   }
 
-  const zOfLevel = (k: number) => baseMm + k * layerMm
+  // A zero (or sub-layer) base leaves the relief sitting on the bed, which
+  // produces zero-height walls and degenerate triangles. Lift the effective
+  // base to at least one layer so the solid always has positive thickness.
+  const effectiveBase = baseMm >= layerMm ? baseMm : layerMm
+  const zOfLevel = (k: number) => effectiveBase + k * layerMm
 
   // ---- 2. Vertex grid: (W + 1) × (H + 1) heights sampled from the cell grid.
   // A vertex takes the pixel it belongs to, so the surface is the picture's own

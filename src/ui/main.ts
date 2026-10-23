@@ -272,7 +272,7 @@ function syncMergeThreshold() {
 /** Read the current UI values and persist them (mirrors readOptions' clamps). */
 function saveSettings() {
   try {
-    const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
+    const baseMm = clampNum(Number(baseInput.value), 0.2, 5, 0.8)
     const settings: Settings = {
       colors: Math.round(clampNum(Number(colorsSlider.value), SLIDER_MIN, SLIDER_MAX, 4)),
       widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
@@ -305,7 +305,7 @@ function restoreSettings() {
     if (!raw) return
     const s = JSON.parse(raw) as Partial<Settings>
     const colors = Math.round(clampNum(Number(s.colors), SLIDER_MIN, SLIDER_MAX, 4))
-    const baseMm = clampNum(Number(s.baseMm), 0, 5, 0.8)
+    const baseMm = clampNum(Number(s.baseMm), 0.2, 5, 0.8)
     colorsSlider.value = String(colors)
     colorsValue.value = String(colors)
     widthInput.value = String(clampNum(Number(s.widthMm), 20, 500, 150))
@@ -379,7 +379,7 @@ function readOptions() {
   const contrast = clampNum(Number(contrastSlider.value), 0, 300, 100) / 100
   const power = clampNum(Number(powerSlider.value), 20, 300, 100) / 100
   const mergeDeltaE = mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0
-  const baseMm = clampNum(Number(baseInput.value), 0, 5, 0.8)
+  const baseMm = clampNum(Number(baseInput.value), 0.2, 5, 0.8)
   const maxHeightMm = clampNum(Number(maxInput.value), baseMm + 2, 40, 8)
   return {
     numColors: numColors as ColorCount,
@@ -4480,7 +4480,7 @@ function saveProject() {
 /** Apply a loaded project's settings to the controls (clamped), no reprocess. */
 function applyProjectSettings(s: ProjectFile['settings']) {
   const clamp = (v: number, lo: number, hi: number, fb: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb)
-  const baseMm = clamp(s.baseMm, 0, 5, 0.8)
+  const baseMm = clamp(s.baseMm, 0.2, 5, 0.8)
   colorsSlider.value = String(Math.round(clamp(s.colors, SLIDER_MIN, SLIDER_MAX, 4)))
   colorsValue.value = colorsSlider.value
   ditherSlider.value = String(clamp(s.dither, 0, 100, 0))
