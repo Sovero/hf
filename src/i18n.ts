@@ -74,6 +74,10 @@ export const dict: Dict = {
     en: 'Which parts of the picture stand tallest: light areas or dark ones. This sets the print order of the colors.',
     ru: 'Какие участки картинки самые высокие — светлые или тёмные. Это задаёт порядок печати цветов.',
   },
+  helpPolarity: {
+    en: 'Which end of the relief stands tallest. Light = tall: highlights print last, on top — good for light-on-dark pictures. Dark = tall: shadows print last — good for dark-on-light pictures. The choice sets the print order of the colors.',
+    ru: 'Какой край рельефа выше. Светлые выше: светлые участки печатаются последними, сверху — для светлого на тёмном фоне. Тёмные выше: тёмные участки — последними, для тёмного на светлом фоне. Выбор задаёт порядок печати цветов.',
+  },
   helpDepthLight: {
     en: 'Highlights print last, on top — good for light-on-dark pictures.',
     ru: 'Светлые участки печатаются последними, сверху — подходит для светлого на тёмном фоне.',
@@ -287,6 +291,7 @@ export const dict: Dict = {
     ru: 'По цветам изображения: палитра берётся из собственных цветов картинки (median cut), пиксель берёт ближайший цвет, и каждый цвет владеет одной равной долей высоты. Детали, которые совпадают по яркости, но различаются оттенком — лицо в тени рядом с плащом, — получают свои филаменты вместо усреднения в один грязный цвет, а палитра больше не смешивает красное небо со светлым камнем в коричневый. Внутри каждой террасы светотень по-прежнему следует локальной яркости. Документированная модель «высота следует яркости» здесь больше не действует, поэтому эталонная модель HueForge не совпадёт — режим для фотографий.',
   },
   reliefSourceLabel: { en: 'Relief source', ru: 'Источник рельефа' },
+  depthPolarityLabel: { en: 'Polarity', ru: 'Полярность' },
   reliefSourceLuma: { en: 'Picture brightness', ru: 'Яркость картинки' },
   reliefSourceDepth: { en: 'Depth (neural network, offline)', ru: 'Глубина (нейросеть, офлайн)' },
   helpReliefSource: {

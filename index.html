@@ -194,7 +194,11 @@
               <label class="merge-label"><input id="depth-invert" type="checkbox" data-help="helpDepthInvert" /> <span data-i18n="depthInvert">Invert depth (farther = taller)</span></label>
             </div>
             <p id="depth-status" class="muted small" role="status" aria-live="polite" hidden></p>
-            <div class="mode-options" id="polarity-options">
+            <div class="preset-head">
+              <span class="slider-label" id="polarity-label" data-i18n="depthPolarityLabel">Polarity</span>
+              <button type="button" class="hint-btn" data-help="helpPolarity" aria-label="Help">?</button>
+            </div>
+            <div class="mode-options" id="polarity-options" role="radiogroup" aria-labelledby="polarity-label">
               <label><input type="radio" name="mode" value="light" checked data-help="helpDepthLight" /><span data-i18n="depthLight">Light = tall (highlights on top)</span></label>
               <label><input type="radio" name="mode" value="dark" data-help="helpDepthDark" /><span data-i18n="depthDark">Dark = tall (shadows on top)</span></label>
             </div>
