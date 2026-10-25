@@ -285,7 +285,7 @@ function saveSettings() {
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
       smooth: clampNum(Number(smoothSlider.value), 0, 100, 30),
-      contrast: clampNum(Number(contrastSlider.value), 0, 300, 100),
+      contrast: clampNum(Number(contrastSlider.value), 0, 300, 200),
       power: clampNum(Number(powerSlider.value), 20, 300, 100),
       backlight: lightBackBtn.classList.contains('is-active'),
       mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
@@ -322,7 +322,7 @@ function restoreSettings() {
       smoothValue.textContent = `${smoothSlider.value}%`
     }
     ditherValue.textContent = `${ditherSlider.value}%`
-    contrastSlider.value = String(clampNum(Number(s.contrast), 0, 300, 100))
+    contrastSlider.value = String(clampNum(Number(s.contrast), 0, 300, 200))
     powerSlider.value = String(clampNum(Number(s.power), 20, 300, 100))
     syncToneReadouts()
     syncReliefSplit()
@@ -379,7 +379,7 @@ function readOptions() {
   const numColors = clampNum(Math.round(Number(colorsSlider.value)), SLIDER_MIN, SLIDER_MAX, 4)
   const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
   const dither = clampNum(Number(ditherSlider.value), 0, 100, 0) / 100
-  const contrast = clampNum(Number(contrastSlider.value), 0, 300, 100) / 100
+  const contrast = clampNum(Number(contrastSlider.value), 0, 300, 200) / 100
   const power = clampNum(Number(powerSlider.value), 20, 300, 100) / 100
   const mergeDeltaE = mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0
   const baseMm = clampNum(Number(baseInput.value), 0.2, 5, 0.8)
@@ -4492,7 +4492,7 @@ function applyProjectSettings(s: ProjectFile['settings']) {
     smoothSlider.value = String(clamp(s.smooth, 0, 100, 30))
     smoothValue.textContent = `${smoothSlider.value}%`
   }
-  contrastSlider.value = String(clamp(s.contrast ?? 100, 0, 300, 100))
+  contrastSlider.value = String(clamp(s.contrast ?? 200, 0, 300, 200))
   powerSlider.value = String(clamp(s.power ?? 100, 20, 300, 100))
   // Styles carried by the project are registered in this browser too (by id, so
   // one already saved here is not duplicated) — that is what makes a shared
