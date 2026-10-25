@@ -5,7 +5,7 @@ import { smoothScalarField } from '../lib/smooth'
 import { buildMesh } from '../lib/mesh'
 import { quantize, mapToLuminanceBands, removeIsolatedRegions, MIN_REGION_CELLS } from '../lib/quantize'
 import { findIsolatedRegions } from '../lib/printability'
-import { fitResolution, NOZZLE_MM } from '../lib/printConsts'
+import { DETAIL_MM, fitResolution } from '../lib/printConsts'
 import { sortByLuminance, luminance, hexToRgb, rgbToHex } from '../lib/palette'
 import { generateBinaryStl } from '../lib/exportStl'
 import { generate3mf } from '../lib/export3mf'
@@ -20,16 +20,23 @@ const PALETTE_4: RGB[] = [
 ]
 
 describe('print resolution fit', () => {
-  it('gives cells of at least one nozzle width for common print sizes', () => {
-    expect(150 / fitResolution(150)).toBeGreaterThanOrEqual(NOZZLE_MM - 1e-9)
-    expect(200 / fitResolution(200)).toBeGreaterThanOrEqual(NOZZLE_MM - 1e-9)
-    expect(40 / fitResolution(40)).toBeGreaterThanOrEqual(NOZZLE_MM - 1e-9)
+  it('gives cells of at least the HueForge detail size for common print sizes', () => {
+    expect(150 / fitResolution(150)).toBeGreaterThanOrEqual(DETAIL_MM - 1e-9)
+    expect(200 / fitResolution(200)).toBeGreaterThanOrEqual(DETAIL_MM - 1e-9)
+    expect(40 / fitResolution(40)).toBeGreaterThanOrEqual(DETAIL_MM - 1e-9)
+  })
+
+  it('matches the reference mesh density at 200 mm', () => {
+    // 200 × 112.5 mm at 0.2 mm detail → 1000 × 563 cells ≈ 1.13 M triangles,
+    // the same count as HueForge's match_Front_200x113.stl.
+    expect(fitResolution(200)).toBe(1000)
+    expect(fitResolution(112.5)).toBe(562)
   })
 
   it('caps at MAX_DIMENSION and floors at 16 px', () => {
     expect(fitResolution(2000)).toBeLessThanOrEqual(1024)
-    expect(fitResolution(400)).toBe(1000)
-    expect(fitResolution(5)).toBe(16)
+    expect(fitResolution(400)).toBe(1024)
+    expect(fitResolution(1)).toBe(16)
   })
 })
 
@@ -526,6 +533,22 @@ describe('quantize', () => {
     expect(palette).toHaveLength(8)
   })
 
+  it('supports a 16-filament palette (the HueForge color count)', () => {
+    const size = 256
+    const rgba = new Uint8ClampedArray(size * 4)
+    for (let i = 0; i < size; i++) {
+      const v = Math.round((i / (size - 1)) * 255)
+      rgba[i * 4] = v
+      rgba[i * 4 + 1] = v
+      rgba[i * 4 + 2] = v
+      rgba[i * 4 + 3] = 255
+    }
+    const q = mapToLuminanceBands(rgba, 16, size, 1, true)
+    expect(q.palette).toHaveLength(16)
+    expect(q.bandTops).toHaveLength(16)
+    for (const idx of q.indexMap) expect(idx).toBeLessThan(16)
+  })
+
   it('handles a single-color image', () => {
     const rgba = new Uint8ClampedArray(4 * 4).fill(0)
     for (let i = 0; i < 4; i++) rgba[i * 4 + 3] = 255
@@ -620,6 +643,25 @@ describe('3MF export (Bambu Studio project)', () => {
     // Print order 1 = lightest (white) → the base color for Bambu.
     expect(filament).toContain('"#ffffff"')
     expect(filament).toContain('"inherits": "Generic PLA"')
+  })
+
+  it('exports sixteen filaments as a full HueForge-style schedule', () => {
+    const { mesh } = fixture(true)
+    const bands = Array.from({ length: 16 }, (_, i) => ({
+      color: { r: i * 16, g: 255 - i * 16, b: 128 },
+      topZMm: 1 + i * 0.08,
+      printOrder: i + 1,
+    }))
+    const zip = generate3mf({ mesh, modelName: 'test', bands, printSettings: { LayerMm: '0.08' } })
+    const files = unzipSync(zip)
+    const project = JSON.parse(strFromU8(files['Metadata/project_settings.config']))
+    expect(project.filament_colour).toHaveLength(16)
+    expect(project.filament_settings_id).toHaveLength(16)
+    expect(project.flush_volumes_matrix).toHaveLength(16 * 16)
+    const filamentFiles = Object.keys(files).filter((name) => /^Metadata\/filament_settings_\d+\.config$/.test(name))
+    expect(filamentFiles).toHaveLength(16)
+    const gcode = strFromU8(files['Metadata/custom_gcode_per_layer.xml'])
+    expect(gcode.match(/gcode="tool_change"/g) ?? []).toHaveLength(15)
   })
 
   it('reverses the swap schedule for lightIsTall', () => {
@@ -973,6 +1015,47 @@ describe('custom band heights (HueForge-style per-color thickness)', () => {
     // the darkest band's top is the derived max height.
     expect(byOrder.get(1)).toBeCloseTo(baseMm + 0.4, 9)
     expect(byOrder.get(4)).toBeCloseTo(r.settings.maxHeightMm, 9)
+  })
+
+  it('builds a HueForge-like thin model (base 0.48, total 2.24, layers 0.08)', () => {
+    const w = 256
+    const rgba = new Uint8ClampedArray(w * 4)
+    for (let i = 0; i < w; i++) {
+      const v = Math.round((i / (w - 1)) * 255)
+      rgba[i * 4] = v
+      rgba[i * 4 + 1] = v
+      rgba[i * 4 + 2] = v
+      rgba[i * 4 + 3] = 255
+    }
+    const img = { width: w, height: 1, rgba }
+    const q = mapToLuminanceBands(rgba, 16, w, 1, true)
+    const result = finishPipeline(img, q, {
+      numColors: 16,
+      darkIsTall: true,
+      widthMm: 200,
+      heightMm: 112.5,
+      baseMm: 0.48,
+      maxHeightMm: 2.24,
+      layerMm: 0.08,
+    })
+    expect(result.palette).toHaveLength(16)
+    expect(result.settings.maxHeightMm).toBeCloseTo(2.24, 9)
+    const tops = result.palette.map((p) => p.topZMm).sort((a, b) => a - b)
+    expect(tops[tops.length - 1]).toBeCloseTo(2.24, 9)
+    for (let i = 1; i < tops.length; i++) expect(tops[i] - tops[i - 1]).toBeGreaterThanOrEqual(0.08 - 1e-9)
+    expect(result.mesh.triangleCount).toBeGreaterThan(0)
+
+    // The export must schedule all 15 changes inside the model, on whole
+    // 0.08 mm layers — no swap may sit above the 2.24 mm top.
+    const zip = generate3mf({ mesh: result.mesh, modelName: 'thin', bands: result.palette })
+    const gcode = strFromU8(unzipSync(zip)['Metadata/custom_gcode_per_layer.xml'])
+    const swaps = [...gcode.matchAll(/top_z="([\d.]+)"/g)].map((m) => Number(m[1]))
+    expect(swaps).toHaveLength(15)
+    for (const z of swaps) {
+      expect(z).toBeGreaterThan(0.48)
+      expect(z).toBeLessThan(2.24)
+      expect(Math.abs(z / 0.08 - Math.round(z / 0.08))).toBeLessThan(1e-6)
+    }
   })
 
   it('falls back to equal bands when no custom heights are given', () => {

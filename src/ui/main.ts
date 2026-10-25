@@ -153,8 +153,11 @@ const polarityOptions = $<HTMLDivElement>('#polarity-options')
 const colorModeOptions = $<HTMLDivElement>('#color-mode-options')
 
 const SLIDER_MIN = 2
-const SLIDER_MAX = 8
-const PRESET_TICKS = [2, 4, 6, 8]
+// HueForge prints up to 16 filaments; the slider and every clamp share this cap.
+const SLIDER_MAX = 16
+const PRESET_TICKS = [2, 4, 6, 8, 12, 16]
+/** Thinnest blend layer the geometry needs above the base (one default layer). */
+const MIN_BLEND_MM = 0.2
 const widthInput = $<HTMLInputElement>('#width-mm')
 const heightInput = $<HTMLInputElement>('#height-mm')
 const baseInput = $<HTMLInputElement>('#base-mm')
@@ -278,7 +281,7 @@ function saveSettings() {
       widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
       heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
       baseMm,
-      maxMm: clampNum(Number(maxInput.value), baseMm + 2, 40, 8),
+      maxMm: clampNum(Number(maxInput.value), baseMm + MIN_BLEND_MM, 40, 8),
       layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
       smooth: clampNum(Number(smoothSlider.value), 0, 100, 30),
@@ -311,7 +314,7 @@ function restoreSettings() {
     widthInput.value = String(clampNum(Number(s.widthMm), 20, 500, 150))
     heightInput.value = String(clampNum(Number(s.heightMm), 20, 500, 150))
     baseInput.value = String(baseMm)
-    maxInput.value = String(clampNum(Number(s.maxMm), baseMm + 2, 40, 8))
+    maxInput.value = String(clampNum(Number(s.maxMm), baseMm + MIN_BLEND_MM, 40, 8))
     layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
     ditherSlider.value = String(clampNum(Number(s.dither), 0, 100, 0))
     if (s.smooth !== undefined) {
@@ -380,7 +383,7 @@ function readOptions() {
   const power = clampNum(Number(powerSlider.value), 20, 300, 100) / 100
   const mergeDeltaE = mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0
   const baseMm = clampNum(Number(baseInput.value), 0.2, 5, 0.8)
-  const maxHeightMm = clampNum(Number(maxInput.value), baseMm + 2, 40, 8)
+  const maxHeightMm = clampNum(Number(maxInput.value), baseMm + MIN_BLEND_MM, 40, 8)
   return {
     numColors: numColors as ColorCount,
     darkIsTall,
@@ -4505,7 +4508,7 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   widthInput.value = String(clamp(s.widthMm, 20, 500, 150))
   heightInput.value = String(clamp(s.heightMm, 20, 500, 150))
   baseInput.value = String(baseMm)
-  maxInput.value = String(clamp(s.maxMm, baseMm + 2, 40, 8))
+  maxInput.value = String(clamp(s.maxMm, baseMm + MIN_BLEND_MM, 40, 8))
   layerInput.value = String(clamp(s.layerMm, 0.04, 0.6, 0.2))
   // Custom band heights restore as-is when the color count matches; any
   // mismatch (or a corrupt array) falls back to equal bands.

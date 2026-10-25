@@ -56,7 +56,7 @@ export interface ReferenceApplyPlan {
   warnings: string[]
 }
 
-const SUPPORTED_COLOR_COUNTS: readonly number[] = [2, 4, 8, 12, 16, 24]
+const SUPPORTED_COLOR_COUNTS: readonly number[] = [2, 4, 8, 12, 16]
 const EPS = 1e-6
 
 function blockedPlan(
@@ -177,7 +177,7 @@ export function planReferenceApply(
 
   if (!SUPPORTED_COLOR_COUNTS.includes(n)) {
     return blockedPlan(
-      `The reference uses ${n} colors; the editor supports 2, 4, 8, 12, 16, or 24.`,
+      `The reference uses ${n} colors; the editor supports 2, 4, 8, 12, or 16.`,
       current,
       fields,
     )

@@ -97,6 +97,18 @@ describe('printability', () => {
     expect(resolution.level).toBe('warn')
   })
 
+  it('accepts the 0.2 mm detail grid even under a thicker layer', () => {
+    // 20 mm print at 100 px → 0.2 mm cells: the intended HueForge-style
+    // detail grid, deliberately finer than the nozzle. A 0.4 mm layer must not
+    // turn it into a failure or offer a bogus "print larger" fix.
+    const result = run(gradientImage(100), {
+      widthMm: 20, heightMm: 20, baseMm: 0.48, maxHeightMm: 2.24, darkIsTall: true, layerMm: 0.4, numColors: 4,
+    })
+    const resolution = analyzePrintability(result).checks.find((c) => c.id === 'resolution')!
+    expect(resolution.level).toBe('ok')
+    expect(fixFor('resolution', result)).toBeNull()
+  })
+
   it('warns on many filament changes with a full palette', () => {
     // 8 colors = 7 changes, at or above the 6-change warning threshold.
     const report = analyzePrintability(run(gradientImage(), {

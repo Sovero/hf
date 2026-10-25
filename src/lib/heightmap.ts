@@ -28,12 +28,27 @@ export function snappedBandTops(image: QuantizedImage, settings: PrintSettings):
     }
   }
 
+  // One layer per sheet is the physical minimum. HueForge-style dense stacks
+  // (16 colors over 2.24 mm at 0.08 mm layers) sit close to that limit: without
+  // reserving the layers the remaining sheets still need, the min-spacing clamp
+  // walks the upper boundaries past `maxHeightMm` and the top color becomes
+  // unreachable. When the stack cannot fit even one layer per sheet, no
+  // schedule can keep the colors apart — the overflow behaviour is kept below.
+  const feasible = usable >= n * layerMm - 1e-9
+
   for (let b = 0; b < n; b++) {
+    const min = (b === 0 ? settings.baseMm : out[b - 1]) + layerMm
+    if (b === n - 1) {
+      // The last sheet ends exactly at the configured height when the stack
+      // fits. An infeasible one still spreads the colors upwards instead of
+      // collapsing several of them into a single boundary.
+      out.push(feasible ? settings.maxHeightMm : Math.max(settings.maxHeightMm, min))
+      continue
+    }
     const ideal = hasCustom ? stackTop[b] : settings.baseMm + usable * image.bandTops[b]
     const snapped = Math.round(ideal / layerMm) * layerMm
-    const min = (out.length > 0 ? out[out.length - 1] : settings.baseMm) + layerMm
-    const top = b === n - 1 ? settings.maxHeightMm : snapped
-    out.push(Math.max(top, min))
+    const maxAllowed = feasible ? settings.maxHeightMm - (n - 1 - b) * layerMm : Infinity
+    out.push(Math.max(min, Math.min(snapped, maxAllowed)))
   }
   return out
 }

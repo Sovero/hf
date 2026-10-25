@@ -93,7 +93,7 @@ const SUPPORTED_UNITS: Record<string, number> = {
   feet: 304.8,
 }
 
-const SUPPORTED_COLOR_COUNTS = new Set([2, 4, 8, 12, 16, 24])
+const SUPPORTED_COLOR_COUNTS = new Set([2, 4, 8, 12, 16])
 
 function bytesOf(input: Reference3mfInput): Promise<Uint8Array> {
   if (input instanceof Uint8Array) return Promise.resolve(input)
@@ -318,7 +318,7 @@ function applyReadiness(
   if (model.objectCount !== 1) return { canApply: false, reason: 'Reference contains multiple model objects.' }
   if (palette.length === 0) return { canApply: false, reason: 'No filament palette was found.' }
   if (!SUPPORTED_COLOR_COUNTS.has(palette.length)) {
-    return { canApply: false, reason: `The reference uses ${palette.length} colors; the editor supports 2, 4, 8, 12, 16, or 24.` }
+    return { canApply: false, reason: `The reference uses ${palette.length} colors; the editor supports 2, 4, 8, 12, or 16.` }
   }
   if (!(model.widthMm > 0) || !(model.heightMm > 0) || !(model.maxHeightMm > 0)) {
     return { canApply: false, reason: 'The reference model has no usable dimensions.' }

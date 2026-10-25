@@ -63,12 +63,12 @@ export const dict: Dict = {
     ru: 'Сколько цветов филамента использовать. Больше цветов — плавнее переходы, но больше ручных смен филамента.',
   },
   helpColorsSlider: {
-    en: 'Drag to change the color count; click a tick mark for a quick preset (2–8).',
-    ru: 'Потяните, чтобы изменить количество цветов; щёлкните по метке для быстрого выбора (2–8).',
+    en: 'Drag to change the color count; click a tick mark for a quick preset (2–16).',
+    ru: 'Потяните, чтобы изменить количество цветов; щёлкните по метке для быстрого выбора (2–16).',
   },
   helpColorsValue: {
-    en: 'Type an exact color count from 2 to 8 and press Enter.',
-    ru: 'Введите точное количество цветов от 2 до 8 и нажмите Enter.',
+    en: 'Type an exact color count from 2 to 16 and press Enter.',
+    ru: 'Введите точное количество цветов от 2 до 16 и нажмите Enter.',
   },
   helpDepth: {
     en: 'Which parts of the picture stand tallest: light areas or dark ones. This sets the print order of the colors.',
@@ -99,8 +99,8 @@ export const dict: Dict = {
     ru: 'Толщина сплошной подложки, на которой растут цветовые полосы (0–5 мм).',
   },
   helpMax: {
-    en: 'Total model height including the base (2–40 mm). Each color band occupies part of it.',
-    ru: 'Полная высота модели вместе с подложкой (2–40 мм). Каждый цвет занимает свою часть.',
+    en: 'Total model height including the base (base + 0.2 to 40 mm). Each color band occupies part of it; a HueForge-like thin relief can be 2.24 mm with a 0.48 mm base.',
+    ru: 'Полная высота модели вместе с подложкой (от базы + 0,2 до 40 мм). Каждый цвет занимает свою часть; HueForge-подобный тонкий рельеф может быть 2,24 мм при базе 0,48 мм.',
   },
   helpLayerMm: {
     en: 'Slicer layer height (0.04–0.6 mm). Color swaps always land exactly on a layer boundary.',
@@ -1142,6 +1142,14 @@ export const dict: Dict = {
   pbBandsDetailOkCustom: {
     en: 'Thinnest color band is {band} ≈ {layersText} @ {layer} — clean filament transitions; thicker bands print even cleaner.',
     ru: 'Самая тонкая цветовая полоса — {band} ≈ {layersText} по {layer} — чистые переходы; более толстые полосы печатаются ещё чище.',
+  },
+  pbResTitleGrid: {
+    en: 'Detail grid vs nozzle',
+    ru: 'Сетка детализации и сопло',
+  },
+  pbResDetailGrid: {
+    en: 'Each cell is {cell} — the {detail} detail grid, finer than the {nozzle} nozzle. Features thinner than the nozzle blend in XY, while the dense height grid keeps tonal transitions smooth.',
+    ru: 'Ячейка {cell} — сетка детализации {detail}, мельче сопла {nozzle}. Детали тоньше сопла в плоскости XY сольются, но частая сетка высот даёт плавные тоновые переходы.',
   },
   pbResTitleFail: {
     en: 'Image cells far below nozzle width',

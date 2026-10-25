@@ -4,8 +4,8 @@ export interface RGB {
   b: number
 }
 
-/** Allowed filament color counts (the UI slider is capped at 8). */
-export type ColorCount = 2 | 3 | 4 | 5 | 6 | 7 | 8
+/** Allowed filament color counts (the UI slider runs 2..16, like HueForge). */
+export type ColorCount = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
 
 /**
  * Where a pixel's filament comes from.

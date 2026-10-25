@@ -1,6 +1,7 @@
 import type { PipelineResult } from './pipeline'
 import { MIN_REGION_CELLS } from './quantize'
 import { snappedBandTops } from './heightmap'
+import { DETAIL_MM, NOZZLE_MM } from './printConsts'
 import { t, word, mmOf, type Lang } from '../i18n'
 import type { PrintSettings, QuantizedImage } from './types'
 
@@ -148,6 +149,7 @@ export function fixFor(checkId: string, result: PipelineResult): PrintabilityFix
       if (pos[i + 1] > h) h = pos[i + 1]
     }
     const cellMm = Math.min(w / result.image.width, h / result.image.height)
+    if (onDetailGrid(cellMm)) return null
     const target = cellMm < layerMm - 1e-9 ? layerMm : NOZZLE_MM
     if (cellMm >= target - 1e-9) return null
     const s = Math.min(target / cellMm, MAX_SIZE_MM / Math.max(w, h))
@@ -165,14 +167,22 @@ export function fixFor(checkId: string, result: PipelineResult): PrintabilityFix
   return null
 }
 
-/** Typical nozzle diameter (mm). */
-const NOZZLE_MM = 0.4
 /** Warn when at least this many specks appear. */
 const MIN_SPECKS = 5
 /** ...or when specks cover this fraction of the image. */
 const MIN_SPECK_FRACTION = 0.005
 /** Warn when the print needs this many filament changes. */
 const MIN_SWAPS_WARN = 6
+
+/**
+ * The mesher deliberately works on the Detail Size grid, which is finer than
+ * the nozzle: the slicer still lays one line per nozzle width, while the dense
+ * height grid keeps tonal ramps smooth instead of stepping them per line.
+ * Cells within 10% of Detail Size are that intended grid, not a defect.
+ */
+function onDetailGrid(cellMm: number): boolean {
+  return Math.abs(cellMm - DETAIL_MM) <= DETAIL_MM * 0.1
+}
 
 /**
  * Analyze a finished pipeline result for 3D-printability concerns.
@@ -263,7 +273,18 @@ export function analyzePrintability(result: PipelineResult, lang: Lang = 'en'): 
   }
 
   // ---- 2. Feature resolution vs nozzle ----
-  if (cellMm < layerMm - 1e-6) {
+  if (onDetailGrid(cellMm)) {
+    checks.push({
+      id: 'resolution',
+      level: 'ok',
+      title: str('pbResTitleGrid'),
+      detail: str('pbResDetailGrid', {
+        cell: mm(cellMm),
+        detail: mm(DETAIL_MM),
+        nozzle: mm(NOZZLE_MM),
+      }),
+    })
+  } else if (cellMm < layerMm - 1e-6) {
     checks.push({
       id: 'resolution',
       level: 'fail',

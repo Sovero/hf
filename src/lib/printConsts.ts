@@ -4,19 +4,29 @@
 export const NOZZLE_MM = 0.4
 
 /**
+ * Mesh detail size in mm, the HueForge "Detail Size" equivalent: the side of
+ * one height-map cell. 0.2 mm matches the reference meshes (a 200 mm print is
+ * 1000 cells wide ≈ 1.1 M triangles) and resolves tonal ramps that a
+ * nozzle-width grid turns into visible 0.4 mm terraces. The printer still lays
+ * down 0.4 mm lines; the finer mesh only decides where each line's height sits.
+ */
+export const DETAIL_MM = 0.2
+
+/**
  * Working-resolution fit: the decode cap bounding memory/CPU. The pipeline
  * prints the image at `widthMm × heightMm`; a cell is `sizeMm / pixels`, so
- * the nozzle-exact pixel budget per axis is `sizeMm / NOZZLE_MM` (150 mm →
- * 375 px, 200 mm → 500 px). The 1024 px cap keeps prints up to ~409 mm at
- * nozzle-exact resolution and still yields sub-nozzle cells beyond that —
- * finer cells sharpen the on-screen previews and let dithering form smoother
- * tonal transitions, while the mesh merger keeps STL size in check.
+ * the detail-exact pixel budget per axis is `sizeMm / DETAIL_MM` (150 mm →
+ * 750 px, 200 mm → 1000 px). The 1024 px cap keeps the mesh near the
+ * reference triangle count up to ~205 mm and still yields sub-detail cells
+ * beyond that — finer cells sharpen the on-screen previews and let dithering
+ * form smoother tonal transitions.
  */
 export const MAX_DIMENSION = 1024
 
-/** Pixels per axis for a print size so each cell ≥ one nozzle width. */
-export function fitResolution(sizeMm: number): number {
-  return Math.max(16, Math.min(MAX_DIMENSION, Math.floor(sizeMm / NOZZLE_MM)))
+/** Pixels per axis for a print size so each cell ≥ the detail size. */
+export function fitResolution(sizeMm: number, detailMm = DETAIL_MM): number {
+  const detail = Number.isFinite(detailMm) && detailMm > 0 ? detailMm : DETAIL_MM
+  return Math.max(16, Math.min(MAX_DIMENSION, Math.floor(sizeMm / detail)))
 }
 
 /**
