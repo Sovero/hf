@@ -1,4 +1,5 @@
 import type { QuantizedImage, RGB } from './types'
+import { srgbToLab } from './deltae'
 
 interface Box {
   start: number
@@ -209,6 +210,110 @@ export function imagePalette(rgba: Uint8ClampedArray, numColors: number): RGB[] 
   palette[0] = rung(darkest)
   palette[n - 1] = rung(lightest)
   for (let k = 1; k < n - 1; k++) palette[k] = rung(darkest + step * k)
+  return palette
+}
+
+/** Smallest share of the picture a color needs to earn its own filament. */
+const DISTINCT_MIN_SHARE = 0.015
+
+/** Lab radius within which pixels count as «this color» for its share (ΔE76). */
+const DISTINCT_RADIUS = 30
+
+/**
+ * The filament palette of the colors-first model: the picture's main color,
+ * then repeatedly the color that differs most from the ones already chosen,
+ * weighed by the cube root of its share — among the colors that cover at
+ * least ~1.5 % of the picture.
+ *
+ * Here every pixel takes the filament nearest to its own color, so a red suit
+ * on a teal sky can have a red filament without reddening the sky — but only
+ * if the palette offers one. Median cut (by area) spent all four colors on the
+ * sky and the ground and dropped the suit; picking by difference keeps it.
+ *
+ * Candidates are the cells of a 4-bit color histogram. A color's share counts
+ * every pixel within ΔE 30 of it, so a shaded surface (a suit from deep red to
+ * pink) adds up to one color instead of crumbling into cells too small to
+ * count. The share floor keeps a speck (a flag, a highlight) from taking a
+ * spool; if there are not enough such colors, the floor is lowered to fill
+ * every slot. Each pick is denoised by its close neighbourhood. Returns
+ * `numColors` colors, unsorted.
+ */
+export function distinctPalette(rgba: Uint8ClampedArray, numColors: number): RGB[] {
+  const n = Math.max(1, numColors)
+  const pixelCount = rgba.length / 4
+  if (pixelCount === 0) return Array.from({ length: n }, () => ({ r: 0, g: 0, b: 0 }))
+
+  const CELLS = 16 * 16 * 16
+  const count = new Uint32Array(CELLS)
+  const sum = new Float64Array(CELLS * 3)
+  for (let i = 0; i < pixelCount; i++) {
+    const p = i * 4
+    const r = rgba[p]!, g = rgba[p + 1]!, b = rgba[p + 2]!
+    const cell = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4)
+    count[cell]++
+    sum[cell * 3] += r
+    sum[cell * 3 + 1] += g
+    sum[cell * 3 + 2] += b
+  }
+  const cells: number[] = []
+  for (let c = 0; c < CELLS; c++) if (count[c]) cells.push(c)
+  const points = cells.map((c) => [sum[c * 3]! / count[c]!, sum[c * 3 + 1]! / count[c]!, sum[c * 3 + 2]! / count[c]!])
+  // «How different» is measured in Lab, the way the eye sees it: a saturated
+  // red suit stands far from a dark visor (ΔE ≈ 75) while green grass sits
+  // close to a teal sky (ΔE ≈ 42) — in RGB the big green field outvoted the
+  // suit.
+  const labs = points.map((p) => srgbToLab(p[0]!, p[1]!, p[2]!))
+  const labDist2 = (p: number[], q: number[]) => (p[0]! - q[0]!) ** 2 + (p[1]! - q[1]!) ** 2 + (p[2]! - q[2]!) ** 2
+  const radius2 = DISTINCT_RADIUS * DISTINCT_RADIUS
+  const share = labs.map((l) => {
+    let s = 0
+    for (let k = 0; k < cells.length; k++) if (labDist2(l, labs[k]!) <= radius2) s += count[cells[k]!]!
+    return s / pixelCount
+  })
+
+  // No forced darkest / lightest ends here: every pixel takes its nearest
+  // filament, so a 1 % white glare would only steal a slot from the subject.
+  // Start from the color that covers the most of the picture.
+  let first = 0
+  for (let j = 1; j < cells.length; j++) if (share[j]! > share[first]!) first = j
+  const picked: number[] = [first]
+  const nearest = labs.map((l) => labDist2(l, labs[first]!))
+  for (let floor = DISTINCT_MIN_SHARE; picked.length < n; ) {
+    let best = -1
+    let bestScore = 0
+    for (let j = 0; j < cells.length; j++) {
+      if (share[j]! < floor || nearest[j]! <= 0) continue
+      // Linear distance × cube root of the share: a distinct color needs only a
+      // modest area to earn a spool, while a speck never outweighs a subject.
+      const score = Math.sqrt(nearest[j]!) * Math.cbrt(share[j]!)
+      if (score > bestScore) {
+        bestScore = score
+        best = j
+      }
+    }
+    if (best < 0) {
+      if (floor === 0) break // fewer distinct colors than slots
+      floor = floor > 0.002 ? floor / 4 : 0
+      continue
+    }
+    picked.push(best)
+    for (let j = 0; j < cells.length; j++) nearest[j] = Math.min(nearest[j]!, labDist2(labs[j]!, labs[best]!))
+  }
+
+  // Each pick, denoised: the pixel-weighted mean of the cells close to it.
+  const palette = picked.map((j) => {
+    let r = 0, g = 0, b = 0, w = 0
+    for (let k = 0; k < cells.length; k++) {
+      if (labDist2(labs[k]!, labs[j]!) > 8 * 8) continue
+      const c = count[cells[k]!]!
+      r += points[k]![0]! * c
+      g += points[k]![1]! * c
+      b += points[k]![2]! * c
+      w += c
+    }
+    return { r: Math.round(r / w), g: Math.round(g / w), b: Math.round(b / w) }
+  })
+  while (palette.length < n) palette.push({ ...palette[palette.length - 1]! })
   return palette
 }
 
@@ -1034,8 +1139,9 @@ function lumaOf(c: RGB): number {
  * of them: the palette is a median cut of the image's RGB, each pixel takes the
  * nearest colour, and every color owns one equal slice of the printed height.
  * The result is a poster-like relief whose terraces are the picture's real
- * colors; the shading *inside* a terrace still follows the local brightness, so
- * a region keeps its modelling instead of flattening into a plateau.
+ * colors, each printed at its full slice thickness so the colour below cannot
+ * show through; only the bottom terrace, lying on the base of its own colour,
+ * keeps the local brightness modelling.
  *
  * Physical consistency is preserved: a pixel's relief always lands inside the
  * slice of the color it was assigned (brightness within a band is normalized
@@ -1059,9 +1165,10 @@ export function mapToImageColors(
   const n = Math.max(1, numColors)
   const paletteSource = colorSource && colorSource.length === rgba.length ? colorSource : rgba
 
-  // 1. Palette: median cut of the picture's RGB, ordered dark → light the way
-  //    every other palette in the app is ordered (slot order = print order).
-  const palette = quantize(paletteSource, n)
+  // 1. Palette: the picture's distinct colors (see `distinctPalette`), ordered
+  //    dark → light the way every other palette in the app is ordered (slot
+  //    order = print order).
+  const palette = distinctPalette(paletteSource, n)
     .slice()
     .sort((a, b) => lumaOf(a) - lumaOf(b))
 
@@ -1095,10 +1202,9 @@ export function mapToImageColors(
   const clampedDither = Math.min(1, Math.max(0, dither))
   const finalLabels = clampedDither > 0 ? ditherColors(rgba, clean, palette, width, height, clampedDither) : clean
 
-  // 3. Heights: every color owns one equal slice of the relief; a pixel sits
-  //    inside its own slice, positioned by its brightness *relative to its
-  //    band* — so the band keeps its local modelling and never leaves its
-  //    filament's range.
+  // 3. Heights: every color owns one equal slice of the relief and prints as a
+  //    plate at the slice top (the bottom slice keeps its brightness
+  //    modelling) — see `reliefFromColorBands`.
   const relief = reliefFromColorBands(rgba, finalLabels, palette.length, darkIsTall, width * height)
   const bandTops = Array.from({ length: palette.length }, (_, b) => (b + 1) / palette.length)
 
@@ -1170,10 +1276,10 @@ export function relaxCliffs(
 }
 
 /**
- * Build the relief for a color-first palette: each band's pixels are stretched
- * over that band's own slice of the height, using the pixel's brightness
- * normalized onto the band's brightness range (2 %..98 % percentiles, so a
- * handful of stray pixels cannot collapse the modelling to a flat plateau).
+ * Build the relief for a color-first palette: every band above the bottom one
+ * is a plate at the top of its slice; the bottom band's pixels are stretched
+ * over its slice by brightness normalized onto the band's own range (2 %..98 %
+ * percentiles, so a handful of stray pixels cannot collapse the modelling).
  *
  * The orientation matches the rest of the pipeline: slice 0 is the bottom of
  * the stack, and with `darkIsTall` the darker half of a band sits nearer its
@@ -1210,7 +1316,14 @@ function reliefFromColorBands(
       // brightest, so the surface sits at the slice top. That keeps the model
       // reaching the configured height even when the picture is flat inside
       // every colour.
-      const local = span < 1e-6
+      //
+      // Every band above the bottom one is such a plate too. Its sheet lies on
+      // a DIFFERENT colour, and a pixel low in its slice would print only a
+      // thin sheet of its own filament with that colour showing through — a
+      // blue sky over a red band turns pink. At the slice top the colour gets
+      // its full thickness. The bottom band sits on the base of its own colour
+      // and keeps the brightness modelling.
+      const local = span < 1e-6 || slice > 0
         ? 1
         : (() => {
             const v = Math.min(1, Math.max(0, (pixelLuma(rgba, i) - lo) / span))

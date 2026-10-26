@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { transmission, tauBandHeights, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, transmittedPixelColors, DEFAULT_TAU_MM } from '../lib/transmission'
+import { transmission, tauBandHeights, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, transmittedPixelColors, opaqueSheetMm, opaqueColorsTotalMm, DEFAULT_TAU_MM } from '../lib/transmission'
 import { mapToLuminanceBands } from '../lib/quantize'
 import { finishPipeline } from '../lib/pipeline'
 import type { PipelineResult } from '../lib/pipeline'
@@ -222,5 +222,20 @@ describe('per-pixel preview (thin top sheets)', () => {
     for (let x = 1; x < w; x++) expect(row[x]!, `x=${x}`).toBeGreaterThanOrEqual(row[x - 1]! - 1)
     // Opaque alpha everywhere.
     for (let i = 3; i < px.length; i += 4) expect(px[i]).toBe(255)
+  })
+})
+
+describe('opaque sheets for the colors-first model', () => {
+  it('needs 2.3·τ per sheet (90 % cover), rounded up to whole layers', () => {
+    // τ 0.3 mm → 0.69 mm → nine 0.08 mm layers = 0.72 mm.
+    expect(opaqueSheetMm(0.3, 0.08)).toBeCloseTo(0.72, 9)
+    expect(opaqueSheetMm(0.3, 0.2)).toBeCloseTo(0.8, 9)
+    // The sheet really covers ≥ 90 % of what lies below.
+    expect(transmission(opaqueSheetMm(0.3, 0.08), 0.3)).toBeGreaterThanOrEqual(0.9)
+  })
+
+  it('sizes the whole model: base + one opaque sheet per color', () => {
+    expect(opaqueColorsTotalMm(4, 0.48, 0.08)).toBeCloseTo(0.48 + 4 * 0.72, 9)
+    expect(opaqueColorsTotalMm(4, 0.48, 0.08, 0.6)).toBeCloseTo(0.48 + 4 * 1.44, 9)
   })
 })

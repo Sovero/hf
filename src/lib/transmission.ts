@@ -91,6 +91,26 @@ export function tauBandHeights(
   return out
 }
 
+/** Share of the color below a sheet must hide to count as opaque (90 %). */
+const OPAQUE_COVER = 0.9
+
+/**
+ * Thickness of a sheet that hides 90 % of the color below it — 2.3·τ —
+ * rounded up to whole print layers. The colors-first model needs every color
+ * this thick: its neighbouring sheets are unrelated hues, and a thinner sheet
+ * lets them show through (a blue sky over a red band prints pink).
+ */
+export function opaqueSheetMm(tauMm: number = DEFAULT_TAU_MM, layerMm = 0.2): number {
+  const need = -Math.log(1 - OPAQUE_COVER) * tauMm
+  const layer = layerMm > 0 ? layerMm : 0.2
+  return Math.ceil(need / layer - 1e-9) * layer
+}
+
+/** Model height for the colors-first model: the base plus one opaque sheet per color. */
+export function opaqueColorsTotalMm(numColors: number, baseMm: number, layerMm: number, tauMm: number = DEFAULT_TAU_MM): number {
+  return baseMm + Math.max(1, numColors) * opaqueSheetMm(tauMm, layerMm)
+}
+
 /** Transmission of a sheet of thickness zMm (0..1 of what it hides). */
 export function transmission(zMm: number, tauMm: number = DEFAULT_TAU_MM): number {
   if (zMm <= 0) return 0

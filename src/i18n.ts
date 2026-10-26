@@ -296,6 +296,15 @@ export const dict: Dict = {
     ru: 'По цветам изображения',
   },
   colorModeLabel: { en: 'How to pick the colors', ru: 'Как подбирать цвета' },
+  lostColorHint: {
+    en: 'Visible colors of the picture ({list}) do not print in this mode: at their brightness another filament is already on top.',
+    ru: 'Заметные цвета картинки ({list}) в этом режиме не напечатаются: на их яркости сверху уже другой филамент.',
+  },
+  opaqueRaised: {
+    en: '«Colors from the picture»: total thickness raised to {mm} mm, so every color prints opaque and the one below does not show through.',
+    ru: 'Режим «По цветам»: общая толщина увеличена до {mm} мм — так каждый цвет непрозрачен и не просвечивает нижним.',
+  },
+  lostColorSwitch: { en: 'Switch to «Colors from the picture»', ru: 'Переключить на «По цветам изображения»' },
   colorModeHint: {
     en: 'By brightness: smooth HueForge-style relief, but two colors of the same brightness (a blue sky and green grass) print in one filament. By colors: every hue keeps its own filament, the relief is terraced.',
     ru: 'По яркости — плавный рельеф как в HueForge, но два цвета одной яркости (синее небо и зелёная трава) печатаются одним филаментом. По цветам — у каждого оттенка свой филамент, рельеф ступенчатый.',
@@ -305,8 +314,8 @@ export const dict: Dict = {
     ru: 'Как пиксель получает филамент. По яркости (модель HueForge Standard / Filapaint): яркость задаёт высоту столбика, а полоса высоты — цвет. Филаменты — настоящие цвета картинки, от самого тёмного до самого светлого. Лучше всего для графики, логотипов и контрастного арта; это же режим, которым сверяется эталонная модель HueForge.',
   },
   helpColorModeImage: {
-    en: 'Colors from the picture: the palette is cut from the image’s own RGB (median cut), each pixel takes the nearest color, and every color owns one equal slice of the height. Details that share a brightness but differ in hue — a face in shadow next to its cloak — keep their own filaments instead of averaging into one muddy color, and the palette no longer mixes a red sky with pale stone into brown. Inside each terrace the shading still follows the local brightness. It no longer follows the documented «height follows brightness» model, so a HueForge reference model will not line up — use it for photographs.',
-    ru: 'По цветам изображения: палитра берётся из собственных цветов картинки (median cut), пиксель берёт ближайший цвет, и каждый цвет владеет одной равной долей высоты. Детали, которые совпадают по яркости, но различаются оттенком — лицо в тени рядом с плащом, — получают свои филаменты вместо усреднения в один грязный цвет, а палитра больше не смешивает красное небо со светлым камнем в коричневый. Внутри каждой террасы светотень по-прежнему следует локальной яркости. Документированная модель «высота следует яркости» здесь больше не действует, поэтому эталонная модель HueForge не совпадёт — режим для фотографий.',
+    en: 'Colors from the picture: the palette is the picture’s distinct colors (its main color, then the ones that differ most — a red suit on a teal sky keeps its red), each pixel takes the nearest color, and every color owns one equal slice of the height, printed as a full plate. Details that share a brightness but differ in hue keep their own filaments instead of averaging into one muddy color. Every color must be opaque here, so the total thickness is raised to the base plus about 0.7 mm per color. It no longer follows the documented «height follows brightness» model, so a HueForge reference model will not line up.',
+    ru: 'По цветам изображения: палитра — заметно разные цвета картинки (главный цвет, затем самые непохожие: красный скафандр на бирюзовом небе сохраняет свой красный), пиксель берёт ближайший цвет, и каждый цвет владеет одной равной долей высоты и печатается ровной площадкой. Детали, совпадающие по яркости, но различные по оттенку, получают свои филаменты вместо усреднения в один грязный цвет. Здесь каждый цвет должен быть непрозрачным, поэтому общая толщина поднимается до основания плюс около 0,7 мм на цвет. Модель «высота следует яркости» здесь не действует, поэтому эталонная модель HueForge не совпадёт.',
   },
   reliefSourceLabel: { en: 'Relief source', ru: 'Источник рельефа' },
   depthPolarityLabel: { en: 'What stands taller', ru: 'Что выше' },

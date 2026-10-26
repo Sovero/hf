@@ -280,3 +280,35 @@ export function buildMesh(
     triangleCount,
   }
 }
+
+/**
+ * Vertex colors for showing a mesh the way the print will look: a copy of
+ * `mesh.colors` with every top cell painted in its pixel of `rgba` (the
+ * per-pixel preview — translucent sheets blended), walls and base unchanged.
+ *
+ * The mesh itself keeps the filament colors the exports read; this is only a
+ * paint layer for the 3D view, so the model and the 2D preview agree instead
+ * of the model showing opaque filament blocks. Relies on `buildMesh`'s layout:
+ * the first 2·W·H triangles are the top cells row by row, rows mirrored (row 0
+ * of the picture is the far edge).
+ */
+export function shadeTopSurface(mesh: Mesh, rgba: Uint8ClampedArray, width: number, height: number): Float32Array {
+  const colors = mesh.colors.slice()
+  if (rgba.length !== width * height * 4 || colors.length < width * height * 18) return colors
+  for (let j = 0; j < height; j++) {
+    const srcRow = (height - 1 - j) * width
+    for (let i = 0; i < width; i++) {
+      const p = (srcRow + i) * 4
+      const r = rgba[p]! / 255
+      const g = rgba[p + 1]! / 255
+      const b = rgba[p + 2]! / 255
+      const o = (j * width + i) * 18
+      for (let v = 0; v < 18; v += 3) {
+        colors[o + v] = r
+        colors[o + v + 1] = g
+        colors[o + v + 2] = b
+      }
+    }
+  }
+  return colors
+}

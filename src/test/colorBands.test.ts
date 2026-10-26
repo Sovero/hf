@@ -187,3 +187,42 @@ describe('color-first palette (median cut)', () => {
     expect(floored.luminance).toBe(q.luminance)
   })
 })
+
+describe('color-first palette keeps the distinct colors', () => {
+  /** Teal sky, green ground, a red suit (≈ 6 %), a dark visor and white glare. */
+  function astronaut(): { rgba: Uint8ClampedArray; w: number; h: number } {
+    const w = 120
+    const h = 80
+    const rgba = new Uint8ClampedArray(w * h * 4)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const t = y / (h - 1)
+        let c = [Math.round(60 + 60 * t), Math.round(190 + 30 * t), Math.round(180 - 20 * t)] // teal sky
+        if (y > 58) c = [110, 150, 70] // green ground
+        if ((x - 60) ** 2 + (y - 45) ** 2 < 15 ** 2) c = [200 - (y % 7) * 6, 40, 45] // red suit
+        if ((x - 60) ** 2 + (y - 40) ** 2 < 6 ** 2) c = [20, 25, 40] // dark visor
+        if (x > 100 && y < 6) c = [250, 252, 245] // glare
+        rgba.set([c[0]!, c[1]!, c[2]!, 255], (y * w + x) * 4)
+      }
+    }
+    return { rgba, w, h }
+  }
+
+  it('gives the red suit its own filament next to a big teal sky', () => {
+    const { rgba, w, h } = astronaut()
+    const q = mapToImageColors(rgba, 4, w, h, false, 0)
+    expect(q.palette.some((c) => c.r > 150 && c.g < 90 && c.b < 90), 'red').toBe(true)
+    expect(q.palette.some((c) => c.g > 170 && c.b > 140 && c.r < 140), 'teal').toBe(true)
+    // The suit's pixels print in that red filament.
+    const red = q.palette.findIndex((c) => c.r > 150 && c.g < 90)
+    expect(q.indexMap[52 * w + 60]).toBe(red)
+  })
+
+  it('does not spend a filament on a speck of odd color', () => {
+    const { rgba, w, h } = astronaut()
+    // A 3×3 magenta speck (0.1 %) must not win a slot over the ground.
+    for (let y = 2; y < 5; y++) for (let x = 2; x < 5; x++) rgba.set([230, 30, 220, 255], (y * w + x) * 4)
+    const q = mapToImageColors(rgba, 5, w, h, false, 0)
+    expect(q.palette.some((c) => c.r > 180 && c.b > 180 && c.g < 80), 'magenta').toBe(false)
+  })
+})

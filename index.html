@@ -158,6 +158,11 @@
               <label><input type="radio" name="color-mode" value="luma" checked data-help="helpColorMode" /><span data-i18n="colorModeLuma">Brightness bands (HueForge)</span></label>
               <label><input type="radio" name="color-mode" value="image" data-help="helpColorModeImage" /><span data-i18n="colorModeImage">Colors from the picture</span></label>
             </div>
+            <div id="color-mode-suggest" class="mode-suggest" hidden>
+              <span id="color-mode-suggest-swatches" class="mode-suggest-swatches" aria-hidden="true"></span>
+              <span id="color-mode-suggest-text" class="small"></span>
+              <button type="button" id="color-mode-suggest-btn" class="btn ghost" data-i18n="lostColorSwitch">Switch to «Colors from the picture»</button>
+            </div>
             <p class="muted small mode-hint" data-i18n="colorModeHint">By brightness: smooth HueForge-style relief, but two colors of the same brightness (a blue sky and green grass) print in one filament. By colors: every hue keeps its own filament, the relief is terraced.</p>
           </div>
           </div>

@@ -1118,6 +1118,41 @@ body {
   display: none;
 }
 
+/* Brightness mode cannot print a visible color: name it and offer the switch. */
+.mode-suggest {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  line-height: 1.4;
+}
+
+.mode-suggest[hidden] {
+  display: none;
+}
+
+.mode-suggest-swatches {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mode-suggest-swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.mode-suggest .btn {
+  grid-column: 1 / -1;
+}
+
 /* One-line explanation under a radio group (colors: brightness vs picture). */
 .mode-hint {
   margin: 0.35rem 0 0;

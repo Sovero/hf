@@ -10,7 +10,7 @@ import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION
 import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
-import { DEFAULT_TAU_MM, tauBandHeights, transmittedPixelColors } from '../lib/transmission'
+import { DEFAULT_TAU_MM, opaqueColorsTotalMm, tauBandHeights, transmittedPixelColors } from '../lib/transmission'
 import type { ColorCount, ColorMode, QuantizedImage, ReliefSource, SourcePreview } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
@@ -29,6 +29,8 @@ import type { RGB } from '../lib/types'
 import { Viewer3D } from './viewer3d'
 import type { FaceName } from '../lib/viewCubeMath'
 import { autoPickFilaments } from '../lib/autoPick'
+import { lostColors } from '../lib/lostColors'
+import { shadeTopSurface } from '../lib/mesh'
 import { colorShares, formatShare } from '../lib/colorShare'
 import { orderSpools } from '../lib/spoolOrder'
 import { recentSpoolIds, recordRecentSpools } from '../lib/recentSpools'
@@ -609,6 +611,7 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
       saveSettings()
     }
   }
+  ensureOpaqueColorSlices()
   const token = ++runToken
   showStatus(tr('processing'), false, false)
   setProcessing(true)
@@ -1036,6 +1039,48 @@ function setupWelcome() {
   })
 }
 
+/**
+ * Brightness mode: when a visible color of the picture has no filament near
+ * it (a red suit at the brightness of a teal sky), say so and offer the
+ * colors-first mode, which keeps it. Cached per palette — the check runs a
+ * palette search over the picture.
+ */
+let lostColorKey = ''
+function updateColorModeSuggest() {
+  const box = $<HTMLDivElement>('#color-mode-suggest')
+  if (!current || readColorMode() !== 'luma' || readReliefSource() !== 'luma') {
+    box.hidden = true
+    lostColorKey = ''
+    return
+  }
+  const palette = current.quantized.palette
+  const key = `${lang}|${current.image.width}x${current.image.height}|${palette.map(rgbToHex).join(',')}`
+  if (key === lostColorKey) return
+  lostColorKey = key
+  const lost = lostColors(current.image.rgba, palette).slice(0, 3)
+  box.hidden = lost.length === 0
+  if (lost.length === 0) return
+  const swatches = $<HTMLSpanElement>('#color-mode-suggest-swatches')
+  swatches.replaceChildren(
+    ...lost.map((l) => {
+      const s = document.createElement('span')
+      s.className = 'mode-suggest-swatch'
+      s.style.background = rgbToHex(l.color)
+      return s
+    }),
+  )
+  $<HTMLSpanElement>('#color-mode-suggest-text').textContent = tr('lostColorHint', {
+    list: lost.map((l) => `${rgbToHex(l.color)} ≈ ${formatShare(l.share * 100, lang)}`).join(', '),
+  })
+}
+
+$<HTMLButtonElement>('#color-mode-suggest-btn').addEventListener('click', () => {
+  const image = document.querySelector<HTMLInputElement>('input[name="color-mode"][value="image"]')
+  if (!image) return
+  image.checked = true
+  image.dispatchEvent(new Event('change', { bubbles: true }))
+})
+
 function updateUI() {
   // Empty state: hide the placeholder canvases (they render as dark
   // rectangles) and show a hint inside each preview wrap instead.
@@ -1046,6 +1091,7 @@ function updateUI() {
     if (canvas) canvas.hidden = !hasImage
   }
   replaceImageBtn.hidden = !hasImage
+  updateColorModeSuggest()
   if (!current) {
     imageInfo.textContent = ''
     return
@@ -1367,6 +1413,43 @@ let autoPalette: RGB[] = []
  * value; the «Equal heights» button clears this back to equal bands.
  */
 let bandHeights: number[] | null = null
+
+/**
+ * Colors-first mode needs every color opaque (see `opaqueColorsTotalMm`): its
+ * neighbouring sheets are unrelated hues, and HueForge's thin 2.24 mm
+ * painting lets them show through. Entering the mode — or changing the color
+ * count, base or layer height in it — raises the total thickness to that
+ * minimum; a thickness typed in by hand afterwards stays the user's. Leaving
+ * the mode restores the thickness it had before.
+ */
+let opaqueKey = ''
+let thicknessBeforeColorMode: number | null = null
+function ensureOpaqueColorSlices() {
+  const colorsFirst = readColorMode() === 'image' && readReliefSource() === 'luma'
+  if (!colorsFirst) {
+    opaqueKey = ''
+    if (thicknessBeforeColorMode !== null) {
+      maxInput.value = String(thicknessBeforeColorMode)
+      thicknessBeforeColorMode = null
+      saveSettings()
+    }
+    return
+  }
+  if (bandHeights) return // the user's own band thicknesses rule
+  const n = Number(colorsSlider.value) || 4
+  const base = clampNum(Number(baseInput.value), 0.2, 5, DEFAULT_BASE_MM)
+  const layer = clampNum(Number(layerInput.value), 0.04, 0.6, DEFAULT_LAYER_MM)
+  const key = `${n}|${base}|${layer}`
+  if (key === opaqueKey) return
+  opaqueKey = key
+  const need = Number(Math.min(40, opaqueColorsTotalMm(n, base, layer)).toFixed(2))
+  const now = Number(maxInput.value)
+  if (now >= need - 1e-9) return
+  if (thicknessBeforeColorMode === null) thicknessBeforeColorMode = now
+  maxInput.value = String(need)
+  saveSettings()
+  showStatus(tr('opaqueRaised', { mm: mm2(need) }))
+}
 
 /**
  * Catalog palette mode: quantization assigns every pixel the nearest chosen
@@ -3333,7 +3416,12 @@ function update3d() {
   const w = current!.settings.widthMm
   const h = current!.settings.heightMm
   viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
-  viewer3d.setMesh(current!.mesh, { wMm: w, hMm: h })
+  // Painted like the 2D preview (front-lit, translucent sheets blended), so the
+  // model and the preview tell the same story; the mesh the exports read keeps
+  // its filament colors.
+  const { width: qw, height: qh } = current!.quantized
+  const shaded = { ...current!.mesh, colors: shadeTopSurface(current!.mesh, transmittedPixelColors(current!), qw, qh) }
+  viewer3d.setMesh(shaded, { wMm: w, hMm: h })
   // Dimensions caption: actual height = tallest band top (base + sheets),
   // matching what the mesh and the exported file contain.
   const z = Math.max(...current!.palette.map((e) => e.topZMm))

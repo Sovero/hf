@@ -71,6 +71,6 @@ describe('brightness pipeline golden output (no depth field)', () => {
   })
 
   it('colors-first model', () => {
-    expect(hashOf({ colorMode: 'image', numColors: 6, darkIsTall: true }, 1)).toBe('52ee2a9daaa554d06784f66c6877010381657c481b773de60f18cd0624740a2e')
+    expect(hashOf({ colorMode: 'image', numColors: 6, darkIsTall: true }, 1)).toBe('b0d5c4a14758a023b4f3093f24175df03f5570d3af8757f8adea6178c7651503')
   })
 })
