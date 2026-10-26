@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRINTERS, PRINTER_NONE, bedSizeFor, findPrinter } from '../lib/printers'
+import { PRINTERS, PRINTER_NONE, bedSizeFor, canonicalPrinterId, findPrinter } from '../lib/printers'
 
 describe('printer catalog', () => {
   it('has unique ids and positive bed sizes', () => {
@@ -23,6 +23,19 @@ describe('printer catalog', () => {
     expect(bedSizeFor(PRINTER_NONE)).toBeNull()
     expect(bedSizeFor('no-such-printer')).toBeNull()
     expect(findPrinter('no-such-printer')).toBeUndefined()
+  })
+
+  it('lists every bed size once', () => {
+    const beds = PRINTERS.map((p) => `${p.bedX}x${p.bedY}`)
+    expect(new Set(beds).size).toBe(beds.length)
+  })
+
+  it('maps merged printer ids to the entry with the same bed', () => {
+    expect(canonicalPrinterId('bambu-p1s')).toBe('bambu-a1')
+    expect(bedSizeFor('bambu-x1c')).toEqual({ x: 256, y: 256 })
+    expect(bedSizeFor('k1')).toEqual({ x: 220, y: 220 })
+    expect(bedSizeFor('prusa-mini')).toEqual({ x: 180, y: 180 })
+    expect(canonicalPrinterId('qidi-q2')).toBe('qidi-q2')
   })
 
   it('includes the Qidi Q2 with its 270×270 mm bed', () => {

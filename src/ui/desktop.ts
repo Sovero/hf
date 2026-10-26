@@ -108,7 +108,6 @@ export function initDesktopShell(currentLang: Lang): void {
   lang = currentLang
   void setupUpdateUi()
   setupWindowControls()
-  void updateDesktopTitle()
 }
 
 /** Обновить язык локализации у уже инициализированного десктоп-моста. */
@@ -117,7 +116,6 @@ export function setDesktopLang(next: Lang): void {
   lang = next
   if (statusEl && lastStatus) renderStatus(lastStatus)
   syncWindowControlLabels()
-  void updateDesktopTitle()
 }
 
 // ---- управление безрамочным окном ------------------------------------------
@@ -197,16 +195,6 @@ function setupWindowControls() {
     void bridge!.toggleMaximize().then((maximized) => applyWindowState(maximized === true)).catch(() => {
       /* the window may close before Electron handles the IPC call */
     })
-  })
-}
-
-function updateDesktopTitle() {
-  return bridge!.appInfo().then((info) => {
-    const title = info.name || 'HueForge Desktop'
-    document.getElementById('app-title')!.textContent = title
-    document.title = title
-  }).catch(() => {
-    /* keep the static title if the preload bridge is unavailable */
   })
 }
 

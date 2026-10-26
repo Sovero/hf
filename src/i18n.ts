@@ -47,16 +47,33 @@ type Dict = Record<string, Record<Lang, string>>
 export const dict: Dict = {
   // ---- help: section intros and control tooltips (en/ru) ----
   helpWelcome: {
-    en: 'Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.',
-    ru: 'Добро пожаловать! Превратите любую картинку в многоцветную 3D-печатную картину: загрузите изображение, выберите количество цветов филамента и скачайте модель с инструкцией по смене цвета. Проходите пронумерованные разделы сверху вниз — предпросмотры обновляются сразу.',
+    en: 'Turn any picture into a multi-color 3D-printed painting in three steps:',
+    ru: 'Превратите любую картинку в многоцветную 3D-печатную картину за три шага:',
   },
+  welcomeStep1: {
+    en: 'Drop a picture onto the «Source» preview on the right (or click it).',
+    ru: 'Перетащите картинку на превью «Исходное» справа (или нажмите на него).',
+  },
+  welcomeStep2: {
+    en: 'Pick how many filament colors to use — the previews update live.',
+    ru: 'Выберите, сколько цветов филамента использовать, — превью обновляются сразу.',
+  },
+  welcomeStep3: {
+    en: 'On the «Export» tab, download the 3MF and print it.',
+    ru: 'На вкладке «Экспорт» скачайте 3MF и отправьте на печать.',
+  },
+
   helpImage: {
-    en: 'Start here. Drop in a photo or drawing — the app will reduce it to flat color bands for printing.',
-    ru: 'Начните здесь. Загрузите фото или рисунок — приложение сведёт его к плоским цветовым полосам для печати.',
+    en: 'Start here. Drop a photo or drawing onto the «Source» preview (or click it) — the app will reduce it to flat color bands for printing.',
+    ru: 'Начните здесь. Перетащите фото или рисунок на превью «Исходное» (или нажмите на него) — приложение сведёт его к плоским цветовым полосам для печати.',
   },
   helpDropZone: {
-    en: 'Click to choose a file, or drag an image onto this area. PNG, JPG and WebP work best.',
-    ru: 'Нажмите, чтобы выбрать файл, или перетащите изображение на эту область. Лучше всего подходят PNG, JPG и WebP.',
+    en: 'Drag an image onto this area to load or replace it; while it is empty, a click opens the file dialog. PNG, JPG and WebP work best.',
+    ru: 'Перетащите изображение на эту область, чтобы загрузить или заменить его; пока она пустая, нажатие открывает выбор файла. Лучше всего подходят PNG, JPG и WebP.',
+  },
+  helpReplaceImage: {
+    en: 'Choose another picture. The print size refits to its aspect ratio.',
+    ru: 'Выбрать другую картинку. Размер печати подстроится под её пропорции.',
   },
   helpColors: {
     en: 'How many filament colors to print with. More colors = smoother shading, but more manual filament swaps.',
@@ -180,8 +197,8 @@ export const dict: Dict = {
     ru: 'Подобрано τ = {tau} мм для этого филамента — предпросмотры обновлены.',
   },
   helpViewerSource: {
-    en: 'The original picture you loaded.',
-    ru: 'Исходная картинка, которую вы загрузили.',
+    en: 'The original picture. Drop a new image onto it to replace it.',
+    ru: 'Исходная картинка. Перетащите на неё новое изображение, чтобы заменить.',
   },
   helpViewerQuantized: {
     en: 'The final printed picture: what the top of the model will look like.',
@@ -209,7 +226,8 @@ export const dict: Dict = {
   },
 
   // ---- document / top bar ----
-  docTitle: { en: 'HueForge Web — Filament Paintings', ru: 'HueForge Web — картины из филамента' },
+  appName: { en: 'ColorStrata', ru: 'Цветослой' },
+  docTitle: { en: 'ColorStrata — Filament Paintings', ru: 'Цветослой — картины из филамента' },
   tagline: {
     en: 'Image → multi-layer 3D-printable filament painting',
     ru: 'Изображение → многослойная 3D-печатная картина из филамента',
@@ -233,23 +251,18 @@ export const dict: Dict = {
   sidebarTabsAria: { en: 'Sidebar sections', ru: 'Разделы боковой панели' },
   tabModel: { en: 'Project', ru: 'Проект' },
   tabCheck: { en: 'Check', ru: 'Проверка' },
-  checkColorBadgeAria: { en: 'Colors in the palette', ru: 'Цветов в палитре' },
+  checkBadgeIssues: { en: 'Findings to look at: {n}', ru: 'Есть замечания: {n}' },
   tabExport: { en: 'Export', ru: 'Экспорт' },
-  panelImage: { en: 'Image', ru: 'Изображение' },
   panelColors: { en: 'Colors', ru: 'Цвета' },
-  panelDepth: { en: 'Depth mode', ru: 'Режим глубины' },
+  panelDepth: { en: 'Relief', ru: 'Рельеф' },
   panelSize: { en: 'Size & layers', ru: 'Размер и слои' },
   panelPrintability: { en: 'Printability check', ru: 'Проверка печатаемости' },
 
   panelExport: { en: 'Export', ru: 'Экспорт' },
   panelPalette: { en: 'Palette & print order', ru: 'Палитра и порядок печати' },
 
-  // ---- drop zone / image ----
-  dropTitle: { en: 'Drop an image here', ru: 'Перетащите изображение сюда' },
-  dropHint: {
-    en: 'or click to browse — PNG / JPG / WebP',
-    ru: 'или нажмите, чтобы выбрать — PNG / JPG / WebP',
-  },
+  // ---- source preview / image upload ----
+  replaceImage: { en: 'Replace…', ru: 'Заменить…' },
 
   // ---- colors slider ----
   ditherLabel: { en: 'Dithering', ru: 'Дизеринг' },
@@ -259,8 +272,8 @@ export const dict: Dict = {
     ru: 'Сливать близкие цвета',
   },
   previewSourceEmpty: {
-    en: 'Load a picture to see it here',
-    ru: 'Загрузите картинку — она появится здесь',
+    en: 'Drop an image here or click to browse — PNG / JPG / WebP',
+    ru: 'Перетащите изображение сюда или нажмите, чтобы выбрать — PNG / JPG / WebP',
   },
   previewQuantEmpty: {
     en: 'The printable preview appears after loading',
@@ -282,18 +295,23 @@ export const dict: Dict = {
     en: 'Colors from the picture',
     ru: 'По цветам изображения',
   },
+  colorModeLabel: { en: 'How to pick the colors', ru: 'Как подбирать цвета' },
+  colorModeHint: {
+    en: 'By brightness: smooth HueForge-style relief, but two colors of the same brightness (a blue sky and green grass) print in one filament. By colors: every hue keeps its own filament, the relief is terraced.',
+    ru: 'По яркости — плавный рельеф как в HueForge, но два цвета одной яркости (синее небо и зелёная трава) печатаются одним филаментом. По цветам — у каждого оттенка свой филамент, рельеф ступенчатый.',
+  },
   helpColorMode: {
-    en: 'How each pixel gets its filament. Brightness bands (the HueForge Standard / Filapaint model): the picture’s brightness sets the column height and the height band sets the color, so the palette is the average color of a brightness slice. Best for graphics, logos and high-contrast artwork — and the mode that matches a HueForge reference model.',
-    ru: 'Как пиксель получает филамент. По яркости (модель HueForge Standard / Filapaint): яркость задаёт высоту столбика, а полоса высоты — цвет, поэтому палитра — это средний цвет среза яркости. Лучше всего для графики, логотипов и контрастного арта; это же режим, которым сверяется эталонная модель HueForge.',
+    en: 'How each pixel gets its filament. Brightness bands (the HueForge Standard / Filapaint model): the picture’s brightness sets the column height and the height band sets the color. The filaments are real colors of the picture, from its darkest to its lightest. Best for graphics, logos and high-contrast artwork — and the mode that matches a HueForge reference model.',
+    ru: 'Как пиксель получает филамент. По яркости (модель HueForge Standard / Filapaint): яркость задаёт высоту столбика, а полоса высоты — цвет. Филаменты — настоящие цвета картинки, от самого тёмного до самого светлого. Лучше всего для графики, логотипов и контрастного арта; это же режим, которым сверяется эталонная модель HueForge.',
   },
   helpColorModeImage: {
     en: 'Colors from the picture: the palette is cut from the image’s own RGB (median cut), each pixel takes the nearest color, and every color owns one equal slice of the height. Details that share a brightness but differ in hue — a face in shadow next to its cloak — keep their own filaments instead of averaging into one muddy color, and the palette no longer mixes a red sky with pale stone into brown. Inside each terrace the shading still follows the local brightness. It no longer follows the documented «height follows brightness» model, so a HueForge reference model will not line up — use it for photographs.',
     ru: 'По цветам изображения: палитра берётся из собственных цветов картинки (median cut), пиксель берёт ближайший цвет, и каждый цвет владеет одной равной долей высоты. Детали, которые совпадают по яркости, но различаются оттенком — лицо в тени рядом с плащом, — получают свои филаменты вместо усреднения в один грязный цвет, а палитра больше не смешивает красное небо со светлым камнем в коричневый. Внутри каждой террасы светотень по-прежнему следует локальной яркости. Документированная модель «высота следует яркости» здесь больше не действует, поэтому эталонная модель HueForge не совпадёт — режим для фотографий.',
   },
   reliefSourceLabel: { en: 'Relief source', ru: 'Источник рельефа' },
-  depthPolarityLabel: { en: 'Polarity', ru: 'Полярность' },
+  depthPolarityLabel: { en: 'What stands taller', ru: 'Что выше' },
   reliefSourceLuma: { en: 'Picture brightness', ru: 'Яркость картинки' },
-  reliefSourceDepth: { en: 'Depth (neural network, offline)', ru: 'Глубина (нейросеть, офлайн)' },
+  reliefSourceDepth: { en: 'Scene depth — Depth Anything AI (offline)', ru: 'Глубина сцены — нейросеть Depth Anything (без интернета)' },
   helpReliefSource: {
     en: 'What decides how tall each pixel stands. Picture brightness is the classic HueForge model. Depth asks a neural network how far each part of the picture is, so a face stands out of its background and a foreground object rises above what is behind it — whatever their brightness.',
     ru: 'Что определяет высоту каждого пикселя. Яркость картинки — классическая модель HueForge. Глубина: нейросеть оценивает, насколько далеко каждая часть картинки, поэтому лицо выступает из фона, а предмет переднего плана поднимается над тем, что за ним, — независимо от яркости.',
@@ -409,8 +427,8 @@ export const dict: Dict = {
     ru: 'Контраст рельефа (в Filapaint — «Contrast»): как далеко тона картинки расходятся по высоте рельефа. 100% — тона как есть; меньше 100% — все высоты подтягиваются к середине диапазона, и поверхность становится плоской; больше 100% — ступени тонов расходятся от середины к краям: тени глубже, светлые участки выше. Кривая не насыщается, а самые тёмный и самый светлый тона остаются на основании и на верхушке модели, поэтому весь диапазон высот всегда используется. Какой филамент печатает каждый пиксель и сама палитра остаются прежними: полосы цветов читаются из тех же значений, поэтому ни один участок цвета не сдвигается.',
   },
   helpReliefStyle: {
-    en: 'Named relief styles — each one sets contrast and detail together, so the print is picked by look instead of by two multipliers. «Soft» keeps the tones close to the middle: gentle slopes, almost no steps. «As on the photo» exaggerates nothing: height repeats brightness one to one. «Deep relief» sinks the mid-tones towards the base while the highlights stay high — the classic HueForge depth. «Graphic» spreads the tones to the extremes, so the steps between colours are crisp. Pick a style, then fine-tune it with the two sliders below; moving a slider turns the choice into «Custom». The line underneath shows what the current setting produces: base + relief = total height, and the filament change heights.',
-    ru: 'Именованные стили рельефа — каждый сразу выставляет контраст и детализацию, чтобы выбирать печать по виду, а не по двум множителям. «Мягко» держит тона ближе к середине: склоны плавные, ступеней почти нет. «Как на фото» ничего не преувеличивает: высота повторяет яркость один к одному. «Глубокий рельеф» топит полутона к основанию, оставляя светлые участки высокими — классическая глубина HueForge. «Графика» разводит тона к краям, и ступени между цветами становятся резкими. Выберите стиль и уточните его двумя ползунками ниже: сдвиг ползунка превращает выбор в «Свой». Строка под ними показывает, что даёт текущая настройка: основание + рельеф = общая высота и высоты смен филамента.',
+    en: 'Named relief styles — each one sets contrast and detail together, so the print is picked by look instead of by two multipliers. «Soft» keeps the tones close to the middle: gentle slopes, almost no steps. «Like HueForge» (the default) exaggerates nothing: height repeats brightness one to one. «Deep relief» sinks the mid-tones towards the base while the highlights stay high — the classic HueForge depth. «Graphic» spreads the tones to the extremes, so the steps between colours are crisp. Pick a style, then fine-tune it with the two sliders below; moving a slider turns the choice into «Custom». The line underneath shows what the current setting produces: base + relief = total height, and the filament change heights.',
+    ru: 'Именованные стили рельефа — каждый сразу выставляет контраст и детализацию, чтобы выбирать печать по виду, а не по двум множителям. «Мягко» держит тона ближе к середине: склоны плавные, ступеней почти нет. «Как в HueForge» (по умолчанию) ничего не преувеличивает: высота повторяет яркость один к одному. «Глубокий рельеф» топит полутона к основанию, оставляя светлые участки высокими — классическая глубина HueForge. «Графика» разводит тона к краям, и ступени между цветами становятся резкими. Выберите стиль и уточните его двумя ползунками ниже: сдвиг ползунка превращает выбор в «Свой». Строка под ними показывает, что даёт текущая настройка: основание + рельеф = общая высота и высоты смен филамента.',
   },
   helpTonePower: {
     en: 'Detail deepening (Filapaint’s «Power Deepening»): bends the tonal ramp, so mid-tones sit lower or higher in the relief. Above 100% the mid-tones sink toward the base while the peaks stay high — a deeper, more sculpted relief; below 100% they rise and the surface flattens. Applied after contrast; as with contrast, only the heights move and the colors stay put.',
@@ -434,7 +452,7 @@ export const dict: Dict = {
   },
   reliefStyle: { en: 'Relief style', ru: 'Стиль рельефа' },
   presetSoft: { en: 'Soft', ru: 'Мягко' },
-  presetPhoto: { en: 'As on the photo', ru: 'Как на фото' },
+  presetPhoto: { en: 'Like HueForge', ru: 'Как в HueForge' },
   presetDeep: { en: 'Deep relief', ru: 'Глубокий рельеф' },
   presetGraphic: { en: 'Graphic', ru: 'Графика' },
   presetCustom: { en: 'Custom', ru: 'Свой' },
@@ -443,8 +461,8 @@ export const dict: Dict = {
     ru: 'Мягко: тона держатся ближе к середине диапазона высот, склоны плавные, ступени почти исчезают — контраст {contrast} %, детали {power} %.',
   },
   presetHintPhoto: {
-    en: 'As on the photo: height repeats the picture’s brightness one to one, nothing is exaggerated — contrast {contrast}%, detail {power}%.',
-    ru: 'Как на фото: высота повторяет яркость картинки один к одному, ничего не преувеличено — контраст {contrast} %, детали {power} %.',
+    en: 'Like HueForge: height repeats the picture’s brightness one to one, nothing is exaggerated — contrast {contrast}%, detail {power}%.',
+    ru: 'Как в HueForge: высота повторяет яркость картинки один к одному, ничего не преувеличено — контраст {contrast} %, детали {power} %.',
   },
   presetHintDeep: {
     en: 'Deep relief: the mid-tones sink towards the base while the highlights stay high, so the picture reads as sculpted — contrast {contrast}%, detail {power}%.',
@@ -486,12 +504,12 @@ export const dict: Dict = {
     ru: 'Удалить стиль «{name}»',
   },
   toneResult: {
-    en: 'Base {base} + relief {relief} = {total} mm tall · {colors} · filament changes at {swaps} mm',
-    ru: 'Основание {base} + рельеф {relief} = {total} мм высоты · {colors} · смены филамента на {swaps} мм',
+    en: 'Base {base} + relief {relief} = {total} mm thick · {colors} · filament changes at {swaps} mm',
+    ru: 'Основание {base} + рельеф {relief} = {total} мм толщины · {colors} · смены филамента на {swaps} мм',
   },
   toneResultSingle: {
-    en: 'Base {base} + relief {relief} = {total} mm tall · {colors} · no filament changes',
-    ru: 'Основание {base} + рельеф {relief} = {total} мм высоты · {colors} · смен филамента нет',
+    en: 'Base {base} + relief {relief} = {total} mm thick · {colors} · no filament changes',
+    ru: 'Основание {base} + рельеф {relief} = {total} мм толщины · {colors} · смен филамента нет',
   },
   toneContrast: { en: 'Contrast', ru: 'Контраст' },
   contrastHint: {
@@ -508,17 +526,29 @@ export const dict: Dict = {
   paramWidth: { en: 'Width', ru: 'Ширина' },
   paramHeight: { en: 'Height', ru: 'Высота' },
   paramBase: { en: 'Base', ru: 'Основание' },
-  paramMax: { en: 'Max height', ru: 'Макс. высота' },
+  paramMax: { en: 'Total thickness', ru: 'Общая толщина' },
   paramLayer: { en: 'Layer height', ru: 'Высота слоя' },
+  resetHueForge: { en: 'Reset to HueForge settings', ru: 'Сбросить к настройкам HueForge' },
+  helpResetHueForge: {
+    en: 'Back to the HueForge Standard defaults: base 0.48 mm, total thickness 2.24 mm, 0.08 mm layers, the «Like HueForge» relief style, equal band thicknesses. The print size, the colors and the palette stay as they are.',
+    ru: 'Вернуть стандартные настройки HueForge: основание 0,48 мм, общая толщина 2,24 мм, слой 0,08 мм, стиль рельефа «Как в HueForge», свои толщины полос сбрасываются. Размер печати, цвета и палитра не меняются.',
+  },
+  resetHueForgeDone: {
+    en: 'HueForge settings restored: base 0.48 mm, 2.24 mm in all, 0.08 mm layers.',
+    ru: 'Настройки HueForge восстановлены: основание 0,48 мм, всего 2,24 мм, слой 0,08 мм.',
+  },
   reliefSplit: {
-    en: 'Base {base} mm + relief {relief} mm = {total} mm tall',
-    ru: 'Основание {base} мм + рельеф {relief} мм = {total} мм высоты',
+    en: 'Base {base} mm + relief {relief} mm = {total} mm thick',
+    ru: 'Основание {base} мм + рельеф {relief} мм = {total} мм общей толщины',
   },
   unitMm: { en: 'mm', ru: 'мм' },
 
   // ---- printability ----
   pbDefault: { en: 'Load an image to run the check.', ru: 'Загрузите изображение, чтобы выполнить проверку.' },
   allPassed: { en: 'All checks passed', ru: 'Все проверки пройдены' },
+  paletteHeightLabel: { en: 'Thickness', ru: 'Толщина' },
+  paletteTauLabel: { en: 'Opacity τ', ru: 'Прозр. τ' },
+  paletteAreaShare: { en: '{share} of the area', ru: '{share} площади' },
 
   // ---- palette ----
   paletteSummary: {
@@ -603,7 +633,7 @@ export const dict: Dict = {
   },
   paletteHeight: {
     en: 'Band thickness (mm): how thick this color prints. The total model height is base + the sum of all bands; the max-height field follows while any band has its own height.',
-    ru: 'Толщина полосы (мм): насколько толсто печатается этот цвет. Общая высота модели = основание + сумма всех полос; поле «Макс. высота» следует за ней, пока заданы свои высоты.',
+    ru: 'Толщина полосы (мм): насколько толсто печатается этот цвет. Общая высота модели = основание + сумма всех полос; поле «Общая толщина» следует за ней, пока заданы свои высоты.',
   },
   paletteHeightsReset: {
     en: 'Equal heights',
@@ -615,7 +645,7 @@ export const dict: Dict = {
   },
   paletteTauHeightsHelp: {
     en: 'Sets each sheet\'s thickness from the filament\'s τ (like HueForge uses TD): transparent filaments get thick sheets so lower colors stop showing through, opaque ones stay thin. The sheets are scaled to keep the current max height; per-sheet sliders still let you fine-tune afterwards.',
-    ru: 'Задаёт толщину каждого листа из прозрачности τ филамента (как HueForge использует TD): прозрачные филаменты получают толстые листы, чтобы нижние цвета не просвечивали, непрозрачные — тонкие. Сумма нормируется на текущую макс. высоту; после можно уточнить ползунками.',
+    ru: 'Задаёт толщину каждого листа из прозрачности τ филамента (как HueForge использует TD): прозрачные филаменты получают толстые листы, чтобы нижние цвета не просвечивали, непрозрачные — тонкие. Сумма нормируется на текущую общую толщину; после можно уточнить ползунками.',
   },
   maxDerived: {
     en: 'Computed from the band height sliders: base + Σ band thicknesses. Move a band slider to change it, or click «Equal heights» in the palette.',
@@ -784,10 +814,25 @@ export const dict: Dict = {
   },
 
   // ---- export ----
-  btnStl: { en: 'Download STL', ru: 'Скачать STL' },
-  btn3mf: { en: 'Download 3MF', ru: 'Скачать 3MF' },
-  btnDescribe: { en: 'Download Describe.txt', ru: 'Скачать Describe.txt' },
-  btnSlicer: { en: 'Slicer bundle', ru: 'Набор для слайсера' },
+  btnStl: { en: 'Export STL', ru: 'Экспорт STL' },
+  btn3mf: { en: 'Export 3MF', ru: 'Экспорт 3MF' },
+  btnDescribe: { en: 'Export Describe.txt', ru: 'Экспорт Describe.txt' },
+  btnSlicer: { en: 'PrusaSlicer bundle', ru: 'Набор для PrusaSlicer' },
+  exportGroupPrint: { en: 'For printing', ru: 'Для печати' },
+  exportHint3mf: {
+    en: 'Recommended: Bambu Studio, OrcaSlicer, QIDI Studio — the colors and the swap layers are already inside.',
+    ru: 'Рекомендуется: Bambu Studio, OrcaSlicer, QIDI Studio — цвета и слои смены филамента уже внутри.',
+  },
+  exportGroupOther: { en: 'Other slicers', ru: 'Другие слайсеры' },
+  exportHintOther: {
+    en: 'STL is the shape only: set the color swaps by hand from Describe.txt. The PrusaSlicer bundle adds them for you.',
+    ru: 'STL — только форма: смены цвета задайте вручную по Describe.txt. Набор для PrusaSlicer добавит их сам.',
+  },
+  exportGroupProject: { en: 'Project', ru: 'Проект' },
+  exportHintProject: {
+    en: 'Saves the picture and every setting into one file, to continue later.',
+    ru: 'Сохраняет картинку и все настройки в один файл, чтобы продолжить позже.',
+  },
   btnOpenSlicer: { en: 'Open in slicer', ru: 'Открыть в слайсере' },
   exportStlDone: { en: 'STL exported — {filename}', ru: 'STL экспортирован — {filename}' },
   desktopSaveCanceled: { en: 'Export canceled', ru: 'Экспорт отменён' },
@@ -1122,18 +1167,18 @@ export const dict: Dict = {
     ru: 'Цветовые полосы тоньше одного слоя',
   },
   pbBandsDetailFail: {
-    en: 'Each color is only {band} — less than a single {layer} layer, so bands cannot be printed as distinct sheets. Increase Max height or reduce the color count.',
-    ru: 'Каждый цвет занимает всего {band} — меньше одного слоя {layer}, поэтому полосы не напечатаются как отдельные пластины. Увеличьте макс. высоту или уменьшите число цветов.',
+    en: 'The thinnest color band is only {band} — less than a single {layer} layer, so it cannot print as a distinct sheet. Increase the model thickness or reduce the color count.',
+    ru: 'Самая тонкая цветовая полоса — всего {band}, меньше одного слоя {layer}, поэтому она не напечатается как отдельная пластина. Увеличьте общую толщину или уменьшите число цветов.',
   },
   pbBandsTitleWarn: { en: 'Thin color bands', ru: 'Тонкие цветовые полосы' },
   pbBandsDetailWarn: {
-    en: 'Each color is {band} (~{layersText} @ {layer}) — thinner than the {nozzle} nozzle, so transitions will smear. Increase Max height or use fewer colors.',
-    ru: 'Каждый цвет занимает {band} (~{layersText} по {layer}) — тоньше сопла {nozzle}, поэтому переходы будут размытыми. Увеличьте макс. высоту или уменьшите число цветов.',
+    en: 'The thinnest color band is {band} (~{layersText} @ {layer}) — thinner than the {nozzle} nozzle, so its transitions will smear. Increase the model thickness or use fewer colors.',
+    ru: 'Самая тонкая цветовая полоса — {band} (~{layersText} по {layer}), тоньше сопла {nozzle}, поэтому её переходы будут размытыми. Увеличьте общую толщину или уменьшите число цветов.',
   },
   pbBandsTitleOk: { en: 'Color band thickness', ru: 'Толщина цветовых полос' },
   pbBandsDetailOk: {
-    en: 'Each color is {band} ≈ {layersText} @ {layer} — clean filament transitions.',
-    ru: 'Каждый цвет занимает {band} ≈ {layersText} по {layer} — чистые переходы между цветами.',
+    en: 'The thinnest color band is {band} ≈ {layersText} @ {layer} — clean filament transitions.',
+    ru: 'Самая тонкая цветовая полоса — {band} ≈ {layersText} по {layer} — чистые переходы между цветами.',
   },
   // Custom per-color heights: the thinnest band is the real risk.
   pbBandsDetailFailCustom: {
@@ -1217,13 +1262,13 @@ export const dict: Dict = {
     en: 'Auto-fix applied: {what}.',
     ru: 'Автоисправление применено: {what}.',
   },
-  pbFixWhatMax: { en: 'max height → {v}', ru: 'макс. высота → {v}' },
+  pbFixWhatMax: { en: 'total thickness → {v}', ru: 'общая толщина → {v}' },
   pbFixWhatColors: { en: 'colors → {n}', ru: 'цветов → {n}' },
   pbFixWhatHeights: { en: 'band heights raised', ru: 'высоты полос подняты' },
   pbFixWhatSize: { en: 'print size → {w}×{h}', ru: 'размер → {w}×{h}' },
 
   // ---- welcome panel + guided tour ----
-  welcomeTitle: { en: 'Welcome to HueForge Web', ru: 'Добро пожаловать в HueForge Web' },
+  welcomeTitle: { en: 'Welcome to ColorStrata', ru: 'Добро пожаловать в «Цветослой»' },
   welcomeTourBtn: { en: 'Start the tour', ru: 'Начать тур' },
   welcomeDismiss: { en: 'Hide', ru: 'Скрыть' },
   tourBtn: { en: 'Tour', ru: 'Тур' },
@@ -1233,8 +1278,8 @@ export const dict: Dict = {
   },
   tourIntroTitle: { en: 'A quick tour', ru: 'Короткий тур' },
   tourIntro: {
-    en: 'This app turns any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Follow the numbered sections top to bottom — the previews update live.',
-    ru: 'Приложение превращает любую картинку в многоцветную 3D-печатную картину: загрузите изображение, выберите количество цветов филамента и скачайте модель с инструкцией по смене цвета. Проходите пронумерованные разделы сверху вниз — предпросмотры обновляются сразу.',
+    en: 'This app turns any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. The tour walks through the panels top to bottom — the previews update live.',
+    ru: 'Приложение превращает любую картинку в многоцветную 3D-печатную картину: загрузите изображение, выберите количество цветов филамента и скачайте модель с инструкцией по смене цвета. Тур пройдёт по разделам сверху вниз — предпросмотры обновляются сразу.',
   },
   tourDoneTitle: { en: "You're all set", ru: 'Всё готово' },
   tourDone: {
@@ -1309,7 +1354,7 @@ export const dict: Dict = {
   tourWidthTitle: { en: 'Width', ru: 'Ширина' },
   tourHeightTitle: { en: 'Height', ru: 'Высота' },
   tourBaseTitle: { en: 'Base', ru: 'Основание' },
-  tourMaxTitle: { en: 'Max height', ru: 'Макс. высота' },
+  tourMaxTitle: { en: 'Total thickness', ru: 'Общая толщина' },
   tourLayerTitle: { en: 'Layer height', ru: 'Высота слоя' },
 }
 
@@ -1360,8 +1405,8 @@ export function word(lang: Lang, n: number, wordKey: WordKey): string {
   return `${n} ${ruForm(n, forms as [string, string, string])}`
 }
 
-/** "0.40 mm" / "0.40 мм". */
+/** "0.40 mm" / "0,40 мм" — Russian text writes the decimal comma. */
 export function mmOf(lang: Lang, v: number): string {
   const text = v.toFixed(2)
-  return lang === 'ru' ? `${text} мм` : `${text} mm`
+  return lang === 'ru' ? `${text.replace('.', ',')} мм` : `${text} mm`
 }

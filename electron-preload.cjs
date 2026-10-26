@@ -1,5 +1,5 @@
 /**
- * HueForge Desktop — preload bridge.
+ * ColorStrata (Цветослой) — preload bridge.
  *
  * Единственный мост между изолированным рендерером (dist/) и главным
  * процессом: экспортирует минимальный `window.hueforge` API. Ничего из

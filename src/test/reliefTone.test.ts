@@ -167,7 +167,9 @@ describe('relief tone in the pipeline', () => {
       soft: { power: 0.5 },
       both: { contrast: 2, power: 2 },
     })) {
-      const quantized = bands(tone)
+      // With the printable band floor, exactly as the worker and runPipeline
+      // call it: without it a strong tone may squeeze a band below one layer.
+      const quantized = mapToLuminanceBands(RGBA, 4, W, H, true, 0, tone, undefined, minBandFraction(4, 7.2, 0.2))
       const result = finishPipeline({ width: W, height: H, rgba: RGBA }, quantized, options(tone))
       const tops = snappedBandTops(quantized, result.settings)
       const bandTops = quantized.bandTops
@@ -274,8 +276,11 @@ describe('relief tone in project files', () => {
  * the band it was assigned to.
  */
 describe('printable band floor', () => {
-  /** Shipped «deep relief» preset: contrast 130 %, power 250 %. */
-  const DEEP = { contrast: 1.3, power: 2.5 }
+  /**
+   * The strongest tone the sliders allow: with height linear in brightness
+   * only this leaves the bottom color of a ramp under the nozzle width.
+   */
+  const EXTREME = { contrast: 2, power: 3 }
   const settings: PrintSettings = {
     widthMm: 40,
     heightMm: 40,
@@ -328,8 +333,8 @@ describe('printable band floor', () => {
     expect(floored.tops).toBe(quantized.bandTops)
   })
 
-  it('rescues the deep-relief preset from one-layer color bands', () => {
-    const raw = mapToLuminanceBands(RGBA, 4, W, H, true, 0, DEEP)
+  it('rescues a strong tone from one-layer color bands', () => {
+    const raw = mapToLuminanceBands(RGBA, 4, W, H, true, 0, EXTREME)
     const rawTops = snappedBandTops(raw, settings)
     // The state the printability check flags: the bottom color gets one layer.
     expect(rawTops[0]! - settings.baseMm).toBeLessThan(NOZZLE_MM)
@@ -341,7 +346,7 @@ describe('printable band floor', () => {
       H,
       true,
       0,
-      DEEP,
+      EXTREME,
       undefined,
       minBandFraction(4, settings.maxHeightMm - settings.baseMm, settings.layerMm),
     )

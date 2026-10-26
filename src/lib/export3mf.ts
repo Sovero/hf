@@ -236,6 +236,11 @@ ${layerLines.join('\n')}
       layer_height: layerMmStr,
       initial_layer_print_height: layerMmStr,
       sparse_infill_density: '100%',
+      // At 100% density Orca/QIDI rejects `cubic` (its own default) with
+      // "cubic doesn't work at 100% density" and asks to switch to
+      // rectilinear. Write the compatible pattern explicitly so the project
+      // opens cleanly in every Orca-based slicer (QIDI Studio included).
+      sparse_infill_pattern: 'rectilinear',
       enable_support: '0',
       enable_prime_tower: '1',
       filament_diameter: filamentDiameters,

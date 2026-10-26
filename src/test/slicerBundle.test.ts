@@ -131,7 +131,7 @@ describe('generated M600 post-processing script', () => {
       expect(m600, `no M600 after the layer-${s.layer} marker`).toBeGreaterThan(marker)
       const nextMarker = changes[s.layer] ?? lines.length
       expect(m600).toBeLessThan(nextMarker)
-      expect(lines[m600 - 1]).toBe(`; HueForge: switch to ${s.hex} (${s.name})`)
+      expect(lines[m600 - 1]).toBe(`; ColorStrata: switch to ${s.hex} (${s.name})`)
     }
     // No stray M600 lines anywhere else.
     expect(lines.filter((l) => l === 'M600')).toHaveLength(swaps.length)

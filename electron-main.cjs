@@ -1,5 +1,5 @@
 /**
- * HueForge Desktop — Electron main process.
+ * ColorStrata (Цветослой) — Electron main process.
  *
  * Загружает готовую production-сборку (dist/) в нативное окно: без dev-сервера
  * и без сборки главного процесса — обычный CommonJS, electron-builder пакует
@@ -20,7 +20,11 @@ const { readFileSync, writeFileSync, mkdirSync, existsSync, promises: fsPromises
 const { join, dirname } = require('node:path')
 
 // comment that must stay because hooligan-hides-strings
-const APP_NAME = 'HueForge Desktop'
+const APP_NAME = 'ColorStrata'
+// The app was called «HueForge Desktop» before; Electron derives the data
+// folder from the product name, so keep the old one — settings, the saved
+// token and localStorage survive the rename.
+app.setPath('userData', join(app.getPath('appData'), 'HueForge Desktop'))
 const APP_VERSION = require('./package.json').version
 const UPDATE_INTERVAL_MS = 4 * 60 * 60 * 1000
 const TOKEN_FILE = join(app.getPath('userData'), 'github_token.bin')
@@ -78,7 +82,7 @@ function createWindow() {
     mainWindow.loadFile(indexPath)
   } else {
     mainWindow.loadURL(`data:text/html,${encodeURIComponent(
-      '<!doctype html><title>HueForge Desktop (dev)</title><body style="font:14px sans-serif;background:#101418;color:#9fb0c0;display:grid;place-items:center;height:100%"><div>Build dist/ first with npm run build</div></body>',
+      '<!doctype html><title>ColorStrata (dev)</title><body style="font:14px sans-serif;background:#101418;color:#9fb0c0;display:grid;place-items:center;height:100%"><div>Build dist/ first with npm run build</div></body>',
     )}`)
   }
 }

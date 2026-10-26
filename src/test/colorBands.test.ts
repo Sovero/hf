@@ -40,15 +40,11 @@ const sliceOf = (q: QuantizedImage, i: number, darkIsTall: boolean) => {
 
 describe('color-first palette (median cut)', () => {
   it('keeps the hues the brightness model averages into mud', () => {
-    // Equal luma everywhere: the luminance path must split the pixels by rank,
-    // which mixes both hues into every band and prints two indistinguishable
-    // muddy colors. The color path cuts the palette by RGB, so red stays red
-    // and blue stays blue.
+    // Near-equal luma everywhere. The luminance path takes its filaments from
+    // the picture's colors too, so neither of them is a red/blue mix. The color
+    // path cuts the palette by RGB, so red stays red and blue stays blue.
     const luminance = mapToLuminanceBands(WEAVE, 2, W, H, true, 0)
-    for (const c of luminance.palette) {
-      expect(c.r).toBeGreaterThan(0)
-      expect(c.b).toBeGreaterThan(0)
-    }
+    for (const c of luminance.palette) expect(c.r === 0 || c.b === 0, 'no red/blue mix').toBe(true)
 
     const image = mapToImageColors(WEAVE, 2, W, H, true, 0)
     const red = image.palette.find((c) => c.r > c.b * 2)

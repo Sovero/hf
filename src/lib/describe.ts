@@ -36,7 +36,7 @@ export function describeExport(result: PipelineResult, name: string): string {
 
   const lines: string[] = []
   lines.push('==============================================')
-  lines.push(`HueForge Web — ${name}`)
+  lines.push(`ColorStrata — ${name}`)
   lines.push('==============================================')
   lines.push(`Model size: ${fmt(widthMm)} x ${fmt(heightMm)} mm`)
   lines.push(`Base: ${fmt(baseMm)} mm · max height: ${fmt(maxHeightMm)} mm`)

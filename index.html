@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'sha256-MFlcLT3PKhHdo7cUHs1qWuOsbkto0flUmUTTWB7mNhY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:"
     />
-    <title data-i18n="docTitle">HueForge Web — Filament Paintings</title>
+    <title data-i18n="docTitle">ColorStrata — Filament Paintings</title>
     <script>try { const t = localStorage.getItem('hf-theme'); if (t) document.documentElement.dataset.theme = t } catch {}</script>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="stylesheet" href="/src/ui/styles.css" />
@@ -63,7 +63,7 @@
     </div>
 
     <header class="topbar">
-      <h1>🎨 <span id="app-title">HueForge Web</span></h1>
+      <h1>🎨 <span id="app-title" data-i18n="appName">ColorStrata</span></h1>
       <span class="tagline" data-i18n="tagline">Image → multi-layer 3D-printable filament painting</span>
       <span id="app-version" class="app-version"></span>
       <div class="topbar-right">
@@ -105,29 +105,18 @@
 
         <div class="tabpanel" id="tabpanel-model" role="tabpanel" aria-labelledby="tab-model" data-tab-panel="model">
         <div class="welcome-panel" id="welcome-panel">
-          <h2>🎨 <span data-i18n="welcomeTitle">Welcome to HueForge Web</span></h2>
-          <p data-i18n="helpWelcome">Welcome! Turn any picture into a multi-color 3D-printed painting: load an image, pick how many filament colors to use, and download the model with a color-swap guide. Work through the numbered sections top to bottom — the previews update live.</p>
+          <h2>🎨 <span data-i18n="welcomeTitle">Welcome to ColorStrata</span></h2>
+          <p data-i18n="helpWelcome">Turn any picture into a multi-color 3D-printed painting in three steps:</p>
+          <ol class="welcome-steps">
+            <li data-i18n="welcomeStep1">Drop a picture onto the «Source» preview on the right.</li>
+            <li data-i18n="welcomeStep2">Pick how many filament colors to use — the previews update live.</li>
+            <li data-i18n="welcomeStep3">On the «Export» tab, download the 3MF and print it.</li>
+          </ol>
           <div class="welcome-actions">
             <button type="button" id="btn-welcome-tour" class="btn" data-i18n="welcomeTourBtn">Start the tour</button>
             <button type="button" id="btn-welcome-hide" class="btn ghost" data-i18n="welcomeDismiss">Hide</button>
           </div>
         </div>
-        <section class="panel">
-          <div class="panel-section" id="img-details">
-            <div class="panel-head" data-help="helpImage">
-              <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="5.8" cy="6.2" r="1.4"/><path d="m2.5 11.5 3.2-3.2 2.4 2.4 2.6-2.6 2.8 2.8"/></svg></span>
-              <h2 data-i18n="panelImage">Image</h2>
-              <button type="button" class="hint-btn" data-help="helpImage" aria-label="Help">?</button>
-            </div>
-          <div id="drop-zone" class="drop-zone" data-help="helpDropZone">
-            <p><strong data-i18n="dropTitle">Drop an image here</strong></p>
-            <p class="muted" data-i18n="dropHint">or click to browse — PNG / JPG / WebP</p>
-            <input id="file-input" type="file" accept="image/*" hidden />
-          </div>
-          <p id="image-info" class="muted small"></p>
-          </div>
-        </section>
-
         <section class="panel">
           <div class="panel-section" id="colors-details">
             <div class="panel-head" data-help="helpColors">
@@ -161,10 +150,15 @@
               <label class="merge-label"><input id="merge-deltae-check" type="checkbox" data-help="helpMergeDeltaE" /> <span data-i18n="mergeCheck">Merge near-duplicate colors</span></label>
               <label class="merge-thresh" id="merge-thresh-wrap"><input id="merge-deltae" type="number" min="1" max="40" step="1" value="10" aria-label="ΔE merge threshold" data-help="helpMergeDeltaE" /> <span class="muted small">ΔE</span></label>
             </div>
-            <div id="color-mode-options" class="mode-options">
+            <div class="preset-head">
+              <span class="slider-label" id="color-mode-label" data-i18n="colorModeLabel">How to pick the colors</span>
+              <button type="button" class="hint-btn" data-help="helpColorMode" aria-label="Help">?</button>
+            </div>
+            <div id="color-mode-options" class="mode-options" role="radiogroup" aria-labelledby="color-mode-label">
               <label><input type="radio" name="color-mode" value="luma" checked data-help="helpColorMode" /><span data-i18n="colorModeLuma">Brightness bands (HueForge)</span></label>
               <label><input type="radio" name="color-mode" value="image" data-help="helpColorModeImage" /><span data-i18n="colorModeImage">Colors from the picture</span></label>
             </div>
+            <p class="muted small mode-hint" data-i18n="colorModeHint">By brightness: smooth HueForge-style relief, but two colors of the same brightness (a blue sky and green grass) print in one filament. By colors: every hue keeps its own filament, the relief is terraced.</p>
           </div>
           </div>
         </section>
@@ -173,7 +167,7 @@
           <div class="panel-section" id="depth-details">
             <div class="panel-head" data-help="helpDepth">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.5h12"/><path d="M4.5 12.5V9M8 12.5V6.5M11.5 12.5V4"/></svg></span>
-              <h2 data-i18n="panelDepth">Depth mode</h2>
+              <h2 data-i18n="panelDepth">Relief</h2>
               <button type="button" class="hint-btn" data-help="helpDepth" aria-label="Help">?</button>
             </div>
             <div class="preset-head">
@@ -222,7 +216,7 @@
             <div class="slider-row dither-row">
               <span class="slider-label" data-i18n="toneContrast">Contrast</span>
               <div class="slider-main">
-                <input id="contrast-slider" type="range" min="0" max="300" step="10" value="200" aria-label="Relief contrast" data-help="helpToneContrast" />
+                <input id="contrast-slider" type="range" min="0" max="300" step="10" value="100" aria-label="Relief contrast" data-help="helpToneContrast" />
               </div>
               <span id="contrast-value" class="dither-value muted small">200%</span>
             </div>
@@ -247,11 +241,12 @@
           <div class="param-grid">
             <label><span data-i18n="paramWidth">Width</span> <input id="width-mm" type="number" value="150" min="20" max="500" step="1" data-help="helpWidth" /> <span data-i18n="unitMm">mm</span></label>
             <label><span data-i18n="paramHeight">Height</span> <input id="height-mm" type="number" value="150" min="20" max="500" step="1" data-help="helpHeight" /> <span data-i18n="unitMm">mm</span></label>
-            <label><span data-i18n="paramBase">Base</span> <input id="base-mm" type="number" value="0.8" min="0.2" max="5" step="0.1" data-help="helpBase" /> <span data-i18n="unitMm">mm</span></label>
-            <label><span data-i18n="paramMax">Max height</span> <input id="max-mm" type="number" value="8" min="0.4" max="40" step="0.1" data-help="helpMax" /> <span data-i18n="unitMm">mm</span></label>
-            <label><span data-i18n="paramLayer">Layer height</span> <input id="layer-mm" type="number" value="0.2" min="0.04" max="0.6" step="0.02" data-help="helpLayerMm" /> <span data-i18n="unitMm">mm</span></label>
+            <label><span data-i18n="paramBase">Base</span> <input id="base-mm" type="number" value="0.48" min="0.2" max="5" step="0.02" data-help="helpBase" /> <span data-i18n="unitMm">mm</span></label>
+            <label><span data-i18n="paramMax">Total thickness</span> <input id="max-mm" type="number" value="2.24" min="0.4" max="40" step="0.02" data-help="helpMax" /> <span data-i18n="unitMm">mm</span></label>
+            <label><span data-i18n="paramLayer">Layer height</span> <input id="layer-mm" type="number" value="0.08" min="0.04" max="0.6" step="0.02" data-help="helpLayerMm" /> <span data-i18n="unitMm">mm</span></label>
           </div>
           <p id="relief-split" class="muted small"></p>
+          <button type="button" id="btn-reset-hueforge" class="btn ghost reset-hueforge" data-help="helpResetHueForge"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.8 8a5.2 5.2 0 1 0 1.6-3.7"/><path d="M2.6 2.4v2.8h2.8"/></svg><span data-i18n="resetHueForge">Reset to HueForge settings</span></button>
           </div>
         </section>
 
@@ -312,7 +307,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" id="perf-panel" hidden>
           <div class="panel-section" id="perf-details">
             <div class="panel-head" data-help="helpPerf">
               <span class="panel-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.4"/></svg></span>
@@ -405,12 +400,20 @@
               <h2 data-i18n="panelExport">Export</h2>
               <button type="button" class="hint-btn" data-help="helpExport" aria-label="Help">?</button>
             </div>
+          <h3 class="export-group-title" data-i18n="exportGroupPrint">For printing</h3>
+          <div class="export-buttons export-buttons-primary">
+            <button id="btn-3mf" class="export-primary" disabled data-help="helpBtn3mf"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.8 8 2l6 2.8-6 2.8Z"/><path d="M2 8.2 8 5.4l6 2.8-6 2.8Z"/><path d="M2 11.6 8 8.8l6 2.8-6 2.8Z"/></svg><span data-i18n="btn3mf">Export 3MF</span></button>
+          </div>
+          <p class="muted small export-hint" data-i18n="exportHint3mf">Recommended: Bambu Studio, OrcaSlicer, QIDI Studio — the colors and the swap layers are already inside.</p>
+          <h3 class="export-group-title" data-i18n="exportGroupOther">Other slicers</h3>
           <div class="export-buttons">
-            <button id="btn-stl" disabled data-help="helpBtnStl"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg><span data-i18n="btnStl">Download STL</span></button>
-            <button id="btn-3mf" disabled data-help="helpBtn3mf"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.8 8 2l6 2.8-6 2.8Z"/><path d="M2 8.2 8 5.4l6 2.8-6 2.8Z"/><path d="M2 11.6 8 8.8l6 2.8-6 2.8Z"/></svg><span data-i18n="btn3mf">Download 3MF</span></button>
-            <button id="btn-describe" disabled data-help="helpBtnDescribe"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.6h5.2L13 5.4v9H4Z"/><path d="M9.2 1.6v3.8H13"/><path d="M6.2 8.6h3.6M6.2 11h3.6"/></svg><span data-i18n="btnDescribe">Download Describe.txt</span></button>
+            <button id="btn-stl" disabled data-help="helpBtnStl"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14 4.8v6.4L8 14.4 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.4"/></svg><span data-i18n="btnStl">Export STL</span></button>
+            <button id="btn-describe" disabled data-help="helpBtnDescribe"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.6h5.2L13 5.4v9H4Z"/><path d="M9.2 1.6v3.8H13"/><path d="M6.2 8.6h3.6M6.2 11h3.6"/></svg><span data-i18n="btnDescribe">Export Describe.txt</span></button>
             <button id="btn-slicer" disabled data-help="helpBtnSlicer"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6V3h9v3"/><path d="M2.8 6h10.4v3.4H2.8Z"/><path d="M5.4 12.4h5.2V9.4H5.4Z"/></svg><span data-i18n="btnSlicer">Slicer bundle</span></button>
           </div>
+          <p class="muted small export-hint" data-i18n="exportHintOther">STL is the shape only: set the color swaps by hand from Describe.txt. The PrusaSlicer bundle adds them for you.</p>
+          <h3 class="export-group-title" data-i18n="exportGroupProject">Project</h3>
+          <p class="muted small export-hint" data-i18n="exportHintProject">Saves the picture and every setting into one file, to continue later.</p>
           <div class="export-buttons">
             <button id="btn-project-save" disabled data-help="helpProjectSave"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.8v7.6"/><path d="M4.6 6.4 8 9.8l3.4-3.4"/><path d="M2.6 13.6h10.8"/></svg><span data-i18n="btnProjectSave">Save project</span></button>
             <button id="btn-project-open" data-help="helpProjectOpen"><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 4.2h4l1.6 2.2h6.8v6.6H1.8Z"/><path d="M5.8 4.2h2.6v1.4H4.6"/></svg><span data-i18n="btnProjectOpen">Open project</span></button>
@@ -446,8 +449,13 @@
           <div class="viewer-card pair-left" id="viewer-source" data-help="helpViewerSource">
             <div class="viewer-head">
               <h3 data-i18n="viewerSource">Source</h3>
+              <div class="source-meta">
+              <span id="image-info" class="muted small image-info"></span>
+              <button type="button" id="btn-replace-image" class="btn ghost source-replace" data-help="helpReplaceImage" hidden><svg class="btn-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10.5V2.5M5 5.5l3-3 3 3"/><path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/></svg><span data-i18n="replaceImage">Replace…</span></button>
+              </div>
             </div>
-            <div class="canvas-wrap pair-canvas is-empty" data-empty-i18n="previewSourceEmpty"><canvas id="canvas-source"></canvas></div>
+            <div id="drop-zone" class="canvas-wrap pair-canvas source-drop is-empty" data-empty-i18n="previewSourceEmpty" data-help="helpDropZone"><canvas id="canvas-source"></canvas></div>
+            <input id="file-input" type="file" accept="image/*" hidden />
           </div>
           <div class="pair-split" role="separator" aria-orientation="vertical" aria-label="Resize previews" data-i18n-title="pairSplitTitle" tabindex="0"></div>
           <div class="viewer-card pair-right" id="viewer-quantized" data-help="helpViewerQuantized">
@@ -492,13 +500,15 @@
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" d="M12 1.5v4.5M12 18v4.5M1.5 12H6M18 12h4.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/></svg>
             </button>
           </div>
-          <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom · click the cube to jump to a view</p>
           <p id="viewer3d-dims" class="muted small viewer3d-dims" aria-live="polite"></p>
+          <p class="muted small" data-i18n="viewer3dHint">Drag to rotate · scroll to zoom · click the cube to jump to a view</p>
         </div>
         </div>
         <div class="viewers-bottom-split" role="separator" aria-orientation="horizontal" data-i18n-title="bottomSplitTitle" tabindex="0"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5l4 4 4-4"/><path d="M4 9l4 4 4-4"/></svg></div>
       </section>
     </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
     <script type="module" src="/src/ui/main.ts"></script>
   </body>

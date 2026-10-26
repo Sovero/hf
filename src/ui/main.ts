@@ -10,7 +10,7 @@ import { buildProjectFile, parseProjectFile, ProjectFileError, PROJECT_EXTENSION
 import { describeExport } from '../lib/describe'
 import { buildSlicerBundle } from '../lib/slicerBundle'
 import { buildCalibrationSwatch, fitTau, CALIB_STEPS, type CalibSample } from '../lib/calibration'
-import { DEFAULT_TAU_MM, backlitBandColors, tauBandHeights, transmittedBandColors } from '../lib/transmission'
+import { DEFAULT_TAU_MM, tauBandHeights, transmittedPixelColors } from '../lib/transmission'
 import type { ColorCount, ColorMode, QuantizedImage, ReliefSource, SourcePreview } from '../lib/types'
 import type { SlicerInfo } from '../../slicer-launch.mjs'
 import { layerView } from '../lib/layerView'
@@ -33,7 +33,7 @@ import { colorShares, formatShare } from '../lib/colorShare'
 import { orderSpools } from '../lib/spoolOrder'
 import { recentSpoolIds, recordRecentSpools } from '../lib/recentSpools'
 import { shoppingList, unassignedCount, formatShoppingList } from '../lib/shoppingList'
-import { PRINTERS, PRINTER_NONE, bedSizeFor } from '../lib/printers'
+import { PRINTERS, PRINTER_NONE, bedSizeFor, canonicalPrinterId } from '../lib/printers'
 import { dropSparseColors, dropTargets } from '../lib/dropSparse'
 import { startTour, TOUR_STEPS } from './tour'
 import { t, word, mmOf, loadLang, saveLang, hasLangPreference, dismissLangPrompt, type Lang } from '../i18n'
@@ -73,7 +73,9 @@ const tr = (key: string, params?: Record<string, string | number>) => t(lang, ke
 
 const dropZone = $<HTMLDivElement>('#drop-zone')
 const fileInput = $<HTMLInputElement>('#file-input')
-const imageInfo = $<HTMLParagraphElement>('#image-info')
+const imageInfo = $<HTMLSpanElement>('#image-info')
+const replaceImageBtn = $<HTMLButtonElement>('#btn-replace-image')
+const sourceCard = $<HTMLDivElement>('#viewer-source')
 const paletteList = $<HTMLDivElement>('#palette-list')
 const paletteSummary = $<HTMLParagraphElement>('#palette-summary')
 const paletteCoverage = $<HTMLDivElement>('#palette-coverage')
@@ -97,6 +99,15 @@ const printabilityList = $<HTMLDivElement>('#printability-list')
 const printabilitySummary = $<HTMLParagraphElement>('#printability-summary')
 const pbBadge = $<HTMLButtonElement>('#pb-badge')
 const exportStatus = $<HTMLParagraphElement>('#export-status')
+const toast = $<HTMLDivElement>('#toast')
+
+// Timings and buffer sizes are for whoever debugs the app, not for printing a
+// picture: the panel shows only with ?debug in the URL or hf-debug=1 stored.
+{
+  let debug = new URLSearchParams(location.search).has('debug')
+  try { debug ||= localStorage.getItem('hf-debug') === '1' } catch { /* private mode */ }
+  $<HTMLElement>('#perf-panel').hidden = !debug
+}
 const btnStl = $<HTMLButtonElement>('#btn-stl')
 const btn3mf = $<HTMLButtonElement>('#btn-3mf')
 const btnDescribe = $<HTMLButtonElement>('#btn-describe')
@@ -156,6 +167,14 @@ const SLIDER_MIN = 2
 // HueForge prints up to 16 filaments; the slider and every clamp share this cap.
 const SLIDER_MAX = 16
 const PRESET_TICKS = [2, 4, 6, 8, 12, 16]
+
+// New-user geometry and tone, as HueForge ships them: a thin painting (base
+// 0.48 mm, 2.24 mm in all) printed in 0.08 mm layers, height following the
+// picture's brightness one to one. Saved settings and projects keep theirs.
+const DEFAULT_BASE_MM = 0.48
+const DEFAULT_MAX_MM = 2.24
+const DEFAULT_LAYER_MM = 0.08
+const DEFAULT_CONTRAST_PCT = 100
 /** Thinnest blend layer the geometry needs above the base (one default layer). */
 const MIN_BLEND_MM = 0.2
 const widthInput = $<HTMLInputElement>('#width-mm')
@@ -275,17 +294,17 @@ function syncMergeThreshold() {
 /** Read the current UI values and persist them (mirrors readOptions' clamps). */
 function saveSettings() {
   try {
-    const baseMm = clampNum(Number(baseInput.value), 0.2, 5, 0.8)
+    const baseMm = clampNum(Number(baseInput.value), 0.2, 5, DEFAULT_BASE_MM)
     const settings: Settings = {
       colors: Math.round(clampNum(Number(colorsSlider.value), SLIDER_MIN, SLIDER_MAX, 4)),
       widthMm: clampNum(Number(widthInput.value), 20, 500, 150),
       heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
       baseMm,
-      maxMm: clampNum(Number(maxInput.value), baseMm + MIN_BLEND_MM, 40, 8),
-      layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
+      maxMm: clampNum(Number(maxInput.value), baseMm + MIN_BLEND_MM, 40, DEFAULT_MAX_MM),
+      layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, DEFAULT_LAYER_MM),
       dither: clampNum(Number(ditherSlider.value), 0, 100, 0),
       smooth: clampNum(Number(smoothSlider.value), 0, 100, 30),
-      contrast: clampNum(Number(contrastSlider.value), 0, 300, 200),
+      contrast: clampNum(Number(contrastSlider.value), 0, 300, DEFAULT_CONTRAST_PCT),
       power: clampNum(Number(powerSlider.value), 20, 300, 100),
       backlight: lightBackBtn.classList.contains('is-active'),
       mergeDeltaE: mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0,
@@ -308,21 +327,21 @@ function restoreSettings() {
     if (!raw) return
     const s = JSON.parse(raw) as Partial<Settings>
     const colors = Math.round(clampNum(Number(s.colors), SLIDER_MIN, SLIDER_MAX, 4))
-    const baseMm = clampNum(Number(s.baseMm), 0.2, 5, 0.8)
+    const baseMm = clampNum(Number(s.baseMm), 0.2, 5, DEFAULT_BASE_MM)
     colorsSlider.value = String(colors)
     colorsValue.value = String(colors)
     widthInput.value = String(clampNum(Number(s.widthMm), 20, 500, 150))
     heightInput.value = String(clampNum(Number(s.heightMm), 20, 500, 150))
     baseInput.value = String(baseMm)
-    maxInput.value = String(clampNum(Number(s.maxMm), baseMm + MIN_BLEND_MM, 40, 8))
-    layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, 0.2))
+    maxInput.value = String(clampNum(Number(s.maxMm), baseMm + MIN_BLEND_MM, 40, DEFAULT_MAX_MM))
+    layerInput.value = String(clampNum(Number(s.layerMm), 0.04, 0.6, DEFAULT_LAYER_MM))
     ditherSlider.value = String(clampNum(Number(s.dither), 0, 100, 0))
     if (s.smooth !== undefined) {
       smoothSlider.value = String(clampNum(Number(s.smooth), 0, 100, 30))
       smoothValue.textContent = `${smoothSlider.value}%`
     }
     ditherValue.textContent = `${ditherSlider.value}%`
-    contrastSlider.value = String(clampNum(Number(s.contrast), 0, 300, 200))
+    contrastSlider.value = String(clampNum(Number(s.contrast), 0, 300, DEFAULT_CONTRAST_PCT))
     powerSlider.value = String(clampNum(Number(s.power), 20, 300, 100))
     syncToneReadouts()
     syncReliefSplit()
@@ -379,11 +398,11 @@ function readOptions() {
   const numColors = clampNum(Math.round(Number(colorsSlider.value)), SLIDER_MIN, SLIDER_MAX, 4)
   const darkIsTall = document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value !== 'light'
   const dither = clampNum(Number(ditherSlider.value), 0, 100, 0) / 100
-  const contrast = clampNum(Number(contrastSlider.value), 0, 300, 200) / 100
+  const contrast = clampNum(Number(contrastSlider.value), 0, 300, DEFAULT_CONTRAST_PCT) / 100
   const power = clampNum(Number(powerSlider.value), 20, 300, 100) / 100
   const mergeDeltaE = mergeCheck.checked ? clampNum(Math.round(Number(mergeInput.value)), 1, 40, 10) : 0
-  const baseMm = clampNum(Number(baseInput.value), 0.2, 5, 0.8)
-  const maxHeightMm = clampNum(Number(maxInput.value), baseMm + MIN_BLEND_MM, 40, 8)
+  const baseMm = clampNum(Number(baseInput.value), 0.2, 5, DEFAULT_BASE_MM)
+  const maxHeightMm = clampNum(Number(maxInput.value), baseMm + MIN_BLEND_MM, 40, DEFAULT_MAX_MM)
   return {
     numColors: numColors as ColorCount,
     darkIsTall,
@@ -396,16 +415,34 @@ function readOptions() {
     heightMm: clampNum(Number(heightInput.value), 20, 500, 150),
     baseMm,
     maxHeightMm,
-    layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, 0.2),
+    layerMm: clampNum(Number(layerInput.value), 0.04, 0.6, DEFAULT_LAYER_MM),
     mergeDeltaE,
     colorMode: readColorMode(),
   }
 }
 
-function showStatus(msg: string, isError = false) {
+let toastTimer = 0
+
+/**
+ * Report an outcome. The line under the export buttons keeps the latest
+ * message; a toast also shows it on whatever tab is open — errors and action
+ * results used to land only on the Export tab, out of sight. Routine progress
+ * («Processing…», «Ready») passes `notify = false` so slider drags stay quiet.
+ */
+function showStatus(msg: string, isError = false, notify = true) {
   exportStatus.textContent = msg
   exportStatus.style.color = isError ? 'var(--danger)' : 'var(--muted)'
+  if (!notify || !msg) return
+  toast.textContent = msg
+  toast.classList.toggle('is-error', isError)
+  toast.hidden = false
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => { toast.hidden = true }, isError ? 9000 : 4000)
 }
+toast.addEventListener('click', () => {
+  window.clearTimeout(toastTimer)
+  toast.hidden = true
+})
 
 // ---- relief source: picture brightness, depth from the bundled network, or a depth map file ----
 
@@ -573,7 +610,7 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
     }
   }
   const token = ++runToken
-  showStatus(tr('processing'))
+  showStatus(tr('processing'), false, false)
   setProcessing(true)
   try {
     const opts = readOptions()
@@ -646,6 +683,8 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
             a: String(before.length),
             b: String(kept.length),
           }),
+          false,
+          false, // repeats on every reprocess while merging is on
         )
         mergedMsg = true
       }
@@ -660,7 +699,7 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
     if (referencePlan) updateApplyButton() // image availability changes Apply
     setProcessing(false)
     if (!mergedMsg) {
-      showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+      showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }), false, false)
     }
     noteSettled()
     return true
@@ -678,6 +717,7 @@ async function readFile(file: File, fresh = false): Promise<boolean> {
     printabilityList.innerHTML = ''
     printabilitySummary.textContent = tr('pbDefault')
     pbBadge.hidden = true
+    updateCheckBadge(null)
     showStatus(err instanceof Error ? err.message : String(err), true)
     return false
   }
@@ -771,7 +811,7 @@ function setLang(next: Lang, persist = true) {
   setDesktopLang(lang)
   if (current) {
     updateUI()
-    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }), false, false)
   }
 }
 
@@ -878,13 +918,8 @@ function setupLangPrompt() {
     chosenTheme = document.documentElement.dataset.theme ?? 'dark'
     applyTheme(chosenTheme)
     langBanner.hidden = true
-    // First-run: once the banner is confirmed, walk the new user through the
-    // sections. Returning users can restart the tour from the top bar.
-    try {
-      if (!localStorage.getItem(TOUR_SEEN_KEY)) startAppTour()
-    } catch {
-      /* private mode */
-    }
+    // No tour auto-start: the welcome panel already lists the three steps and
+    // offers the tour; opening it on top of the panel repeated the same text.
   })
   langBannerSkip.addEventListener('click', () => {
     dismissLangPrompt()
@@ -899,13 +934,12 @@ function setupLangPrompt() {
 
 // ---- sidebar tabs ---------------------------------------------------------
 
-const SIDEBAR_TAB_KEY = 'hf-sidebar-tab'
 type SidebarTabId = 'model' | 'check' | 'export'
 const SIDEBAR_TABS: readonly SidebarTabId[] = ['model', 'check', 'export']
 let activeSidebarTab: SidebarTabId = 'model'
 
 /** Show one tab panel and mark its tab active; unknown ids are ignored. */
-function setSidebarTab(tab: SidebarTabId, persist = true) {
+function setSidebarTab(tab: SidebarTabId) {
   if (!SIDEBAR_TABS.includes(tab)) return
   activeSidebarTab = tab
   for (const t of SIDEBAR_TABS) {
@@ -917,9 +951,6 @@ function setSidebarTab(tab: SidebarTabId, persist = true) {
     btn.setAttribute('aria-selected', String(on))
     btn.tabIndex = on ? 0 : -1
     panel.hidden = !on
-  }
-  if (persist) {
-    try { localStorage.setItem(SIDEBAR_TAB_KEY, tab) } catch { /* private mode */ }
   }
 }
 
@@ -942,9 +973,7 @@ function setupSidebarTabs() {
     setSidebarTab(next)
     document.getElementById(`tab-${next}`)?.focus()
   })
-  let saved: string | null = null
-  try { saved = localStorage.getItem(SIDEBAR_TAB_KEY) } catch { /* private mode */ }
-  setSidebarTab(SIDEBAR_TABS.includes(saved as SidebarTabId) ? (saved as SidebarTabId) : 'model', false)
+  setSidebarTab('model')
 }
 
 // ---- welcome panel + guided tour -----------------------------------------
@@ -978,7 +1007,7 @@ function startAppTour() {
       // Steps point at sections inside tab panels — surface the owning tab
       // before the spotlight measures, so hidden controls can be shown.
       const panel = target.closest<HTMLElement>('[data-tab-panel]')
-      if (panel?.dataset.tabPanel) setSidebarTab(panel.dataset.tabPanel as SidebarTabId, false)
+      if (panel?.dataset.tabPanel) setSidebarTab(panel.dataset.tabPanel as SidebarTabId)
     },
     onFinish: () => {
       tourStop = null
@@ -1016,7 +1045,11 @@ function updateUI() {
     const canvas = wrap.querySelector('canvas')
     if (canvas) canvas.hidden = !hasImage
   }
-  if (!current) return
+  replaceImageBtn.hidden = !hasImage
+  if (!current) {
+    imageInfo.textContent = ''
+    return
+  }
   syncMaxInput()
   drawSource()
   drawQuantized()
@@ -1074,6 +1107,7 @@ function renderPrintability() {
       ? tr('allPassed')
       : `${word(lang, report.errors, 'errors')} · ${word(lang, report.warnings, 'warnings')}`
   setPbBadge(report)
+  updateCheckBadge(report)
 }
 
 function fixLabel(fix: PrintabilityFix): string {
@@ -1165,21 +1199,12 @@ function tauOfSlot(i: number): number {
 }
 
 function drawQuantized() {
-  const { width, height, indexMap, palette } = current!.quantized
-  const n = palette.length
-  // The finished print shows translucent blends, not opaque band colors:
-  // per band, look up the transmitted column color (per-filament τ-aware).
-  // Backlight mode swaps the lookup: pure transmission fold from white.
-  const blends = lightMode === 'back' ? backlitBandColors(current!) : transmittedBandColors(current!)
-  const rgba = new Uint8ClampedArray(width * height * 4)
-  for (let i = 0; i < width * height; i++) {
-    const slice = current!.settings.darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
-    const c = blends[slice] ?? palette[indexMap[i]]
-    rgba[i * 4] = Math.round(c.r)
-    rgba[i * 4 + 1] = Math.round(c.g)
-    rgba[i * 4 + 2] = Math.round(c.b)
-    rgba[i * 4 + 3] = 255
-  }
+  const { width, height } = current!.quantized
+  // The finished print shows translucent blends, not opaque band colors: every
+  // pixel is its own column of sheets, so thin tops let the color below show
+  // through — the HueForge gradient (per-filament τ-aware). Backlight mode
+  // folds the same columns from white light instead.
+  const rgba = transmittedPixelColors(current!, lightMode === 'back')
   canvasQuantized.width = width
   canvasQuantized.height = height
   canvasQuantized.getContext('2d')!.putImageData(new ImageData(rgba, width, height), 0, 0)
@@ -1209,17 +1234,14 @@ function drawQuantized() {
 let deltaECache: { version: number; de: Float32Array } | null = null
 
 function computeDeltaE(): Float32Array {
-  const { width, height, indexMap, palette } = current!.quantized
-  const n = palette.length
-  const blends = transmittedBandColors(current!)
+  const { width, height } = current!.quantized
+  // The same per-pixel print prediction the preview shows (front-lit).
+  const shown = transmittedPixelColors(current!)
   const src = current!.image.rgba
-  const darkIsTall = current!.settings.darkIsTall
   const de = new Float32Array(width * height)
   for (let i = 0; i < width * height; i++) {
     const si = i * 4
-    const slice = darkIsTall ? n - 1 - indexMap[i] : indexMap[i]
-    const c = blends[slice] ?? palette[indexMap[i]]
-    de[i] = deltaE2000Rgb(src[si], src[si + 1], src[si + 2], c.r, c.g, c.b)
+    de[i] = deltaE2000Rgb(src[si], src[si + 1], src[si + 2], shown[si], shown[si + 1], shown[si + 2])
   }
   return de
 }
@@ -1327,7 +1349,7 @@ function drawLayerView() {
 }
 
 layerSlider.addEventListener('input', () => {
-  const total = Math.max(1, Math.round((current?.settings.maxHeightMm ?? 8) / (current?.settings.layerMm ?? 0.2)))
+  const total = Math.max(1, Math.round((current?.settings.maxHeightMm ?? DEFAULT_MAX_MM) / (current?.settings.layerMm ?? DEFAULT_LAYER_MM)))
   const l = Number(layerSlider.value)
   layerPos = total > 1 ? (l - 1) / (total - 1) : 1
   drawLayerView()
@@ -1396,9 +1418,18 @@ function setPaletteColor(idx: number, rgb: RGB, fullUpdate = true) {
  */
 function bandThicknessForSlot(i: number): number {
   const q = current!.quantized
+  // The user's own thicknesses win: the rebuilt result that carries them
+  // arrives from the worker after the palette has already re-rendered.
+  if (bandHeights && bandHeights.length === q.palette.length) return bandHeights[i]!
   if (q.bandHeightsMm && q.bandHeightsMm.length === q.palette.length) return q.bandHeightsMm[i]
-  const usable = current!.settings.maxHeightMm - current!.settings.baseMm
-  return Number((usable / q.palette.length).toFixed(2))
+  // The band's real sheet: from the top of the band below it (or the base)
+  // to its own top. Bands are not equal — an equal share here showed the
+  // same «1.80» on every row while the info line said 0.60 / 1.00 / 2.80.
+  const entries = current!.palette
+  const top = entries[i]!.topZMm
+  let below = current!.settings.baseMm
+  for (const e of entries) if (e.topZMm < top && e.topZMm > below) below = e.topZMm
+  return Number((top - below).toFixed(2))
 }
 
 /**
@@ -1423,7 +1454,7 @@ function syncMaxInput() {
   maxInput.disabled = custom
   maxInput.title = custom ? tr('maxDerived') : ''
   if (custom) {
-    const base = Number(baseInput.value) || 0.8
+    const base = Number(baseInput.value) || DEFAULT_BASE_MM
     maxInput.value = String(Number((base + bandHeights!.reduce((a, c) => a + c, 0)).toFixed(2)))
   }
   paletteHeightsReset.hidden = !custom
@@ -1478,7 +1509,8 @@ function syncToneReadouts() {
 }
 
 /** Bare millimetre number in the panel's own style: «3.60». */
-const mm2 = (v: number) => v.toFixed(2)
+// Russian text writes the decimal comma («0,80»), English the point.
+const mm2 = (v: number) => (lang === 'ru' ? v.toFixed(2).replace('.', ',') : v.toFixed(2))
 
 /**
  * One line saying what the current setting produces: the base + relief split
@@ -1640,8 +1672,8 @@ paletteTauHeights.addEventListener('click', () => {
   if (!current) return
   const n = current.quantized.palette.length
   const taus = current.quantized.tauMm
-  const base = Number(baseInput.value) || 0.8
-  const max = Number(maxInput.value) || 10
+  const base = Number(baseInput.value) || DEFAULT_BASE_MM
+  const max = Number(maxInput.value) || DEFAULT_MAX_MM
   bandHeights = tauBandHeights(
     Array.from({ length: n }, (_, i) => (taus?.[i] && taus[i] > 0 ? taus[i] : DEFAULT_TAU_MM)),
     { usableMm: Math.max(0, max - base) },
@@ -2033,7 +2065,7 @@ async function restoreHistoryState(target: EditorSnapshot): Promise<boolean> {
     if (token !== runToken) return false
     historyBaseline = target
     updateUI()
-    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }))
+    showStatus(tr('ready', { colors: word(lang, current.quantized.palette.length, 'colors') }), false, false)
     return true
   } catch (err) {
     showStatus(err instanceof Error ? err.message : String(err), true)
@@ -2232,7 +2264,7 @@ function renderCoverage(
     seg.title = tr('coverageSegTitle', {
       order: String(i + 1),
       hex: rgbToHex(palette[i].color),
-      pct: formatShare(shares[i].percent),
+      pct: formatShare(shares[i].percent, lang),
     })
     paletteCoverage.appendChild(seg)
   }
@@ -2249,7 +2281,7 @@ async function quantizeCatalog(spools: RGB[]) {
     saveSettings()
   }
   const token = ++runToken
-  showStatus(tr('processing'))
+  showStatus(tr('processing'), false, false)
   setProcessing(true)
   try {
     const opts = readOptions()
@@ -2891,18 +2923,28 @@ document.addEventListener('click', (e) => {
   closeLibraryPopover()
 })
 
-/** Badge on the Check tab: the number of colors currently in the palette. */
-function updateCheckColorBadge(count: number) {
+/**
+ * Badge on the Check tab: the outcome of the printability check — ✓ when
+ * everything passed, otherwise the number of findings in the warning or
+ * error color. (A bare number on a tab called «Check» reads as a count of
+ * problems, so it must never be anything else.) Hidden without a model.
+ */
+function updateCheckBadge(report: ReturnType<typeof analyzePrintability> | null) {
   const badge = document.getElementById('check-color-badge')
   if (!badge) return
-  badge.textContent = String(count)
-  badge.hidden = count <= 0
-  badge.setAttribute('aria-label', `${tr('checkColorBadgeAria')}: ${count}`)
+  badge.hidden = !report
+  if (!report) return
+  const issues = report.errors + report.warnings
+  badge.textContent = issues > 0 ? String(issues) : '✓'
+  badge.classList.toggle('is-error', report.errors > 0)
+  badge.classList.toggle('is-warn', report.errors === 0 && report.warnings > 0)
+  const label = issues > 0 ? tr('checkBadgeIssues', { n: String(issues) }) : tr('allPassed')
+  badge.setAttribute('aria-label', label)
+  badge.title = label
 }
 
 function renderPalette() {
   const palette = current!.palette
-  updateCheckColorBadge(palette.length)
   paletteList.innerHTML = ''
   // Area share of each palette color (post-dither, post-cleanup — exactly
   // what will be printed); indexMap indexes quantized.palette 1:1 with rows.
@@ -3003,17 +3045,22 @@ function renderPalette() {
     // Read the live palette entry (current.palette[i]) rather than the stale
     // `entry` captured above, so the label tracks live color edits too.
     const choice = filamentForSlot(i)
+    // Line 1 names the color; the details (layers, area, hex, filament) go to
+    // the muted line 3 — thickness and τ have their own labelled controls.
     const labelText = () => {
       const live = current!.palette[i]
-      const filam = ` · ${filamentLabel(filamentForSlot(i))}`
-      return `#${live.printOrder} · ${rgbToHex(live.color)} · ~${nearestFilament(live.color, lang)}${filam}`
+      return `#${live.printOrder} · ${nearestFilament(live.color, lang)}`
     }
     const subText = () => {
       const live = current!.palette[i]
       const t = thicknessByOrder.get(live.printOrder)
-      const sharePart = ` · ${formatShare(shares[i].percent)}`
-      const tauPart = ` · τ ${tauOfSlot(i).toFixed(2)} mm`
-      return t ? `${mmOf(lang, t.mm)} · ${word(lang, t.layers, 'layers')}${sharePart}${tauPart}` : `${sharePart}${tauPart}`
+      const parts = [
+        ...(t ? [word(lang, t.layers, 'layers')] : []),
+        tr('paletteAreaShare', { share: formatShare(shares[i].percent, lang) }),
+        rgbToHex(live.color),
+        filamentLabel(filamentForSlot(i)),
+      ]
+      return parts.join(' · ')
     }
     // Full details also ride on the row tooltip: the info line truncates
     // with ellipsis in a narrow panel, so hovering must reveal everything
@@ -3023,10 +3070,11 @@ function renderPalette() {
       const sub = subText()
       labelMain.textContent = main
       labelSub.textContent = sub
-      label.title = `${main}\n${sub}`
+      labelMain.title = `${main}\n${sub}`
+      labelSub.title = sub
     }
     syncLabel()
-    label.append(labelMain, labelSub)
+    label.append(labelMain)
 
     // Filament-library button: pick a real catalog plastic for this band.
     const libBtn = document.createElement('button')
@@ -3112,16 +3160,14 @@ function renderPalette() {
     heightSlider.ariaLabel = `${tr('paletteHeight')} — #${entry.printOrder}`
     const heightVal = document.createElement('span')
     heightVal.className = 'palette-height-val'
-    heightVal.textContent = bandThicknessForSlot(i).toFixed(2)
+    heightVal.textContent = mmOf(lang, bandThicknessForSlot(i))
     heightSlider.addEventListener('input', () => {
       if (!current) return
-      const baseMm = Number(baseInput.value) || 0.8
-      // First touch seeds custom mode from equal shares so the total doesn't
-      // jump while the user starts adjusting one band.
+      const baseMm = Number(baseInput.value) || DEFAULT_BASE_MM
+      // First touch seeds custom mode from the bands' real thicknesses, so
+      // nothing but the band being dragged moves.
       if (!bandHeights || bandHeights.length !== current.quantized.palette.length) {
-        const usable = current.settings.maxHeightMm - current.settings.baseMm
-        const share = Number((usable / current.quantized.palette.length).toFixed(2))
-        bandHeights = current.quantized.palette.map(() => Math.min(10, Math.max(0.1, share)))
+        bandHeights = current.quantized.palette.map((_, k) => Math.min(10, Math.max(0.1, bandThicknessForSlot(k))))
         syncMaxInput()
       }
       const others = bandHeights.reduce((a, c, idx) => (idx === i ? a : a + c), 0)
@@ -3129,7 +3175,7 @@ function renderPalette() {
       const clamped = Math.max(0.1, Math.min(v, 40 - baseMm - others))
       bandHeights[i] = Number(clamped.toFixed(2))
       heightSlider.value = String(bandHeights[i])
-      heightVal.textContent = bandHeights[i].toFixed(2)
+      heightVal.textContent = mmOf(lang, bandHeights[i])
       syncMaxInput()
       applyBandHeights()
     })
@@ -3168,11 +3214,24 @@ function renderPalette() {
     // Commit: full re-render (palette list, printability, status).
     picker.addEventListener('change', () => {
       setPaletteColor(i, hexToRgb(picker.value))
-      showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }))
+      showStatus(tr('ready', { colors: word(lang, current!.quantized.palette.length, 'colors') }), false, false)
     })
 
-    rowMain.append(handle, picker, heightSlider, heightVal, tauInput, libBtn, moveUp, moveDown, reset)
-    row.append(rowMain, label)
+    // Line 2: the two numbers a user tunes per color, each with its label.
+    const params = document.createElement('div')
+    params.className = 'palette-row-params'
+    const heightLabel = document.createElement('span')
+    heightLabel.className = 'palette-param-label'
+    heightLabel.textContent = tr('paletteHeightLabel')
+    heightLabel.title = tr('paletteHeight')
+    const tauLabel = document.createElement('span')
+    tauLabel.className = 'palette-param-label'
+    tauLabel.textContent = tr('paletteTauLabel')
+    tauLabel.title = tr('paletteTau')
+    params.append(heightLabel, heightSlider, heightVal, tauLabel, tauInput)
+
+    rowMain.append(handle, picker, label, libBtn, moveUp, moveDown, reset)
+    row.append(rowMain, params, labelSub)
     paletteList.appendChild(row)
   }
   paletteSummary.textContent = tr('paletteSummary', { colors: word(lang, palette.length, 'colors') })
@@ -3184,7 +3243,7 @@ function renderPalette() {
     .map((e, i) => ({ order: e.printOrder, percent: shares[i].percent }))
     .filter((s) => s.percent < lowUseThreshold)
     .sort((a, b) => a.percent - b.percent)
-    .map((s) => `#${s.order} ${formatShare(s.percent)}`)
+    .map((s) => `#${s.order} ${formatShare(s.percent, lang)}`)
   if (lowUse.length) {
     paletteSummary.textContent += ` ${tr('paletteLowUse', { list: lowUse.join(', ') })}`
     paletteSummary.title = tr('paletteLowUseHelp')
@@ -3215,7 +3274,7 @@ function renderPalette() {
     const sharesFull = colorShares(current!.quantized.indexMap, palette.length)
     const sparseIdx = sharesFull.map((s, i) => ({ s, i })).filter((x) => x.s.share < dropThreshold).map((x) => x.i)
     const detail = sparseIdx
-      .map((i) => `#${palette[i].printOrder} ${formatShare(sharesFull[i].percent)}`)
+      .map((i) => `#${palette[i].printOrder} ${formatShare(sharesFull[i].percent, lang)}`)
       .join(', ')
     // Mini-scheme: which surviving color absorbs each dropped one.
     const targets = dropTargets(palette.map((e) => e.color), palette.map((_, i) => !sparseIdx.includes(i)))
@@ -3223,7 +3282,7 @@ function renderPalette() {
       .filter((i) => targets.has(i))
       .map((i) => {
         const t = targets.get(i)!
-        return `#${palette[i].printOrder} → #${palette[t].printOrder} (${lang === 'ru' ? 'станет' : 'becomes'} ${formatShare(sharesFull[t].percent + sharesFull[i].percent)})`
+        return `#${palette[i].printOrder} → #${palette[t].printOrder} (${lang === 'ru' ? 'станет' : 'becomes'} ${formatShare(sharesFull[t].percent + sharesFull[i].percent, lang)})`
       })
       .join(', ')
     dropSparseBtn.title = `${tr('dropSparseHelp')} ${tr('dropSparseList', { list: detail })}${moves ? ` ${tr('dropSparseMoves', { list: moves })}` : ''}`
@@ -3305,7 +3364,9 @@ function fillPrinterSelect() {
 }
 
 function findPrinterOption(id: string): string {
-  return [...printerSelect.options].some((o) => o.value === id) ? id : PRINTER_NONE
+  // A printer merged into a same-bed entry keeps its saved table.
+  const canonical = canonicalPrinterId(id)
+  return [...printerSelect.options].some((o) => o.value === canonical) ? canonical : PRINTER_NONE
 }
 
 printerSelect.addEventListener('change', () => {
@@ -3561,21 +3622,35 @@ function setupTheme() {
   })
 }
 
+/**
+ * The «Source» preview card is the upload area: while it is empty a click on
+ * the preview opens the file dialog, a picture dropped anywhere on the card
+ * loads (or replaces) it, and the «Replace…» button picks another file once a
+ * picture is shown — a click on the picture itself never opens the dialog.
+ */
 function setupDropZone() {
-  dropZone.addEventListener('click', () => fileInput.click())
+  dropZone.addEventListener('click', () => {
+    if (!current) fileInput.click()
+  })
+  replaceImageBtn.addEventListener('click', () => fileInput.click())
   fileInput.addEventListener('change', () => {
     const f = fileInput.files?.[0]
+    // Cleared so picking the same file again still fires `change`.
+    fileInput.value = ''
     // A new image is a fresh load: print size refits to its aspect ratio.
     if (f) void readFile(f, true)
   })
-  dropZone.addEventListener('dragover', (e) => {
+  sourceCard.addEventListener('dragover', (e) => {
     e.preventDefault()
-    dropZone.classList.add('dragover')
+    sourceCard.classList.add('dragover')
   })
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'))
-  dropZone.addEventListener('drop', (e) => {
+  sourceCard.addEventListener('dragleave', (e) => {
+    // Moving between the card's own children fires dragleave too.
+    if (!sourceCard.contains(e.relatedTarget as Node | null)) sourceCard.classList.remove('dragover')
+  })
+  sourceCard.addEventListener('drop', (e) => {
     e.preventDefault()
-    dropZone.classList.remove('dragover')
+    sourceCard.classList.remove('dragover')
     const f = e.dataTransfer?.files?.[0]
     if (f) void readFile(f, true)
   })
@@ -3759,6 +3834,21 @@ function bindInputs() {
       applyToneValues(contrast, power)
     })
   }
+
+  // One click back to the HueForge Standard look for settings saved before
+  // the defaults changed (or tuned away from them): the thin 2.24 mm painting
+  // in 0.08 mm layers with height following brightness one to one. The print
+  // size, the color count and the palette are the user's and stay.
+  $<HTMLButtonElement>('#btn-reset-hueforge').addEventListener('click', () => {
+    baseInput.value = String(DEFAULT_BASE_MM)
+    maxInput.value = String(DEFAULT_MAX_MM)
+    layerInput.value = String(DEFAULT_LAYER_MM)
+    bandHeights = null
+    syncMaxInput()
+    const { contrast, power } = presetPercents(tonePreset('photo'))
+    applyToneValues(contrast, power) // saves and reprocesses
+    showStatus(tr('resetHueForgeDone'))
+  })
 
   // Saving the current setting under a name, and deleting a saved style: the
   // row of saved chips is bound once here (its buttons come and go), so a chip
@@ -4292,7 +4382,7 @@ async function applyReference() {
   saveSettings()
 
   const token = ++runToken
-  showStatus(tr('processing'))
+  showStatus(tr('processing'), false, false)
   setProcessing(true)
   try {
     const keepTau = current.quantized.tauMm
@@ -4483,7 +4573,7 @@ function saveProject() {
 /** Apply a loaded project's settings to the controls (clamped), no reprocess. */
 function applyProjectSettings(s: ProjectFile['settings']) {
   const clamp = (v: number, lo: number, hi: number, fb: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb)
-  const baseMm = clamp(s.baseMm, 0.2, 5, 0.8)
+  const baseMm = clamp(s.baseMm, 0.2, 5, DEFAULT_BASE_MM)
   colorsSlider.value = String(Math.round(clamp(s.colors, SLIDER_MIN, SLIDER_MAX, 4)))
   colorsValue.value = colorsSlider.value
   ditherSlider.value = String(clamp(s.dither, 0, 100, 0))
@@ -4492,7 +4582,7 @@ function applyProjectSettings(s: ProjectFile['settings']) {
     smoothSlider.value = String(clamp(s.smooth, 0, 100, 30))
     smoothValue.textContent = `${smoothSlider.value}%`
   }
-  contrastSlider.value = String(clamp(s.contrast ?? 200, 0, 300, 200))
+  contrastSlider.value = String(clamp(s.contrast ?? DEFAULT_CONTRAST_PCT, 0, 300, DEFAULT_CONTRAST_PCT))
   powerSlider.value = String(clamp(s.power ?? 100, 20, 300, 100))
   // Styles carried by the project are registered in this browser too (by id, so
   // one already saved here is not duplicated) — that is what makes a shared
@@ -4508,8 +4598,8 @@ function applyProjectSettings(s: ProjectFile['settings']) {
   widthInput.value = String(clamp(s.widthMm, 20, 500, 150))
   heightInput.value = String(clamp(s.heightMm, 20, 500, 150))
   baseInput.value = String(baseMm)
-  maxInput.value = String(clamp(s.maxMm, baseMm + MIN_BLEND_MM, 40, 8))
-  layerInput.value = String(clamp(s.layerMm, 0.04, 0.6, 0.2))
+  maxInput.value = String(clamp(s.maxMm, baseMm + MIN_BLEND_MM, 40, DEFAULT_MAX_MM))
+  layerInput.value = String(clamp(s.layerMm, 0.04, 0.6, DEFAULT_LAYER_MM))
   // Custom band heights restore as-is when the color count matches; any
   // mismatch (or a corrupt array) falls back to equal bands.
   const bh = s.bandHeightsMm
@@ -4592,7 +4682,7 @@ async function openProjectFile(file: File) {
   }
   currentFile = imageFile
   const token = ++runToken
-  showStatus(tr('processing'))
+  showStatus(tr('processing'), false, false)
   setProcessing(true)
   try {
     const opts = readOptions()

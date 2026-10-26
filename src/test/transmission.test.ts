@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { transmission, tauBandHeights, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, DEFAULT_TAU_MM } from '../lib/transmission'
+import { transmission, tauBandHeights, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, transmittedPixelColors, DEFAULT_TAU_MM } from '../lib/transmission'
+import { mapToLuminanceBands } from '../lib/quantize'
 import { finishPipeline } from '../lib/pipeline'
 import type { PipelineResult } from '../lib/pipeline'
 import type { LoadedImage, QuantizedImage, RGB } from '../lib/types'
@@ -190,3 +191,36 @@ function makeResult(): PipelineResult {
     numColors: 4, darkIsTall: true, widthMm: 40, heightMm: 40, baseMm: 0.8, maxHeightMm: 8, layerMm: 0.2,
   })
 }
+
+describe('per-pixel preview (thin top sheets)', () => {
+  it('shades every band from the color below to its own, like HueForge', () => {
+    // A 0 → 255 ramp at HueForge's defaults: the preview used to paint each
+    // band in one flat color; a pixel near the bottom of its band has only a
+    // thin sheet of its own filament, so the color below must show through.
+    const w = 96
+    const h = 2
+    const rgba = new Uint8ClampedArray(w * h * 4)
+    for (let i = 0; i < w * h; i++) {
+      const v = Math.round(((i % w) / (w - 1)) * 255)
+      rgba.set([v, v, v, 255], i * 4)
+    }
+    const q = mapToLuminanceBands(rgba, 4, w, h, false, 0)
+    const result = finishPipeline({ width: w, height: h, rgba }, q, {
+      numColors: 4,
+      darkIsTall: false,
+      widthMm: w * 0.4,
+      heightMm: h * 0.4,
+      baseMm: 0.48,
+      maxHeightMm: 2.24,
+      layerMm: 0.08,
+    })
+    const px = transmittedPixelColors(result)
+    const row = Array.from({ length: w }, (_, x) => px[x * 4]!)
+    // Far more tones than the four filaments: a gradient, not a poster.
+    expect(new Set(row).size).toBeGreaterThan(8)
+    // Brightness never steps backwards along the ramp.
+    for (let x = 1; x < w; x++) expect(row[x]!, `x=${x}`).toBeGreaterThanOrEqual(row[x - 1]! - 1)
+    // Opaque alpha everywhere.
+    for (let i = 3; i < px.length; i += 4) expect(px[i]).toBe(255)
+  })
+})

@@ -71,7 +71,7 @@ export interface TourCallbacks {
  */
 export const TOUR_STEPS: TourStep[] = [
   { titleKey: 'tourIntroTitle', textKey: 'tourIntro' },
-  { target: '#img-details', titleKey: 'panelImage', textKey: 'helpImage' },
+  { target: '#viewer-source', titleKey: 'viewerSource', textKey: 'helpImage' },
   { target: '#colors-details', titleKey: 'panelColors', textKey: 'helpColors' },
   { target: '#colors-slider', titleKey: 'sliderAria', textKey: 'helpColorsSlider', interactive: true },
   { target: '#dither-slider', titleKey: 'tourDitherTitle', textKey: 'helpDither' },

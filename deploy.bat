@@ -4,7 +4,7 @@ REM carries non-ASCII text, so Russian wording is printed by PowerShell
 REM (update.ps1 say <key> - see the :say subroutine).
 setlocal
 chcp 65001 >nul
-title HueForge Web
+title ColorStrata
 
 pushd "%~dp0"
 

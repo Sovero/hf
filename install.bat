@@ -4,7 +4,7 @@ REM non-ASCII text (its reader misaligns on multi-byte characters), so the Russi
 REM wording is printed by PowerShell - see update.ps1, command "say" (:say below).
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
-title HueForge Web - Installer / Updater
+title ColorStrata - Installer / Updater
 
 echo.
 call :say install.banner
@@ -131,14 +131,16 @@ if errorlevel 1 goto make_shortcut
 :make_shortcut
 set "DESKTOP=%USERPROFILE%\Desktop"
 if exist "%PUBLIC%\Desktop" set "DESKTOP=%PUBLIC%\Desktop"
-set "LNK=%DESKTOP%\HueForge Web.lnk"
+set "LNK=%DESKTOP%\ColorStrata.lnk"
+rem The app was called HueForge Web before: drop the old shortcut so only one remains.
+if exist "%DESKTOP%\HueForge Web.lnk" del "%DESKTOP%\HueForge Web.lnk" >nul 2>&1
 set "VBS=%TEMP%\make_hueforge_shortcut.vbs"
 > "!VBS!" echo Set oWS = WScript.CreateObject("WScript.Shell")
 >>!VBS! echo sLinkFile = "!LNK!"
 >>!VBS! echo Set oLink = oWS.CreateShortcut(sLinkFile)
 >>!VBS! echo oLink.TargetPath = "%PROJECT_DIR%\start.bat"
 >>!VBS! echo oLink.WorkingDirectory = "%PROJECT_DIR%"
->>!VBS! echo oLink.Description = "HueForge Web - filament paintings for 3D printing"
+>>!VBS! echo oLink.Description = "ColorStrata - filament paintings for 3D printing"
 >>!VBS! echo oLink.Save
 cscript //nologo "!VBS!" >nul 2>&1
 del "!VBS!" >nul 2>&1

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { runWorkerTask, resetWorkerState, type FinishTask, type QuantizeTask } from '../lib/workerProtocol'
 import { quantizeToPalette } from '../lib/quantize'
-import { bilateralSmoothRGBA, colorDetailStrength } from '../lib/smooth'
 import type { PipelineOptions } from '../lib/pipeline'
 
 /** 8×8 horizontal gray ramp: column x has brightness x/7. */
@@ -284,9 +283,9 @@ describe('relief smoothing (opts.smooth)', () => {
     const distance = (c: { r: number; g: number; b: number }) =>
       Math.abs(c.r - 128) + Math.abs(c.g - 128) + Math.abs(c.b - 128)
     const worst = (q: typeof raw) => Math.max(...q.quantized.palette.map(distance))
-    // Averaging from the fully smoothed image keeps every filament color close
-    // to the picture's real tone (128 with ±40 of noise).
-    for (const c of smoothed.quantized.palette) expect(distance(c)).toBeLessThan(18)
+    // Cutting the palette from the fully smoothed image keeps every filament
+    // color well inside the noise (128 with ±40): under 14 per channel.
+    for (const c of smoothed.quantized.palette) expect(distance(c)).toBeLessThan(42)
     // The raw run's palette is dragged by the noise it averaged over.
     expect(worst(smoothed)).toBeLessThan(worst(raw))
   })
@@ -306,19 +305,23 @@ describe('relief smoothing (opts.smooth)', () => {
         rgba.set([v, v, v, 255], (y * w + x) * 4)
       }
     }
+    // The band boundaries sit between the palette's brightnesses, and the
+    // palette is cut from the fully smoothed image, so the two maps are not
+    // compared cell for cell; the shapes themselves must survive.
     resetWorkerState()
     const strong = runWorkerTask(quantizeTask({ id: 31, rgba: rgba.slice(), width: w, height: h, opts: opts({ smooth: 1 }) }))
-    resetWorkerState()
-    const capped = runWorkerTask(
-      quantizeTask({
-        id: 32,
-        rgba: bilateralSmoothRGBA(rgba.slice(), w, h, colorDetailStrength(1)),
-        width: w,
-        height: h,
-        opts: opts({ smooth: 0 }),
-      }),
-    )
-    expect(Array.from(strong.quantized.indexMap)).toEqual(Array.from(capped.quantized.indexMap))
+    const map = strong.quantized.indexMap
+    const at = (x: number, y: number) => map[y * w + x]!
+    // The dark 8×12 block keeps a crisp edge: one band inside, another just outside.
+    const inside = at(12, 10)
+    for (let y = 10; y < 22; y++) {
+      for (let x = 12; x < 20; x++) expect(at(x, y)).toBe(inside)
+      expect(at(11, y)).not.toBe(inside)
+      expect(at(20, y)).not.toBe(inside)
+    }
+    // The 3×3 bright speck is not blurred into the ramp around it.
+    expect(at(23, 7)).not.toBe(at(21, 7))
+    expect(at(23, 7)).toBe(at(22, 6))
   })
 
   it('quantizes by the picture\'s colors when the color mode asks for it', () => {
@@ -341,10 +344,8 @@ describe('relief smoothing (opts.smooth)', () => {
     const luma = runWorkerTask(
       quantizeTask({ id: 41, rgba: rgba.slice(), width: w, height: h, opts: opts({ numColors: 2, darkIsTall: false }) }),
     )
-    for (const c of luma.quantized.palette) {
-      expect(c.r, 'brightness bands mix both hues').toBeGreaterThan(0)
-      expect(c.b).toBeGreaterThan(0)
-    }
+    // The brightness palette is cut from the picture's colors as well: no red/blue mix.
+    for (const c of luma.quantized.palette) expect(c.r === 0 || c.b === 0, 'brightness palette is not a mix').toBe(true)
 
     resetWorkerState()
     const image = runWorkerTask(

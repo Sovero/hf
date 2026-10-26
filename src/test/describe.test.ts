@@ -46,7 +46,7 @@ describe('describeExport (Describe.txt companion)', () => {
     const result = run({ numColors: 4 })
     const text = describeExport(result, 'hueforge-4colors-40x40mm.txt')
 
-    expect(text).toContain('HueForge Web — hueforge-4colors-40x40mm.txt')
+    expect(text).toContain('ColorStrata — hueforge-4colors-40x40mm.txt')
     expect(text).toContain('Model size: 40.00 x 40.00 mm')
     expect(text).toContain('Base: 0.80 mm · max height: 8.00 mm')
     expect(text).toContain('Layer height: 0.20 mm (40 layers)')
@@ -83,11 +83,13 @@ describe('describeExport (Describe.txt companion)', () => {
     const fine = run({ numColors: 4, layerMm: 0.1 })
 
     // The same band boundaries, so halving the layer height doubles every
-    // swap layer exactly.
+    // swap layer — up to the one fine layer a boundary may snap to on the
+    // finer grid.
     const baseLayers = swapsOf(describeExport(base, 'b.txt')).map((s) => s.layer)
     const fineLayers = swapsOf(describeExport(fine, 'f.txt')).map((s) => s.layer)
     expect(baseLayers).toHaveLength(3)
-    expect(fineLayers).toEqual(baseLayers.map((l) => l * 2))
+    expect(fineLayers).toHaveLength(3)
+    fineLayers.forEach((l, i) => expect(Math.abs(l - baseLayers[i]! * 2)).toBeLessThanOrEqual(1))
     expect(describeExport(fine, 'f.txt')).toContain('Layer height: 0.10 mm')
   })
 

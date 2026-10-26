@@ -110,38 +110,112 @@ export function quantize(rgba: Uint8ClampedArray, numColors: number): RGB[] {
   return palette
 }
 
+/** Squared RGB radius of a palette color's own neighbourhood (~12 units per channel). */
+const NEIGHBOURHOOD = 3 * 12 * 12
+
+/**
+ * The filament palette of the brightness model, HueForge-style: a ladder of
+ * the picture's own colors from its darkest to its lightest.
+ *
+ * In HueForge the filaments are stacked dark → light and a pixel's brightness
+ * decides how many of them it shows through, so what matters is that the
+ * rungs cover the picture's brightness range evenly: the darkest and the
+ * lightest rung sit at 0.5 % / 99.5 % of the pixels (a stray pixel cannot
+ * claim an end), the others at equal brightness steps between them. On each
+ * rung the filament is the most common color of the picture at that
+ * brightness — a real color, not the mean of a brightness slice (which turns
+ * a red and a gray into mud) and not a rare outlier (a tiny red flag on a
+ * blue ship). The color is only denoised by its close neighbourhood.
+ * Returns `numColors` colors ordered dark → light.
+ */
+export function imagePalette(rgba: Uint8ClampedArray, numColors: number): RGB[] {
+  const n = Math.max(1, numColors)
+  const pixelCount = rgba.length / 4
+  if (pixelCount === 0) return Array.from({ length: n }, () => ({ r: 0, g: 0, b: 0 }))
+
+  const BINS = 32 * 32 * 32
+  const count = new Uint32Array(BINS)
+  const sum = new Float64Array(BINS * 3)
+  for (let i = 0; i < pixelCount; i++) {
+    const p = i * 4
+    const r = rgba[p]!, g = rgba[p + 1]!, b = rgba[p + 2]!
+    const bin = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)
+    count[bin]++
+    sum[bin * 3] += r
+    sum[bin * 3 + 1] += g
+    sum[bin * 3 + 2] += b
+  }
+  const bins: number[] = []
+  for (let bin = 0; bin < BINS; bin++) if (count[bin]) bins.push(bin)
+  const mean = (bin: number, c: number) => sum[bin * 3 + c]! / count[bin]!
+  const lumaOfBin = (bin: number) => 0.2126 * mean(bin, 0) + 0.7152 * mean(bin, 1) + 0.0722 * mean(bin, 2)
+
+  // Brightness at a given share of the pixels, counted from the darkest.
+  const byLuma = [...bins].sort((a, b) => lumaOfBin(a) - lumaOfBin(b))
+  const atShare = (share: number) => {
+    let acc = 0
+    for (const bin of byLuma) {
+      acc += count[bin]!
+      if (acc >= pixelCount * share) return lumaOfBin(bin)
+    }
+    return lumaOfBin(byLuma[byLuma.length - 1]!)
+  }
+  const darkest = atShare(0.005)
+  const lightest = atShare(0.995)
+  const step = n > 1 ? (lightest - darkest) / (n - 1) : 0
+  // Half a rung either side, never narrower than the 5-bit histogram itself.
+  const half = Math.max(step / 2, 4)
+
+  // Colors already on a rung: a rung prefers a color of its own, so a
+  // brightness the picture skips borrows an *unused* color up to one rung
+  // away instead of repeating the rung below; only when there is none does
+  // it repeat the nearest color (a picture with fewer colors than rungs).
+  const used = new Set<number>()
+  const pick = (level: number, fresh: boolean): number => {
+    let best = -1
+    for (const bin of bins) {
+      if ((fresh && used.has(bin)) || Math.abs(lumaOfBin(bin) - level) > half) continue
+      if (best < 0 || count[bin]! > count[best]!) best = bin
+    }
+    if (best >= 0) return best
+    for (const bin of bins) {
+      const d = Math.abs(lumaOfBin(bin) - level)
+      if (fresh && (used.has(bin) || d > 2 * half)) continue
+      if (best < 0 || d < Math.abs(lumaOfBin(best) - level)) best = bin
+    }
+    return best
+  }
+  const rung = (level: number): RGB => {
+    let best = pick(level, true)
+    if (best < 0) best = pick(level, false) // fewer colors than rungs
+    used.add(best)
+    const s = [mean(best, 0), mean(best, 1), mean(best, 2)]
+    let r = 0, g = 0, b = 0, w = 0
+    for (const bin of bins) {
+      const d = (mean(bin, 0) - s[0]!) ** 2 + (mean(bin, 1) - s[1]!) ** 2 + (mean(bin, 2) - s[2]!) ** 2
+      if (d > NEIGHBOURHOOD) continue
+      const k = count[bin]!
+      r += mean(bin, 0) * k
+      g += mean(bin, 1) * k
+      b += mean(bin, 2) * k
+      w += k
+    }
+    return { r: Math.round(r / w), g: Math.round(g / w), b: Math.round(b / w) }
+  }
+  if (n === 1) return [rung((darkest + lightest) / 2)]
+  // The two ends first — they are the bottom and the top of the stack and
+  // must be the picture's own darkest and lightest — then the rungs between.
+  const palette: RGB[] = new Array(n)
+  palette[0] = rung(darkest)
+  palette[n - 1] = rung(lightest)
+  for (let k = 1; k < n - 1; k++) palette[k] = rung(darkest + step * k)
+  return palette
+}
+
 /** Rec.709 luma (0..1) of the RGB triple starting at rgba[i*4]. */
 function pixelLuma(rgba: Uint8ClampedArray, i: number): number {
   const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2]
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-}
-
-/** 1st / 99th percentile of an image's luma distribution (auto contrast). */
-function contrastRange(raw: Float32Array): [number, number] {
-  const HIST = 256
-  const hist = new Uint32Array(HIST)
-  for (let i = 0; i < raw.length; i++) {
-    hist[Math.min(HIST - 1, Math.max(0, Math.round(raw[i] * (HIST - 1))))]++
-  }
-  const total = raw.length
-  const target = (pct: number) => Math.max(0, Math.round(total * pct))
-  let lo = 0
-  let acc = 0
-  for (let h = 0; h < HIST; h++) {
-    acc += hist[h]
-    if (acc > target(0.01)) { lo = h / (HIST - 1); break }
-  }
-  let hi = 1
-  acc = 0
-  for (let h = HIST - 1; h >= 0; h--) {
-    acc += hist[h]
-    if (acc > target(0.01)) { hi = h / (HIST - 1); break }
-  }
-  if (hi - lo < 1 / (HIST - 1)) {
-    // Nearly uniform image — fall back to the full 0..1 range.
-    return [0, 1]
-  }
-  return [lo, hi]
 }
 
 /**
@@ -153,16 +227,16 @@ function contrastRange(raw: Float32Array): [number, number] {
  * lowest relief slice and is printed first (bottom); its pixels are the
  * darkest (or, with `darkIsTall`, the brightest — the relief is inverted).
  *
- * Bands are equal-population, not equal-width: pixels are ordered by relief
- * position and each band takes the next slice of ~1/N of the pixels. This
- * guarantees every filament color covers at least ~100/N % of the print's
- * painted area, whatever the image's brightness histogram looks like.
+ * The filaments are the picture's own colors (`imagePalette`), ordered
+ * dark → light. Each band boundary sits halfway between the brightness of two
+ * neighbouring colors, so a pixel's brightness picks the filament nearest to
+ * it and its relief stays inside that filament's slice. A large uniform
+ * background therefore takes one band, not several near-identical ones, and
+ * details of different hues are not averaged into one mixed color.
  *
- * The palette is NOT a separate color quantization: each band's color is the
- * average color of the pixels assigned to it, so a colorful image keeps the
- * hues its brightness slices actually contain. Because Rec.709 luma is
- * linear, band means are automatically ordered dark → light, and empty bands
- * (fewer pixels than colors) inherit the color of the nearest populated band.
+ * A depth relief (no brightness to cut by) keeps equal-population bands —
+ * each takes the next slice of ~1/N of the pixels — colored by the mean of
+ * the pixels in the slice; empty bands inherit the nearest populated color.
  */
 /** Smallest connected same-band region kept as-is (3×3 cells). */
 export const MIN_REGION_CELLS = 9
@@ -325,6 +399,38 @@ function ditherLabels(
     }
   }
   return out
+}
+
+/**
+ * Band boundaries from a dark → light palette (fractions of the relief height,
+ * 0..1): each boundary sits halfway between the relief positions of two
+ * neighbouring colors, so a pixel lands in the band of the filament closest
+ * to it in brightness. `lo` / `span` are the same auto-contrast range the
+ * pixels were normalized with.
+ */
+function paletteBandTops(palette: RGB[], lo: number, span: number, darkIsTall: boolean): number[] {
+  const n = palette.length
+  // Slice s (0 = bottom) holds palette slot k = s, or n-1-s with darkIsTall.
+  const pos = Array.from({ length: n }, (_, s) => {
+    const v = Math.min(1, Math.max(0, (lumaOf(palette[darkIsTall ? n - 1 - s : s]!) - lo) / span))
+    return darkIsTall ? 1 - v : v
+  })
+  const tops: number[] = new Array(n)
+  for (let s = 0; s < n - 1; s++) tops[s] = (pos[s]! + pos[s + 1]!) / 2
+  tops[n - 1] = 1
+  return tops
+}
+
+/** Band labels for a relief array cut at fixed band tops (see `paletteBandTops`). */
+function labelsByTops(x: Float32Array, tops: number[], darkIsTall: boolean, pixelCount: number): Uint8Array {
+  const n = tops.length
+  const indexMap = new Uint8Array(pixelCount)
+  for (let i = 0; i < pixelCount; i++) {
+    let band = 0
+    while (band < n - 1 && x[i]! > tops[band]!) band++
+    indexMap[i] = darkIsTall ? n - 1 - band : band
+  }
+  return indexMap
 }
 
 /** Equal-population band boundaries (fractions of the relief height, 0..1). */
@@ -535,8 +641,14 @@ export function mapToLuminanceBands(
   const tieAware = !!reliefField
   const raw = new Float32Array(pixelCount)
   if (!reliefField) for (let i = 0; i < pixelCount; i++) raw[i] = pixelLuma(rgba, i)
-  const [lo, hi] = reliefField ? [0, 1] : contrastRange(raw)
-  const span = Math.max(1e-6, hi - lo)
+  // Height follows the picture's own brightness one to one, as in HueForge
+  // Standard: luma 0 sits on the base, luma 1 at the full relief. Measured on a
+  // HueForge STL against its source picture the height is linear in luma
+  // (r = 0.92) with no auto-contrast stretch — a stretch, and on top of it an
+  // S-curve, is what turned a calm 2 mm painting into blocks and cliffs.
+  // Shaping the relief is the tone curve's job (the style presets).
+  const lo = 0
+  const span = 1
 
   // Per-pixel relief position x (0 = base, 1 = tallest). Deliberately *before*
   // the tone curve: band assignment, speck cleanup, band tops and dithering
@@ -566,30 +678,74 @@ export function mapToLuminanceBands(
   // Flattening a boundary-straddling speck can still leave sub-area fragments
   // on the re-derived bands, so the pass repeats until no specks remain (or a
   // fixed guard limit — every pass strictly reduces sub-area cell count).
+  // The brightness relief takes its filaments from the picture's own colors
+  // ordered dark → light, with each band boundary halfway between
+  // two neighbouring colors' brightness. Equal-population slices averaged into
+  // one color each let a large dark background claim several near-identical
+  // blacks while a red and a white detail shared one band and blended into
+  // pink. A depth relief has no brightness to cut by and keeps the
+  // equal-population bands.
+  const colors = colorSource && colorSource.length === rgba.length ? colorSource : rgba
+  const filaments = reliefField ? undefined : imagePalette(colors, n).sort((a, b) => lumaOf(a) - lumaOf(b))
+  const paletteTops = filaments ? paletteBandTops(filaments, lo, span, darkIsTall) : undefined
+  const label = (field: Float32Array) =>
+    paletteTops
+      ? labelsByTops(field, paletteTops, darkIsTall, pixelCount)
+      : bandLabels(field, n, darkIsTall, pixelCount, tieAware)
+
   const canClean = width >= 3 && height >= 3
   let relief: Float32Array = x
   if (canClean) {
     for (let pass = 0; pass < 8; pass++) {
-      const labels0 = bandLabels(relief, n, darkIsTall, pixelCount, tieAware)
+      const labels0 = label(relief)
       const cleaned = removeIsolatedRegions(relief, labels0, width, height, MIN_REGION_CELLS)
-      const labels1 = bandLabels(cleaned, n, darkIsTall, pixelCount, tieAware)
+      const labels1 = label(cleaned)
       const remaining = components(labels1, width, height).filter((c) => c.cells.length < MIN_REGION_CELLS).length
       relief = cleaned
       if (remaining === 0) break
     }
   }
 
-  // Assign bands by rank on the cleaned relief: each band takes the next
-  // slice of ⌊count/n⌋ or ⌈count/n⌉ pixels, so no color covers a
-  // negligible area and no speck can survive.
-  const indexMap = bandLabels(relief, n, darkIsTall, pixelCount, tieAware)
-  const bandTops = bandTopsFrom(relief, n, pixelCount)
+  // Final bands on the cleaned relief: brightness cut at the palette's
+  // boundaries, or (depth relief) by rank — each band takes the next slice of
+  // ⌊count/n⌋ or ⌈count/n⌉ pixels.
+  const indexMap = label(relief)
+  const bandTops = paletteTops ? [...paletteTops] : bandTopsFrom(relief, n, pixelCount)
+  const palette: RGB[] = filaments ?? depthBandColors(colors, indexMap, n, darkIsTall, pixelCount)
 
-  // Band colors = mean color of the pixels in each slice (dark → light). The
-  // slice membership is the boundary map above; the pixels that get averaged
-  // may come from a cleaner image (`colorSource`), so a noisy boundary does
-  // not smear mud into the filament colors.
-  const colors = colorSource && colorSource.length === rgba.length ? colorSource : rgba
+  // Dithering is the last step: it only re-labels pixels near the band
+  // boundaries, keeping the filament colors and band tops from above. When it
+  // runs, the pre-dither labels are kept alongside: they are the honest input
+  // for printability's fragile-speck check, because FS dots are intentional
+  // texture, not specks.
+  const clampedDither = Math.min(1, Math.max(0, dither))
+  const finalIndexMap = clampedDither > 0
+    ? ditherLabels(relief, indexMap, width, height, n, darkIsTall, clampedDither)
+    : indexMap
+
+  // Tone last, on both sides of the same monotone map: the heights and the
+  // band tops the swap heights are read from. Because the map preserves order,
+  // every surface stays exactly where it was relative to its own band — the
+  // relief deepens or flattens, while the color regions keep their pixels.
+  const { luminance, tops } = applyToneToRelief(relief, bandTops, tone, minBandFrac)
+
+  const result: QuantizedImage = { palette, indexMap: finalIndexMap, luminance, bandTops: tops, width, height }
+  if (finalIndexMap !== indexMap) result.cleanIndexMap = indexMap
+  return result
+}
+
+/**
+ * Depth-relief band colors: the mean color of the pixels in each slice (dark →
+ * light). The pixels averaged may come from a cleaner image (`colorSource`),
+ * so a noisy boundary does not smear mud into the filament colors.
+ */
+function depthBandColors(
+  colors: Uint8ClampedArray,
+  indexMap: Uint8Array,
+  n: number,
+  darkIsTall: boolean,
+  pixelCount: number,
+): RGB[] {
   const bandSums = Array.from({ length: n }, () => [0, 0, 0] as [number, number, number])
   const bandCounts = new Uint32Array(n)
   for (let i = 0; i < pixelCount; i++) {
@@ -621,26 +777,7 @@ export function mapToLuminanceBands(
     }
     palette[k] ??= { r: 0, g: 0, b: 0 }
   }
-
-  // Dithering is the last step: it only re-labels pixels near the band
-  // boundaries, keeping the filament colors and band tops from above. When it
-  // runs, the pre-dither labels are kept alongside: they are the honest input
-  // for printability's fragile-speck check, because FS dots are intentional
-  // texture, not specks.
-  const clampedDither = Math.min(1, Math.max(0, dither))
-  const finalIndexMap = clampedDither > 0
-    ? ditherLabels(relief, indexMap, width, height, n, darkIsTall, clampedDither)
-    : indexMap
-
-  // Tone last, on both sides of the same monotone map: the heights and the
-  // band tops the swap heights are read from. Because the map preserves order,
-  // every surface stays exactly where it was relative to its own band — the
-  // relief deepens or flattens, while the color regions keep their pixels.
-  const { luminance, tops } = applyToneToRelief(relief, bandTops, tone, minBandFrac)
-
-  const result: QuantizedImage = { palette, indexMap: finalIndexMap, luminance, bandTops: tops, width, height }
-  if (finalIndexMap !== indexMap) result.cleanIndexMap = indexMap
-  return result
+  return palette
 }
 
 /**

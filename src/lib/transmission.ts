@@ -231,6 +231,49 @@ export function backlitBandColors(result: PipelineResult): RGB[] {
   return tops.map((top) => backlitColumnColor(result, top))
 }
 
+/**
+ * The finished print, pixel by pixel, the way HueForge previews it: every
+ * pixel's color comes from the column of ITS OWN height, so near the bottom of
+ * a band the thin top sheet lets the color below show through and near the
+ * band's top its own filament covers it. One color per band (the old lookup)
+ * made the preview a flat poster; this is what turns four filaments into a
+ * gradient.
+ *
+ * The height is clamped into the band the pixel is labelled with — at least
+ * one layer of its own filament — so dithered pixels keep their pattern and a
+ * layer-snapped height a hair outside its band does not borrow a neighbour's
+ * color. Columns are cached by height: a print has only as many distinct
+ * heights as layers. Returns RGBA, `back` = lit from behind.
+ */
+export function transmittedPixelColors(result: PipelineResult, back = false): Uint8ClampedArray<ArrayBuffer> {
+  const { quantized, settings, field } = result
+  const { width, height, indexMap, palette } = quantized
+  const n = palette.length
+  const tops = snappedBandTops(quantized, settings)
+  const layer = settings.layerMm > 0 ? settings.layerMm : 0.2
+  const cache = new Map<number, RGB>()
+  const out = new Uint8ClampedArray(width * height * 4)
+  const hasField = field.values.length === width * height
+  for (let i = 0; i < width * height; i++) {
+    const slice = settings.darkIsTall ? n - 1 - indexMap[i]! : indexMap[i]!
+    const bottom = slice === 0 ? settings.baseMm : tops[slice - 1]!
+    const top = tops[slice] ?? settings.maxHeightMm
+    const z = hasField ? field.values[i]! : top
+    const clamped = Math.min(top, Math.max(Math.min(top, bottom + layer), z))
+    const key = Math.round(clamped * 1000)
+    let c = cache.get(key)
+    if (!c) {
+      c = back ? backlitColumnColor(result, clamped) : columnColor(result, clamped)
+      cache.set(key, c)
+    }
+    out[i * 4] = Math.round(c.r)
+    out[i * 4 + 1] = Math.round(c.g)
+    out[i * 4 + 2] = Math.round(c.b)
+    out[i * 4 + 3] = 255
+  }
+  return out
+}
+
 /** Palette RGB of print slice k (0 = bottom/first-printed). */
 function sliceColor(result: PipelineResult, k: number): RGB {
   const n = result.quantized.palette.length

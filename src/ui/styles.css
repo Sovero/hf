@@ -519,8 +519,8 @@ body {
   outline-offset: -2px;
 }
 
-/* Color-count badge on the Check tab: current palette size, hidden until a
-   palette exists. Uses the tab's own muted text color so it reads on both
+/* Check-tab badge: ✓ or the number of printability findings, hidden until a
+   model exists. Uses the tab's own muted text color so it reads on both
    active and inactive tabs. */
 .check-color-badge {
   display: inline-block;
@@ -541,6 +541,27 @@ body {
 .sidebar-tab.is-active .check-color-badge {
   background: var(--accent);
   border-color: var(--accent);
+  color: var(--bg);
+}
+
+/* An author `display` beats the UA [hidden] rule: without this the empty
+   badge showed as a stray dash next to «Check» before any picture loaded. */
+.check-color-badge[hidden] {
+  display: none;
+}
+
+/* Findings: the badge takes the warning / error color on every tab state. */
+.check-color-badge.is-warn,
+.sidebar-tab.is-active .check-color-badge.is-warn {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: var(--bg);
+}
+
+.check-color-badge.is-error,
+.sidebar-tab.is-active .check-color-badge.is-error {
+  background: var(--danger);
+  border-color: var(--danger);
   color: var(--bg);
 }
 
@@ -608,8 +629,63 @@ body {
   background: var(--panel-2);
 }
 
-.drop-zone p {
-  margin: 0.2rem 0;
+/* The «Source» preview is the upload area: empty, it is a dashed drop target
+   that opens the file dialog on click; with a picture it still takes drops
+   (the whole card lights up while a file is dragged over it). */
+.source-drop {
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.source-drop.is-empty {
+  border-color: var(--border);
+  cursor: pointer;
+}
+
+.source-drop.is-empty:hover,
+#viewer-source.dragover .source-drop {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+
+/* Source head: title, then «Processed at…» + «Replace…» as one block. The
+   title never shrinks (a zero-basis title let the caption run over it in a
+   narrow card); when the row is too tight, the block wraps onto a second line
+   on the right — the same two-row head the print-preview card has. */
+#viewer-source .viewer-head {
+  flex-wrap: wrap;
+  row-gap: 0.3rem;
+}
+
+#viewer-source .viewer-head h3 {
+  flex: 1 0 auto;
+}
+
+#viewer-source .source-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+  margin-left: auto;
+}
+
+#viewer-source .image-info {
+  white-space: nowrap;
+}
+
+#viewer-source .source-replace {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+#viewer-source .source-replace[hidden] {
+  display: none;
 }
 
 .muted { color: var(--muted); }
@@ -1042,6 +1118,64 @@ body {
   display: none;
 }
 
+/* One-line explanation under a radio group (colors: brightness vs picture). */
+.mode-hint {
+  margin: 0.35rem 0 0;
+  line-height: 1.4;
+}
+
+/* Export groups: what to download for which slicer, then the project. */
+.export-group-title {
+  margin: 0.9rem 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-head + .export-group-title {
+  margin-top: 0.2rem;
+}
+
+.export-hint {
+  margin: 0.35rem 0 0;
+  line-height: 1.4;
+}
+
+.export-group-title + .export-hint {
+  margin: 0 0 0.45rem;
+}
+
+/* Size section: the reset spans the panel under the size fields. */
+.reset-hueforge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.6rem;
+}
+
+/* The PrusaSlicer bundle sits alone on its row: span the whole row instead
+   of leaving a half-width button with a hole beside it. */
+#btn-slicer {
+  grid-column: 1 / -1;
+}
+
+/* The one download most people need. */
+.export-buttons-primary {
+  grid-template-columns: 1fr;
+}
+
+.export-buttons button.export-primary {
+  padding: 0.5rem 0.8rem;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
 /* Two stacked export rows (downloads + open-in-slicer) need the same
    spacing the grid gap gives inside each row. */
 .export-buttons + .export-buttons {
@@ -1100,8 +1234,36 @@ body {
   min-width: 0;
 }
 
-/* Second line: full-width info (mm · layers · share · τ) — no more
-   overflowing under the slider. */
+/* Line 2: the labelled per-color controls — thickness slider + value and
+   the opacity τ field — indented under the swatch. */
+.palette-row-params {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding-left: 1.6rem;
+}
+
+.palette-param-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: help;
+}
+
+.palette-row-params .palette-height-val {
+  min-width: 3.6em;
+}
+
+/* Line 3: muted details (layers · area · hex · filament), one line. */
+.palette-row > .palette-label-sub {
+  display: block;
+  padding-left: 1.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Former second line: kept for the name inside line 1. */
 .palette-row .palette-label {
   flex-direction: row;
   align-items: baseline;
@@ -1402,8 +1564,8 @@ body {
 
 /* Palette row band-height slider (HueForge-style per-color thickness). */
 .palette-height {
-  flex: 1 1 5rem;
-  min-width: 4rem;
+  flex: 1 1 4rem;
+  min-width: 2.5rem;
   accent-color: var(--accent);
 }
 
@@ -1765,10 +1927,22 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* Last-resort guard: nothing may draw over the card border or the grip. */
+  overflow: hidden;
 }
 
+/* The canvas wrap is the only part that gives way: with the global 220px
+   floor a short block (the splitter decides its height) pushed the captions
+   below the card border and under the bottom grip. */
 .viewer3d-block > .viewer-card .viewer3d-wrap {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 120px;
+}
+
+/* Captions under the 3D view keep their own height and sit close to it. */
+.viewer3d-block > .viewer-card > p {
+  flex: none;
+  margin: 0.4rem 0 0;
 }
 
 .processing-overlay {
@@ -2986,10 +3160,22 @@ body {
 }
 
 .welcome-panel p {
-  margin: 0 0 0.7rem;
+  margin: 0 0 0.4rem;
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--muted);
+}
+
+.welcome-steps {
+  margin: 0 0 0.7rem;
+  padding-left: 1.2rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.welcome-steps li + li {
+  margin-top: 0.2rem;
 }
 
 .welcome-actions {
@@ -3325,4 +3511,51 @@ body {
 
 .filam-grid-btn.custom:hover .filam-grid-del {
   display: flex;
+}
+
+/* Toast: the latest status message, visible on every tab (the export line
+   alone sat out of sight). Click dismisses; errors stay longer (JS). */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.2rem;
+  transform: translateX(-50%);
+  z-index: 1100;
+  max-width: min(36rem, calc(100vw - 2rem));
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+.toast.is-error {
+  border-left-color: var(--danger);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
 }

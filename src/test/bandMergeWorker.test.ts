@@ -106,9 +106,12 @@ describe('mergeDeltaE in the worker protocol', () => {
   })
 
   it('survivor keeps its own filament color (no averaging)', () => {
+    const before = runWorkerTask(task()).quantized.palette.map((c) => `${c.r},${c.g},${c.b}`)
+    resetWorkerState()
     const r = runWorkerTask(task({ mergeDeltaE: 8 }))
     const colors = r.quantized.palette.map((c) => `${c.r},${c.g},${c.b}`)
-    expect(colors).toContain('40,40,40')
-    expect(colors).toContain('220,220,220')
+    expect(colors.length).toBeLessThan(before.length)
+    // Every survivor is one of the palette's own colors, not a mix of the merged ones.
+    for (const c of colors) expect(before).toContain(c)
   })
 })

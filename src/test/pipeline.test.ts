@@ -170,10 +170,9 @@ describe('quantize → luminance bands', () => {
     expect(pal[7].b).toBeGreaterThan(250)
   })
 
-  it('gives every band at least a minimum share of the image', () => {
-    // A 5% dark sliver on a 95% mid-gray field: equal-population bands must
-    // still hand every color ≈1/8 of the pixels, so no filament occupies a
-    // negligible painted area.
+  it('lets a large uniform field take one band, not the whole palette', () => {
+    // A 5% dark sliver on a 95% mid-gray field, two colors: the field must not
+    // be split across both filaments — the sliver keeps its own dark one.
     const w = 40
     const h = 20
     const rgba = new Uint8ClampedArray(w * h * 4)
@@ -185,19 +184,14 @@ describe('quantize → luminance bands', () => {
       rgba[i * 4 + 2] = v
       rgba[i * 4 + 3] = 255
     }
-    const q = mapToLuminanceBands(rgba, 8, w, h, false)
-    const counts = new Uint32Array(8)
-    for (const idx of q.indexMap) counts[idx]++
-    const minShare = Math.floor((w * h) / 8)
-    for (let b = 0; b < 8; b++) {
-      expect(counts[b]).toBeGreaterThanOrEqual(minShare - 1)
-    }
+    const q = mapToLuminanceBands(rgba, 2, w, h, false)
+    expect(q.palette[0]).toEqual({ r: 0, g: 0, b: 0 })
+    expect(q.palette[1]).toEqual({ r: 200, g: 200, b: 200 })
+    for (let i = 0; i < w * h; i++) expect(q.indexMap[i]).toBe(i % w < sliver ? 0 : 1)
     // Band tops ascend to the top of the relief and never exceed it.
-    expect(q.bandTops).toHaveLength(8)
-    expect(q.bandTops[7]).toBe(1)
-    for (let b = 1; b < 8; b++) {
-      expect(q.bandTops[b]).toBeGreaterThanOrEqual(q.bandTops[b - 1])
-    }
+    expect(q.bandTops).toHaveLength(2)
+    expect(q.bandTops[1]).toBe(1)
+    expect(q.bandTops[0]).toBeLessThan(q.bandTops[1])
   })
 })
 
@@ -657,6 +651,9 @@ describe('3MF export (Bambu Studio project)', () => {
     const project = JSON.parse(strFromU8(files['Metadata/project_settings.config']))
     expect(project.filament_colour).toHaveLength(16)
     expect(project.filament_settings_id).toHaveLength(16)
+    expect(project.sparse_infill_density).toBe('100%')
+    // Orca-based slicers reject the default `cubic` at 100% density.
+    expect(project.sparse_infill_pattern).toBe('rectilinear')
     expect(project.flush_volumes_matrix).toHaveLength(16 * 16)
     // A color change must purge: only the same-color diagonal is zero.
     expect(project.flush_volumes_matrix[0]).toBe('0')

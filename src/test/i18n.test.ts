@@ -33,7 +33,7 @@ describe('i18n', () => {
 
   it('formats mm with the language unit', () => {
     expect(mmOf('en', 0.4)).toBe('0.40 mm')
-    expect(mmOf('ru', 0.4)).toBe('0.40 мм')
+    expect(mmOf('ru', 0.4)).toBe('0,40 мм')
   })
 
   it('localizes nearest-filament names', () => {

@@ -62,12 +62,12 @@ function hashOf(opts: Partial<PipelineOptions>, seed: number): string {
 describe('brightness pipeline golden output (no depth field)', () => {
   it('brightness bands, dark tall, dither + smooth + tone', () => {
     expect(hashOf({ colorMode: 'luma', numColors: 4, dither: 0.6, smooth: 0.5, contrast: 1.5, power: 1.4 }, 1)).toBe(
-      '105798c65bf02a90bcddd778b9f2ccf651de60affce41eb2229c41b69c0a823e',
+      '5a48bc72ad667bba70da62793638d762b8b08a5a1ac22c583f47f84cb26ef15e',
     )
   })
 
   it('brightness bands, light tall, ΔE merge', () => {
-    expect(hashOf({ colorMode: 'luma', numColors: 6, darkIsTall: false, mergeDeltaE: 12 }, 2)).toBe('d61d1379e5c17497018dc2e27de927b6e2fc20e024c172043c893eea29533428')
+    expect(hashOf({ colorMode: 'luma', numColors: 6, darkIsTall: false, mergeDeltaE: 12 }, 2)).toBe('aaaa4fad7ce809e5d9a8aa7c9d6cf58bbb1d7d6e9b78da16b0a5065d7f809438')
   })
 
   it('colors-first model', () => {

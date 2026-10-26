@@ -25,8 +25,9 @@ export function colorShares(indexMap: Uint8Array, paletteSize: number): ColorSha
 }
 
 /** Format a share as "12.3%"; used by the palette legend rows. */
-export function formatShare(percent: number): string {
-  return `${percent.toFixed(1)}%`
+export function formatShare(percent: number, lang: 'en' | 'ru' = 'en'): string {
+  const text = percent.toFixed(1)
+  return lang === 'ru' ? `${text.replace('.', ',')}%` : `${text}%`
 }
 
 /** Palette color type guard for consumers that need the RGB. */

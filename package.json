@@ -38,7 +38,7 @@
   },
   "build": {
     "appId": "com.sovero.hueforge",
-    "productName": "HueForge Desktop",
+    "productName": "ColorStrata",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -66,7 +66,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "HueForge Desktop",
+      "shortcutName": "ColorStrata",
       "artifactName": "hueforge-desktop-setup-${version}.${ext}"
     },
     "publish": [

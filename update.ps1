@@ -1,4 +1,4 @@
-﻿# HueForge Web — помощник обновления; вызывается из install.bat.
+﻿# «Цветослой» (ColorStrata) — помощник обновления; вызывается из install.bat.
 #
 # Команды:
 #   update.ps1 check          Печатает тег самого нового релиза (например "v0.2.1"),
@@ -75,7 +75,7 @@ $BackupDir = Join-Path $TokenDir 'backup-deploy'
 # install.* — install.bat, start.* — start.bat, deploy.* — deploy.bat и
 # deploy-slicer.bat. Держим текст здесь, а не в .bat: см. команду say выше.
 $Messages = @{
-    'install.banner'           = "============================================`n  HueForge Web — установка и обновление`n============================================"
+    'install.banner'           = "============================================`n  «Цветослой» — установка и обновление`n============================================"
     'install.folder'           = '[1/6] Папка проекта: {0}'
     'install.node-checking'    = '[2/6] Проверяю Node.js...'
     'install.node-missing'     = "`n  ОШИБКА: на этом ПК не установлен Node.js.`n  Установите версию LTS с https://nodejs.org`n  и запустите установщик снова.`n"
@@ -105,10 +105,10 @@ $Messages = @{
     'start.node-missing'       = 'Node.js не установлен. Сначала запустите install.bat или возьмите Node.js с https://nodejs.org'
     'start.first-run'          = 'Первый запуск — устанавливаю зависимости...'
     'start.deps-failed'        = 'npm install не выполнился. Проверьте подключение к интернету.'
-    'start.starting'           = 'Запускаю HueForge Web на http://127.0.0.1:5173 ...'
+    'start.starting'           = 'Запускаю «Цветослой» на http://127.0.0.1:5173 ...'
     'deploy.node-missing'      = 'Node.js не установлен. Возьмите версию LTS с https://nodejs.org'
     'deploy.no-dist'           = "Папка dist\ не найдена — это не deploy-пакет.`nВозьмите файлы из hueforge-web-deploy-*.zip."
-    'deploy.starting'          = 'Запускаю HueForge Web на http://127.0.0.1:{0} ...'
+    'deploy.starting'          = 'Запускаю «Цветослой» на http://127.0.0.1:{0} ...'
     'deploy.slicer-on'         = "Передача в слайсер ВКЛЮЧЕНА — приложение может запустить ваш слайсер`nBambu Studio / OrcaSlicer / PrusaSlicer с экспортированной моделью."
     'close-hint'               = 'Чтобы остановить сервер, закройте это окно.'
 }

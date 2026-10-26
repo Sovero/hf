@@ -1,5 +1,5 @@
 /**
- * HueForge Web — zero-dependency static server for the production build.
+ * ColorStrata (Цветослой) — zero-dependency static server for the production build.
  *
  * Serves ./dist (created by `npm run build`) with the same hardening headers
  * as the Vite dev server. Needs nothing but Node.js — no npm install, no
@@ -95,7 +95,7 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(PORT, HOST, () => {
-  console.log(`HueForge Web (production) at http://${HOST}:${PORT}`)
+  console.log(`ColorStrata (production) at http://${HOST}:${PORT}`)
   if (SLICER_ENABLED) {
     const found = discoverSlicers()
     console.log(

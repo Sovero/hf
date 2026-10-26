@@ -67,7 +67,7 @@ export function swapSchedule(result: PipelineResult): SlicerSchedule {
  */
 export function buildLayerGcode(swaps: SlicerSwap[], command = 'M600'): string {
   return swaps
-    .map((s) => `{if layer_num == ${s.layer}}; HueForge: switch to ${s.hex} (${s.name})\\n${command}{endif}`)
+    .map((s) => `{if layer_num == ${s.layer}}; ColorStrata: switch to ${s.hex} (${s.name})\\n${command}{endif}`)
     .join('\\n')
 }
 
@@ -80,7 +80,7 @@ export function buildPrusaConfig(result: PipelineResult, command = 'M600'): stri
   const { swaps, totalLayers, layerMm } = swapSchedule(result)
   const n = result.palette.length
   return [
-    '# HueForge Web — PrusaSlicer configuration bundle',
+    '# ColorStrata — PrusaSlicer configuration bundle',
     '#',
     '# Import: PrusaSlicer → File → Import → Import Config…',
     '# (or command line: prusa-slicer --load config.ini model.3mf)',
@@ -90,7 +90,7 @@ export function buildPrusaConfig(result: PipelineResult, command = 'M600'): stri
     '# The layer_gcode line fires the filament change automatically at each',
     '# scheduled swap layer — no manual color-change clicks needed.',
     `# Baked for layer height ${layerMm} mm: regenerate the bundle after`,
-    '# changing the layer height in HueForge Web.',
+    '# changing the layer height in ColorStrata.',
     '# Klipper without M600: replace the command with PAUSE.',
     '# Requires PrusaSlicer 2.4+ (monotonic infill).',
     '',
@@ -114,7 +114,7 @@ export function buildPrusaConfig(result: PipelineResult, command = 'M600'): stri
 export function buildM600Script(swaps: SlicerSwap[], command = 'M600'): string {
   const swapLines = swaps.map((s) => `  { layer: ${s.layer}, hex: '${s.hex}', name: '${s.name}' },`).join('\n')
   return `#!/usr/bin/env node
-// HueForge Web — filament-change post-processing script for PrusaSlicer.
+// ColorStrata — filament-change post-processing script for PrusaSlicer.
 //
 // Insert a filament-change command at the start of each scheduled layer.
 // Baked for one specific export — remove it from the post-processing list
@@ -154,14 +154,14 @@ for (const line of lines) {
     layerNo++
     const swap = byLayer.get(layerNo)
     if (swap) {
-      out.push('; HueForge: switch to ' + swap.hex + ' (' + swap.name + ')')
+      out.push('; ColorStrata: switch to ' + swap.hex + ' (' + swap.name + ')')
       out.push(SWAP_COMMAND)
       inserted++
     }
   }
 }
 writeFileSync(output || input, out.join('\\n'))
-console.error('HueForge M600: ' + layerNo + ' layers scanned, ' + inserted + ' swaps inserted.')
+console.error('ColorStrata M600: ' + layerNo + ' layers scanned, ' + inserted + ' swaps inserted.')
 `
 }
 
@@ -169,7 +169,7 @@ console.error('HueForge M600: ' + layerNo + ' layers scanned, ' + inserted + ' s
 export function buildPrusaBat(): string {
   return [
     '@echo off',
-    'REM HueForge Web — PrusaSlicer post-processing wrapper (Windows).',
+    'REM ColorStrata — PrusaSlicer post-processing wrapper (Windows).',
     'REM Launches the Node.js script that sits next to this file.',
     `node "%~dp0${SCRIPT_NAME}" %*`,
     '',
@@ -184,7 +184,7 @@ export function buildSlicerReadme(result: PipelineResult, modelName: string): st
     ? swaps.map((s) => `  Layer ${s.layer} (z = ${s.zMm.toFixed(2)} mm) → ${s.hex} (${s.name})`).join('\n')
     : '  (single color — no swaps needed)'
   return `==============================================
-HueForge Web — Slicer bundle (PrusaSlicer)
+ColorStrata — Slicer bundle (PrusaSlicer)
 ==============================================
 Model: ${modelName} · ${n} colors
 Layer height: ${layerMm} mm · ${totalLayers} layers · 100% infill · no supports
