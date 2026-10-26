@@ -353,8 +353,8 @@ body {
   grid-template-columns: var(--sidebar-w, 320px) 9px 1fr;
   gap: 0 0.35rem;
   padding: 1rem;
-  max-width: 1600px;
-  margin: 0 auto;
+  /* No max-width: the workspace must stretch with the window, otherwise wide
+     monitors get dead margins on both sides of the app. */
   /* Full-height app shell: the viewers column fills the viewport, the sidebar
      scrolls independently — like a desktop editor. */
   height: calc(100vh - var(--topbar-h, 64px));
@@ -1698,11 +1698,9 @@ body {
   min-height: 120px;
 }
 
-.pair-canvas canvas {
-  max-height: 100%;
-  height: auto;
-  object-fit: contain;
-}
+/* Canvas sizing lives in .canvas-wrap further down: both previews stretch to
+   their card and letterbox the bitmap inside, so resizing the window never
+   leaves dead space around the image. */
 
 /* Empty state: instead of a dark canvas rectangle, show a short hint. */
 .pair-canvas.is-empty::before {
@@ -2033,11 +2031,19 @@ body {
   background: var(--bg);
   border-radius: 6px;
   padding: 0.5rem;
+  position: relative;
 }
 
+/* The bitmap keeps its aspect ratio, but the canvas itself always fills the
+   card (minus the padding), so a wider window scales the preview up instead
+   of leaving empty bands on the left and right. object-fit letterboxes any
+   leftover space inside the element. */
 .canvas-wrap canvas {
-  max-width: 100%;
-  max-height: 100%;
+  position: absolute;
+  inset: 0.5rem;
+  width: calc(100% - 1rem);
+  height: calc(100% - 1rem);
+  object-fit: contain;
   image-rendering: pixelated;
 }
 
