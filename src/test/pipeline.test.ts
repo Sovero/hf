@@ -658,6 +658,11 @@ describe('3MF export (Bambu Studio project)', () => {
     expect(project.filament_colour).toHaveLength(16)
     expect(project.filament_settings_id).toHaveLength(16)
     expect(project.flush_volumes_matrix).toHaveLength(16 * 16)
+    // A color change must purge: only the same-color diagonal is zero.
+    expect(project.flush_volumes_matrix[0]).toBe('0')
+    expect(project.flush_volumes_matrix[1]).toBe('140')
+    expect(project.flush_volumes_matrix[16]).toBe('140')
+    expect(project.flush_volumes_matrix[17]).toBe('0')
     const filamentFiles = Object.keys(files).filter((name) => /^Metadata\/filament_settings_\d+\.config$/.test(name))
     expect(filamentFiles).toHaveLength(16)
     const gcode = strFromU8(files['Metadata/custom_gcode_per_layer.xml'])

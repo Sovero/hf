@@ -94,6 +94,7 @@ export function generate3mf(opts: ExportOptions): Uint8Array {
   const modelXml = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
   <metadata name="Application">BambuStudio-01.09.05.51</metadata>
+  <metadata name="BambuStudio:3mfVersion">1</metadata>
   <metadata name="Title">${esc(modelName)}</metadata>
 ${meta}
   <resources>
@@ -217,8 +218,17 @@ ${layerLines.join('\n')}
 
   // ---- Project settings: N filaments so Bambu Studio sees all colors ----
   const n = byOrder.length
+  // Bambu Studio and OrcaSlicer purge exactly what `flush_volumes_matrix`
+  // says: zero means "no purge at all", so the first layers after a swap
+  // would still carry the previous color. 140 mm³ is the stock PLA→PLA
+  // purge; the diagonal (same color) stays at zero.
+  const FLUSH_VOLUME_MM3 = 140
   const flushMatrix: string[] = []
-  for (let i = 0; i < n * n; i++) flushMatrix.push('0')
+  for (let from = 0; from < n; from++) {
+    for (let to = 0; to < n; to++) {
+      flushMatrix.push(from === to ? '0' : String(FLUSH_VOLUME_MM3))
+    }
+  }
   const projectSettings = JSON.stringify(
     {
       name: 'project_settings',
@@ -253,7 +263,6 @@ ${layerLines.join('\n')}
   <object id="2">
     <metadata key="name" value="${esc(modelName)}"/>
     <metadata key="extruder" value="1"/>
-    <metadata face_count="${faceCount}"/>
     <part id="1" subtype="normal_part">
       <metadata key="name" value="${esc(modelName)}"/>
       <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>
