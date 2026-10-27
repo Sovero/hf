@@ -53,23 +53,6 @@ export function minBandFraction(numColors: number, usableMm: number, layerMm = 0
 }
 
 /**
- * Largest height change allowed between neighbouring cells, in relief units
- * (fraction of the usable height).
- *
- * Two layers of filament per cell is a 45° face at the nozzle-exact cell size —
- * the steepest overhang FDM prints without support, so the surface keeps its
- * shape while never growing a vertical cliff. The color-first model turns every
- * colour boundary into a height step, and without this limit a detailed picture
- * prints as a picket fence of fins: a 1.2 mm step then spreads over three cells
- * instead, i.e. a compact shoulder.
- */
-export function maxReliefStep(usableMm: number, layerMm = 0.2): number {
-  const layer = Number.isFinite(layerMm) && layerMm > 0 ? layerMm : 0.2
-  if (!(usableMm > 0)) return (2 * layer) / 7.2
-  return Math.min(0.5, (2 * layer) / usableMm)
-}
-
-/**
  * Fit the print size to an image's aspect ratio: the larger print side is
  * preserved, the other scales to the picture's proportions (rounded to
  * 0.1 mm, clamped to the 20–500 mm input range). Used when a new image is

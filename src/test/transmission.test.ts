@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { transmission, tauBandHeights, columnColor, transmittedBandColors, backlitColumnColor, backlitBandColors, transmittedPixelColors, opaqueSheetMm, opaqueColorsTotalMm, DEFAULT_TAU_MM } from '../lib/transmission'
 import { mapToLuminanceBands } from '../lib/quantize'
+import { resetWorkerState, runWorkerTask } from '../lib/workerProtocol'
 import { finishPipeline } from '../lib/pipeline'
 import type { PipelineResult } from '../lib/pipeline'
 import type { LoadedImage, QuantizedImage, RGB } from '../lib/types'
@@ -237,5 +238,51 @@ describe('opaque sheets for the colors-first model', () => {
   it('sizes the whole model: base + one opaque sheet per color', () => {
     expect(opaqueColorsTotalMm(4, 0.48, 0.08)).toBeCloseTo(0.48 + 4 * 0.72, 9)
     expect(opaqueColorsTotalMm(4, 0.48, 0.08, 0.6)).toBeCloseTo(0.48 + 4 * 1.44, 9)
+  })
+})
+
+describe('colors-first borders print clean', () => {
+  it('shows no halo of the colors below along a color border', () => {
+    // Navy (bottom slice) meets pale teal (top slice); a red patch sits in the
+    // middle slice elsewhere. A slope across the border would leave thin teal
+    // over red and navy — a pink-violet halo along the whole edge.
+    const w = 60
+    const h = 24
+    const rgba = new Uint8ClampedArray(w * h * 4)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let c = x < 30 ? [20, 30, 60] : [170, 230, 210]
+        if (x < 12 && y < 10) c = [200, 40, 45]
+        rgba.set([c[0]!, c[1]!, c[2]!, 255], (y * w + x) * 4)
+      }
+    }
+    resetWorkerState()
+    const result = runWorkerTask({
+      type: 'quantize',
+      id: 1,
+      rgba,
+      width: w,
+      height: h,
+      opts: {
+        numColors: 3,
+        darkIsTall: false,
+        widthMm: w * 0.2,
+        heightMm: h * 0.2,
+        baseMm: 0.48,
+        maxHeightMm: 0.48 + 3 * 0.72,
+        layerMm: 0.08,
+        colorMode: 'image',
+      },
+    }) as unknown as PipelineResult
+    const px = transmittedPixelColors(result)
+    const at = (x: number, y: number) => {
+      const p = (y * w + x) * 4
+      return [px[p]!, px[p + 1]!, px[p + 2]!]
+    }
+    const inside = at(55, 18)
+    for (let x = 30; x < 36; x++) {
+      const edge = at(x, 18)
+      for (let k = 0; k < 3; k++) expect(Math.abs(edge[k]! - inside[k]!), `x=${x}`).toBeLessThanOrEqual(3)
+    }
   })
 })

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mapToImageColors, mapToLuminanceBands } from '../lib/quantize'
-import { enforceBandFloor, relaxCliffs } from '../lib/quantize'
-import { maxReliefStep } from '../lib/printConsts'
+import { enforceBandFloor } from '../lib/quantize'
 import type { QuantizedImage } from '../lib/types'
 
 /**
@@ -133,50 +132,6 @@ describe('color-first palette (median cut)', () => {
     const q = mapToImageColors(noisy, 2, W, H, true, 0, clean)
     expect(q.palette.find((c) => c.r > c.b * 2)).toBeDefined()
     expect(q.palette.find((c) => c.b > c.r * 2)).toBeDefined()
-  })
-
-  it('slopes the height steps between colors instead of printing cliffs', () => {
-    // Two blocks, one filament each: their boundaries are one whole slice tall
-    // (1/n of the height) and vertical. The slope limit has to spread that step
-    // into a ramp while leaving the flat interiors exactly as they were.
-    const w = 60
-    const h = 20
-    const rgba = new Uint8ClampedArray(w * h * 4)
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const p = (y * w + x) * 4
-        const left = x < w / 2
-        rgba[p] = left ? 86 : 0
-        rgba[p + 2] = left ? 0 : 255
-        rgba[p + 3] = 255
-      }
-    }
-    const q = mapToImageColors(rgba, 2, w, h, false, 0)
-    const step = maxReliefStep(7.2, 0.2) // 45° face
-    const raw = Math.abs(q.luminance[0]! - q.luminance[w - 1]!)
-    expect(raw, 'the colours sit a half-height apart').toBeCloseTo(0.5, 3)
-
-    const relaxed = relaxCliffs(q.luminance, w, h, step)
-    let worst = 0
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = y * w + x
-        if (x < w - 1) worst = Math.max(worst, Math.abs(relaxed[i]! - relaxed[i + 1]!))
-        if (y < h - 1) worst = Math.max(worst, Math.abs(relaxed[i]! - relaxed[i + w]!))
-      }
-    }
-    expect(worst, 'no face steeper than the limit').toBeLessThanOrEqual(step + 1e-6)
-    // Flat interiors keep their own height: only the shoulder moves.
-    expect(relaxed[0]).toBeCloseTo(q.luminance[0]!, 6)
-    expect(relaxed[w - 1]).toBeCloseTo(q.luminance[w - 1]!, 6)
-  })
-
-  it('leaves an already-gentle surface alone', () => {
-    const w = 8
-    const h = 8
-    const gentle = new Float32Array(w * h).map((_, i) => (i % w) * 0.02)
-    const relaxed = relaxCliffs(gentle, w, h, 0.1)
-    expect(Array.from(relaxed)).toEqual(Array.from(gentle))
   })
 
   it('survives the printable band floor without leaving a band', () => {

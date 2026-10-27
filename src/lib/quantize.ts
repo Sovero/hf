@@ -1221,61 +1221,6 @@ export function mapToImageColors(
 }
 
 /**
- * Turn vertical cliffs into printable slopes.
- *
- * In the color-first model a color boundary IS a height step: neighbours that
- * print in different filaments must sit in different height slices, so every
- * boundary is a wall at least one slice tall. That is physical — the top layer
- * has to be the filament the picture asks for — but unmodified it prints as a
- * picket fence of vertical fins wherever colours interleave (a detailed photo
- * has hundreds of small regions, each of them a terrace one slice high).
- *
- * This pass caps how much higher a pixel may stand than its 4-neighbours: one
- * layer of height per cell, i.e. a ~27° face, which any FDM printer makes
- * without support. Repeated passes spread a step into a ramp a few cells wide,
- * so boundaries read as slopes and the surface stays a relief instead of a
- * comb. Flat areas are untouched (equal neighbours never move anything), and
- * the picture's colours do not change — the top surface near a boundary simply
- * lands in one of the two filaments a cell earlier or later.
- *
- * Returns a new array; the input is never mutated.
- */
-export function relaxCliffs(
-  field: Float32Array,
-  width: number,
-  height: number,
-  maxStep: number,
-  passes = 12,
-): Float32Array {
-  if (!(maxStep > 0) || width < 2 || height < 2 || field.length !== width * height) return field
-  let current = Float32Array.from(field)
-  let next = new Float32Array(current.length)
-  for (let pass = 0; pass < passes; pass++) {
-    let moved = false
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const i = y * width + x
-        const v = current[i]!
-        let lo = -Infinity
-        let hi = Infinity
-        if (x > 0) { lo = Math.max(lo, current[i - 1]! - maxStep); hi = Math.min(hi, current[i - 1]! + maxStep) }
-        if (x < width - 1) { lo = Math.max(lo, current[i + 1]! - maxStep); hi = Math.min(hi, current[i + 1]! + maxStep) }
-        if (y > 0) { lo = Math.max(lo, current[i - width]! - maxStep); hi = Math.min(hi, current[i - width]! + maxStep) }
-        if (y < height - 1) { lo = Math.max(lo, current[i + width]! - maxStep); hi = Math.min(hi, current[i + width]! + maxStep) }
-        const clamped = Math.min(Math.max(v, lo), hi)
-        next[i] = clamped
-        if (clamped !== v) moved = true
-      }
-    }
-    const swap = current
-    current = next
-    next = swap
-    if (!moved) break
-  }
-  return current
-}
-
-/**
  * Build the relief for a color-first palette: every band above the bottom one
  * is a plate at the top of its slice; the bottom band's pixels are stretched
  * over its slice by brightness normalized onto the band's own range (2 %..98 %

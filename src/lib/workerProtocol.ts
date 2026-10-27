@@ -1,5 +1,5 @@
-import { mapToImageColors, mapToLuminanceBands, quantizeToPalette, relaxCliffs, withBandFloor } from './quantize'
-import { maxReliefStep, minBandFraction } from './printConsts'
+import { mapToImageColors, mapToLuminanceBands, quantizeToPalette, withBandFloor } from './quantize'
+import { minBandFraction } from './printConsts'
 import { bilateralSmoothRGBA, colorDetailStrength, reliefLowPassField } from './smooth'
 import { applyMerge, mergeMap } from './bandMerge'
 import { finishPipeline, type PaletteEntry, type PipelineOptions } from './pipeline'
@@ -301,14 +301,10 @@ function quantizeOnce(
   // thickness on top of a printable schedule.
   if (q.luminance.length === width * height) {
     const usableMm = Math.max(0, opts.maxHeightMm - opts.baseMm)
+    // Colour boundaries of the colors-first model stay vertical steps: a slope
+    // across one would expose the slices in between — a thin top sheet over
+    // unrelated colours, a halo along every edge.
     q = withBandFloor(q, minBandFraction(q.palette.length, usableMm, opts.layerMm ?? 0.2))
-    if (colorsFirst) {
-      // Every colour boundary is a height step by construction, so a detailed
-      // picture would print as a comb of vertical fins. Spread those steps into
-      // printable slopes (see `relaxCliffs`); the colour map is untouched.
-      const relaxed = relaxCliffs(q.luminance, width, height, maxReliefStep(usableMm, opts.layerMm ?? 0.2))
-      if (relaxed !== q.luminance) q = { ...q, luminance: relaxed }
-    }
   }
   // Seed custom per-band thicknesses so the merge pass can carry them
   // through (finishPipeline re-applies them to the merged lengths).

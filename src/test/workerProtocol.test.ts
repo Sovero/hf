@@ -362,11 +362,11 @@ describe('relief smoothing (opts.smooth)', () => {
     expect(image.quantized.bandTops).toEqual([0.5, 1])
   })
 
-  it('slopes the step between two colors instead of printing a cliff', () => {
-    // Two blocks of equal luma, one filament each: their boundary is half the
-    // model height (1/n) and vertical. The worker has to turn that step into a
-    // printable shoulder — at most two layers per cell — while the plateaus
-    // keep their own height and the relief still reaches the top.
+  it('keeps the step between two colors vertical, with no slope across it', () => {
+    // Two blocks of equal luma, one filament each. A slope across their border
+    // would expose a thin top sheet over the other color — a halo along the
+    // edge — so the border is one vertical step and both plateaus are flat at
+    // their own slice tops (HueForge's meshes are stepped the same way).
     const w = 60
     const h = 20
     const rgba = new Uint8ClampedArray(w * h * 4)
@@ -391,18 +391,11 @@ describe('relief smoothing (opts.smooth)', () => {
     )
     expect(Math.max(...image.quantized.luminance)).toBeCloseTo(1, 5)
     const { width: fw, values } = image.field
-    let worst = 0
-    for (let i = 0; i < values.length; i++) {
-      if (i % fw < fw - 1) worst = Math.max(worst, Math.abs(values[i]! - values[i + 1]!))
-      if (i + fw < values.length) worst = Math.max(worst, Math.abs(values[i]! - values[i + fw]!))
-    }
-    expect(worst, 'a printable face survives between the plateaus')
-      .toBeGreaterThan(0)
-    expect(worst, 'no cliff').toBeLessThanOrEqual(3 * 0.2 + 1e-6)
-    // Each plateau still sits at its own slice top: the colors keep their
-    // height apart, only the boundary is sloped.
-    const firstPlateau = image.field.values[0]!
-    const lastPlateau = image.field.values[image.field.values.length - 1]!
-    expect(Math.abs(firstPlateau - lastPlateau)).toBeGreaterThan(0.5)
+    const left = values[0]!
+    const right = values[fw - 1]!
+    expect(Math.abs(left - right), 'the colors keep their heights apart').toBeGreaterThan(0.5)
+    // Only the two plateau heights exist: no shoulder in between.
+    const heights = new Set(Array.from(values, (v) => v.toFixed(4)))
+    expect(heights.size).toBeLessThanOrEqual(2)
   })
 })

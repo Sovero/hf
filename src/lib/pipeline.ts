@@ -1,8 +1,8 @@
 import type { ColorCount, ColorMode, HeightField, LoadedImage, Mesh, PrintSettings, QuantizedImage, RGB } from './types'
 import { loadImageForPrint } from './loadImage'
 import type { Lang } from '../i18n'
-import { mapToImageColors, mapToLuminanceBands, relaxCliffs, withBandFloor } from './quantize'
-import { maxReliefStep, minBandFraction } from './printConsts'
+import { mapToImageColors, mapToLuminanceBands, withBandFloor } from './quantize'
+import { minBandFraction } from './printConsts'
 import { buildHeightField, snappedBandTops } from './heightmap'
 import { buildMesh } from './mesh'
 import { generateBinaryStl } from './exportStl'
@@ -120,21 +120,13 @@ export async function runPipeline(file: File, opts: PipelineOptions, lang: Lang 
   )
   let quantized: QuantizedImage
   if (opts.colorMode === 'image') {
-    const banded = withBandFloor(
+    // Color boundaries stay vertical steps: a slope across one would expose
+    // the slices in between (a thin top sheet over unrelated colors — a halo
+    // along every edge). HueForge's own meshes are stepped the same way.
+    quantized = withBandFloor(
       mapToImageColors(image.rgba, opts.numColors, image.width, image.height, opts.darkIsTall, opts.dither),
       floorFrac,
     )
-    // Color boundaries are height steps: spread them into printable slopes so
-    // a detailed picture does not print as a comb of vertical fins.
-    quantized = {
-      ...banded,
-      luminance: relaxCliffs(
-        banded.luminance,
-        image.width,
-        image.height,
-        maxReliefStep(Math.max(0, opts.maxHeightMm - _baseMm), _layerMm),
-      ),
-    }
   } else {
     quantized = mapToLuminanceBands(
       image.rgba,
