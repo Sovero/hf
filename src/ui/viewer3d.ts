@@ -283,6 +283,22 @@ export class Viewer3D {
   }
 
   /**
+   * Repaint the displayed mesh without rebuilding it: new vertex colors in the
+   * same layout as the mesh passed to `setMesh` (e.g. after a filament's
+   * opacity τ changed). The camera, the slice and any ΔE overlay stay as they
+   * are; a size mismatch (a stale call after a rebuild) is ignored.
+   */
+  setColors(colors: Float32Array) {
+    const mesh = this.meshGroup.children[0] as THREE.Mesh | undefined
+    if (!mesh) return
+    const attr = (mesh.geometry as THREE.BufferGeometry).getAttribute('color') as THREE.BufferAttribute | undefined
+    if (!attr || attr.array.length !== colors.length) return
+    ;(attr.array as Float32Array).set(colors)
+    attr.needsUpdate = true
+    this.requestRender()
+  }
+
+  /**
    * Build the bed grid sized to the print and the axes at the print's
    * origin corner, so the model always sits exactly on the bed; the whole
    * world group is then offset so the print's CENTER sits on the scene

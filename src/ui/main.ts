@@ -3223,8 +3223,13 @@ function renderPalette() {
       const v = Number(tauInput.value)
       if (!current || !Number.isFinite(v) || v <= 0) return
       current.quantized.tauMm![i] = Math.min(6, Math.max(0.2, v))
+      // τ changes how the sheets blend, not the geometry: the ΔE map (cached
+      // per state version, which τ does not bump) and the 3D colors follow it.
+      deltaECache = null
       drawQuantized()
       drawLayerView()
+      recolor3d()
+      if (viewer3dMode === 'deltae') applyDeltaETo3d()
       syncLabel()
       scheduleSettle()
     })
@@ -3399,6 +3404,22 @@ function cubeFaceLabels(): Record<FaceName, string> {
   }
 }
 
+/**
+ * Vertex colors of the 3D model painted like the 2D preview (front-lit,
+ * translucent sheets blended), so the model and the preview tell the same
+ * story; the mesh the exports read keeps its filament colors.
+ */
+function previewMeshColors(): Float32Array {
+  const { width, height } = current!.quantized
+  return shadeTopSurface(current!.mesh, transmittedPixelColors(current!), width, height)
+}
+
+/** Repaint the 3D model in place after a color-only change (a filament's τ). */
+function recolor3d() {
+  if (!viewer3d || !current) return
+  viewer3d.setColors(previewMeshColors())
+}
+
 function update3d() {
   if (!viewer3d) {
     viewer3d = new Viewer3D(viewerEl, document.getElementById('cube-overlay') ?? undefined)
@@ -3416,12 +3437,7 @@ function update3d() {
   const w = current!.settings.widthMm
   const h = current!.settings.heightMm
   viewer3d.setBackground(THEME_VIEWER_BG[document.documentElement.dataset.theme ?? 'dark'] ?? THEME_VIEWER_BG.dark)
-  // Painted like the 2D preview (front-lit, translucent sheets blended), so the
-  // model and the preview tell the same story; the mesh the exports read keeps
-  // its filament colors.
-  const { width: qw, height: qh } = current!.quantized
-  const shaded = { ...current!.mesh, colors: shadeTopSurface(current!.mesh, transmittedPixelColors(current!), qw, qh) }
-  viewer3d.setMesh(shaded, { wMm: w, hMm: h })
+  viewer3d.setMesh({ ...current!.mesh, colors: previewMeshColors() }, { wMm: w, hMm: h })
   // Dimensions caption: actual height = tallest band top (base + sheets),
   // matching what the mesh and the exported file contain.
   const z = Math.max(...current!.palette.map((e) => e.topZMm))
